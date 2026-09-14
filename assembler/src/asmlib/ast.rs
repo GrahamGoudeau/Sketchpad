@@ -189,6 +189,7 @@ pub(crate) enum Operator {
     Add,
     LogicalAnd,
     LogicalOr, // "union" in the Users Handbook
+    LogicalXor,
     Multiply,
     Subtract,
     Divide,
@@ -200,6 +201,7 @@ impl std::fmt::Display for Operator {
             Operator::Add => '+',
             Operator::LogicalAnd => '∧',
             Operator::LogicalOr => '∨',
+            Operator::LogicalXor => '⊻',
             Operator::Multiply => '\u{00D7}',
             Operator::Subtract => '-',
             Operator::Divide => '/',
@@ -403,6 +405,7 @@ impl ArithmeticExpression {
             }
             Operator::LogicalAnd => left.and(right.into()),
             Operator::LogicalOr => left.bitor(right.into()),
+            Operator::LogicalXor => left ^ right,
         }
     }
 
