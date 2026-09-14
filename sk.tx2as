@@ -489,10 +489,7 @@ RSX@sub_alpha@#-1
 JPQ C
 @hand@@hand@EMD
 
-@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
-hJPQ {ERROR1@hamb@@alpha@@arr@P}
-@hand@@hand@EMD
-
+[reconstruction: ERROR1 moved before ERROR because the validator resolves nested macro names in one pass]
 [meta file_name=102726903-05-01-acc.pdf pdf_page=17 doc_page=15 type=macros proof=1]
 [Page header: "IES 2XMX 013"]
 
@@ -501,6 +498,10 @@ hJPQ {ERROR1@hamb@@alpha@@arr@P}
 SKZ ERRORSTOP
 @sup_1@#@sub_alpha@ [syntax]
 JPQ P
+@hand@@hand@EMD
+
+@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
+hJPQ {ERROR1@hamb@@alpha@@arr@P}
 @hand@@hand@EMD
 
 @hand@@hand@DEF MAKA@hamb@A@arr@I

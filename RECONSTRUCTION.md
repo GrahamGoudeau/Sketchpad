@@ -56,17 +56,23 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R003 move the first diagnostic to line 493.
+Repairs R001 through R004 and validator commit `d3d1d9b` move the first
+diagnostic to line 657.
 
 ```text
-sk.tx2as:493:13
-found identical-to; expected a program instruction fragment
+sk.tx2as:657:33
+`@circled_v@` is not a recognized glyph name
 ```
 
-The line contains a macro invocation inside an RC word.  Users Handbook
-section 6-4.7 permits this form.  TX-2 simulator issue 120 lists macro
-expansion inside RC words as unsupported.  Keep the valid source form.
-Repair the validator on its separate reconstruction branch.
+The token represents the compound exclusive-OR operator.  The validator
+does not support this compound glyph yet.
+
+## Validator Changes
+
+The sibling TX-2 simulator checkout uses branch
+`sketchpad-reconstruction`.  Commit `d3d1d9b` adds two M4 forms required
+by the listing.  It expands simple macros inside RC words.  It also treats
+an omitted pipe address as zero.  The complete workspace test suite passes.
 
 ## Evidence Order
 
@@ -103,6 +109,7 @@ file marks it clearly and the log records the alternatives.
 | R001 | `sk.tx2as:451`, calls, and redefinition | mechanical | Sketchpad part 1, PDF page 16; Users Handbook section 6-4.3; parameter order | Named macro `GETIX` preserves the compound macro's terminators and parameters. |
 | R002 | `sk.tx2as:453-461`, `2988`, and `3054` | mechanical | Printed logical-AND glyph; Users Handbook section 6-4.5; assembler glyph table | Markup `@and@` replaces the unsupported ASCII caret transcription marker. |
 | R003 | `sk.tx2as:484` | verified | Later `GORR` copies at `sk.tx2as:3112` and `sk2.tx2as:691,3809` | Explicit zero preserves the printed blank address and satisfies the parser. |
+| R004 | `sk.tx2as:492-504` | mechanical | The source invokes `ERROR1` only after both definitions; validator uses one-pass macro lookup | Move `ERROR1` before `ERROR` without changing either definition. |
 
 ## Publication Gate
 
