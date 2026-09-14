@@ -24,7 +24,9 @@ use chumsky::input::{Emitter, MapExtra, Stream, ValueInput};
 
 use chumsky::Boxed;
 use chumsky::Parser;
-use chumsky::prelude::{Input, IterParser, Recursive, SimpleSpan, choice, just, one_of, recursive};
+use chumsky::prelude::{
+    Input, IterParser, Recursive, SimpleSpan, choice, empty, just, one_of, recursive,
+};
 use chumsky::select;
 
 use crate::collections::OneOrMore;
@@ -508,6 +510,7 @@ where
             .collect::<Vec<_>>()
             .map(MacroDummyParameters::OneOrMore),
         macro_terminator().map(MacroDummyParameters::Zero),
+        empty().to(MacroDummyParameters::Bare),
     ))
 }
 
@@ -673,6 +676,7 @@ where
                     ));
                 }
             }
+            MacroDummyParameters::Bare => Vec::new(),
             MacroDummyParameters::OneOrMore(ref params) => params.clone(),
         };
         let mut param_values: MacroParameterBindings = Default::default();
