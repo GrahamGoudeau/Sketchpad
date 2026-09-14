@@ -16,5 +16,9 @@ curl --fail --location --retry 3 \
   --output "$source_dir/Sketchpad Pt 2 102726903-05-02-acc.pdf" \
   "$base_url/Sketchpad%20Pt%202%20102726903-05-02-acc.pdf"
 
+curl --fail --location --retry 3 \
+  --output "$source_dir/TX-2_UsersHandbook_Nov63.pdf" \
+  "https://archive.org/download/tx-2-users-handbook-nov-63/TX-2_UsersHandbook_Nov63.pdf"
+
 cd "$source_dir"
 shasum -a 256 --check SHA256SUMS

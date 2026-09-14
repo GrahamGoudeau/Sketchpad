@@ -448,17 +448,17 @@ hLDE A
 STE B
 @hand@@hand@EMD
 
-@hand@@hand@DEF @beta@@rect_dash@A@times@B@times@C@times@D@times@E@times@F@times@G@times@H@times@I,@alpha@
+@hand@@hand@DEF GETIX@hamb@@beta@@times@A@times@B@times@C@times@D@times@E@times@F@times@G@times@H@times@I,@alpha@
 REX @sub_beta@*{0@sub_alpha@}
-RSX@sub_beta@*{LIST+I@sub_beta@}+(I^(370.))
-RSX@sub_beta@*{LIST+H@sub_beta@}+(H^(370.))
-RSX@sub_beta@*{LIST+G@sub_beta@}+(G^(370.))
-RSX@sub_beta@*{LIST+F@sub_beta@}+(F^(370.))
-RSX@sub_beta@*{LIST+E@sub_beta@}+(E^(370.))
-RSX@sub_beta@*{LIST+D@sub_beta@}+(D^(370.))
-RSX@sub_beta@*{LIST+C@sub_beta@}+(C^(370.))
-RSX@sub_beta@*{LIST+B@sub_beta@}+(B^(370.))
-RSX@sub_beta@*{LIST+A@sub_beta@}+(A^(370.))
+RSX@sub_beta@*{LIST+I@sub_beta@}+(I@and@(370.))
+RSX@sub_beta@*{LIST+H@sub_beta@}+(H@and@(370.))
+RSX@sub_beta@*{LIST+G@sub_beta@}+(G@and@(370.))
+RSX@sub_beta@*{LIST+F@sub_beta@}+(F@and@(370.))
+RSX@sub_beta@*{LIST+E@sub_beta@}+(E@and@(370.))
+RSX@sub_beta@*{LIST+D@sub_beta@}+(D@and@(370.))
+RSX@sub_beta@*{LIST+C@sub_beta@}+(C@and@(370.))
+RSX@sub_beta@*{LIST+B@sub_beta@}+(B@and@(370.))
+RSX@sub_beta@*{LIST+A@sub_beta@}+(A@and@(370.))
 @hand@@hand@EMD
 
 @hand@@hand@DEF MOVEB|A@times@B@arr@C@times@D
@@ -1314,7 +1314,7 @@ SUBPIC1@arr@
 SUBPIC2@arr@
                 LDAB@hamb@IVAL+LIST@sub_S@
                 STAB@hamb@NIRR
-                @alpha@@rect_dash@IWHAT,S [call to a macro named with a composite character]
+                GETIX@hamb@@alpha@@times@IWHAT,S
                 JPQ SUBPICS
 SUBPIC3@arr@    MOVE|NITOG@arr@NINAME
                 MOVE|SCSZ@arr@NIRR
@@ -2022,8 +2022,8 @@ UNMAC3@arr@     @sup_1@STE UNMAC3X
                 JPQ #+2
 UNMAC3X@arr@
                 JPQ #
-                @beta@@rect_dash@IPCP,@alpha@
-                @alpha@@rect_dash@IPCV,@alpha@
+                GETIX@hamb@@beta@@times@IPCP,@alpha@
+                GETIX@hamb@@alpha@@times@IPCV,@alpha@
                 @sup_1@RSX @sub_alpha@@sub_pipe@@sub_alpha@ LIST+1
                 DEX @sub_alpha@ 1       ** @alpha@ = COPIED POINT
                 LDAB@hamb@VA@sub_beta@
@@ -2071,7 +2071,7 @@ COPYITA@arr@
                 LGORR@hamb@PICBLKS@times@@alpha@=S@arr@COPYDUP@arr@COPYFLS
 COPYDUP@arr@
                 @sup_1@STE COPYDUPX
-                @delta@@rect_dash@TYPE,@alpha@
+                GETIX@hamb@@delta@@times@TYPE,@alpha@
                 MOVEL@hamb@TYPE@times@@alpha@@arr@SPECB@times@@delta@   ** PUT IT FIRST
                 MAKA@arr@@gamma@        ** MAKE A NEW ONE
                 @sup_1@@sup_6@RSX @sub_S@@sub_pipe@@sub_gamma@ LIST
@@ -2083,7 +2083,7 @@ COPYDUP@arr@
                 INX @sub_T@ 1
                 @sup_minus@@sup_1@JPX @sub_S@ #-3
                 REX @sub_alpha@@sub_pipe@@sub_gamma@
-                S@rect_dash@TYPE,@alpha@
+                GETIX@hamb@S@times@TYPE,@alpha@
                 hBPQ @sub_S@ LIST+MOVIT
 COPYDUPX@arr@
                 JPQ #
@@ -2246,7 +2246,7 @@ ERASE2@arr@     RSX @sub_alpha@ ATBITS+1
 ERASEX@arr@     JPQ #
 DELETE@arr@     @sup_1@STE DELETEX
 DELETER@arr@
-                @beta@@rect_dash@TYPE,@alpha@   ** IS @alpha@ FORBIDDEN TYPE
+                GETIX@hamb@@beta@@times@TYPE,@alpha@   ** IS @alpha@ FORBIDDEN TYPE
                 SXD @sub_beta@ 0
                 JPQ DEL1
                 REX @sub_beta@ DEADS-LIST
@@ -2985,7 +2985,7 @@ STE B
 @hand@@hand@DEF HDIF|P,Q@arr@R
 LDA P
 SUB Q
-SCA {-1,-1,,-1,-1}+((Q)^(770,))
+SCA {-1,-1,,-1,-1}+((Q)@and@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -3051,7 +3051,7 @@ STB G+1
 @hand@@hand@DEF HSUM@hamb@P,Q@arr@R
 LDA P
 ADD Q
-SCA {-1,-1,,-1,-1}+((Q)^(770,))
+SCA {-1,-1,,-1,-1}+((Q)@and@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -3265,7 +3265,7 @@ SUBR1@arr@      JPQ #
                 N
 @hand@@hand@EMD
 
-@hand@@hand@DEF @alpha@@rect_dash@A,@beta@
+@hand@@hand@DEF GETIX@hamb@@alpha@@times@A,@beta@
                 RSX@sub_alpha@@sub_pipe@@sub_beta@LIST+A
 @hand@@hand@EMD
 
