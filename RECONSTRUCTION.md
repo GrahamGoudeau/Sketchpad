@@ -56,17 +56,17 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-The mechanical repairs R001 and R002 move the first diagnostic to line
-484.
+Repairs R001 through R003 move the first diagnostic to line 493.
 
 ```text
-sk.tx2as:484:35
-found newline; expected a middle dot or program instruction
+sk.tx2as:493:13
+found identical-to; expected a program instruction fragment
 ```
 
-The failing line ends with the subscript sequence `@sub_pipe@@sub_alpha@`.
-This line remains unchanged while its printed form and M4 meaning are
-checked.
+The line contains a macro invocation inside an RC word.  Users Handbook
+section 6-4.7 permits this form.  TX-2 simulator issue 120 lists macro
+expansion inside RC words as unsupported.  Keep the valid source form.
+Repair the validator on its separate reconstruction branch.
 
 ## Evidence Order
 
@@ -102,6 +102,7 @@ file marks it clearly and the log records the alternatives.
 | R000 | `sk.tx2as:451` | baseline | Assembler diagnostic and upstream limitation documentation | Compound macro glyph blocks parsing. |
 | R001 | `sk.tx2as:451`, calls, and redefinition | mechanical | Sketchpad part 1, PDF page 16; Users Handbook section 6-4.3; parameter order | Named macro `GETIX` preserves the compound macro's terminators and parameters. |
 | R002 | `sk.tx2as:453-461`, `2988`, and `3054` | mechanical | Printed logical-AND glyph; Users Handbook section 6-4.5; assembler glyph table | Markup `@and@` replaces the unsupported ASCII caret transcription marker. |
+| R003 | `sk.tx2as:484` | verified | Later `GORR` copies at `sk.tx2as:3112` and `sk2.tx2as:691,3809` | Explicit zero preserves the printed blank address and satisfies the parser. |
 
 ## Publication Gate
 
