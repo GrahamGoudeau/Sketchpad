@@ -56,17 +56,17 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R005 and validator commits `d3d1d9b`, `4d6bf6c`,
-and `81e83f9` move the first diagnostic to line 830.
+Repairs R001 through R006 and validator commits `d3d1d9b`, `4d6bf6c`,
+and `81e83f9` move the first diagnostic to line 851.
 
 ```text
-sk.tx2as:830:37
-found unknown subscript glyph `?`
+sk.tx2as:851:39
+found arrow after an unexpected macro terminator
 ```
 
-The scan is faint at this line and at line 832.  Both missing glyphs are
-part of bit-position designators.  They require visual and semantic
-reconstruction.
+The line appears to invoke `MOVEB`, but it uses `@times@` where the macro
+definition requires `|`.  Check the scan and other copies before changing
+the line.
 
 ## Validator Changes
 
@@ -113,6 +113,7 @@ file marks it clearly and the log records the alternatives.
 | R003 | `sk.tx2as:484` | verified | Later `GORR` copies at `sk.tx2as:3112` and `sk2.tx2as:691,3809` | Explicit zero preserves the printed blank address and satisfies the parser. |
 | R004 | `sk.tx2as:492-504` | mechanical | The source invokes `ERROR1` only after both definitions; validator uses one-pass macro lookup | Move `ERROR1` before `ERROR` without changing either definition. |
 | R005 | `sk.tx2as:657,678,696,718,3189,4157,4178,4196,4218` | mechanical | Printed compound XOR glyph; Users Handbook section 6-2.7 | Markup `@xor@` replaces the unsupported compound-glyph name `@circled_v@`. |
+| R006 | `sk.tx2as:830,832` | inferred | High-resolution view of Sketchpad part 1, PDF page 23; matching faint glyphs; nearby bit-position pattern | Read both missing bit numbers as `8`. |
 
 ## Publication Gate
 

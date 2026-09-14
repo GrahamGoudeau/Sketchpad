@@ -827,9 +827,9 @@ STARTS@arr@     RXF @sub_4@@sub_7@ 47START
                 SXD @sub_alpha@ INSTANCES-LIST
                 MKN @sub_1@@sub_dot@@sub_4@ PAGE1
                 SXD @sub_alpha@ TEXTS-LIST
-                MKN @sub_1@@sub_dot@@sub_?@ PAGE1
+                MKN @sub_1@@sub_dot@@sub_8@ PAGE1
                 SXD @sub_alpha@ NUMBERS-LIST
-                MKN @sub_1@@sub_dot@@sub_?@ PAGE1
+                MKN @sub_1@@sub_dot@@sub_8@ PAGE1
                 RSX @sub_alpha@@sub_pipe@@sub_alpha@ LIST+TYPE
                 SXD @sub_alpha@ CONSTRAINTS-LIST
                 MKN @sub_1@@sub_dot@@sub_3@ PAGE1
