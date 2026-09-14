@@ -2893,6 +2893,47 @@ mod macro_tests {
     }
 
     #[test]
+    fn test_parse_macro_invocation_with_omitted_leading_parameter() {
+        let parameter = |name: &str, preceding_terminator: Token| MacroParameter {
+            name: SymbolName::from(name),
+            span: span(0..0),
+            preceding_terminator,
+        };
+        let macro_definition_moveb = MacroDefinition {
+            name: SymbolName::from("MOVEB"),
+            params: MacroDummyParameters::OneOrMore(vec![
+                parameter("A", Token::Pipe(Script::Normal)),
+                parameter("B", Token::Times(Script::Normal)),
+                parameter("C", Token::Arrow(Script::Normal)),
+                parameter("D", Token::Times(Script::Normal)),
+            ]),
+            body: Vec::new(),
+            span: span(0..0),
+        };
+        let set_up_macro_definition = |state: &mut State| {
+            state.define_macro(macro_definition_moveb.clone());
+        };
+
+        let got = parse_successfully_with(
+            "MOVEB×DESIGNATED→22×PAGE1",
+            macro_invocation(),
+            set_up_macro_definition,
+        );
+
+        assert!(matches!(
+            got.param_values.get(&SymbolName::from("A")),
+            Some((_, None))
+        ));
+        let supplied_value = |name: &str| match got.param_values.get(&SymbolName::from(name)) {
+            Some((_, Some(MacroParameterValue::Value(_, expr)))) => expr.to_string(),
+            _ => panic!("parameter {name} was not supplied"),
+        };
+        assert_eq!(supplied_value("B"), "DESIGNATED");
+        assert_eq!(supplied_value("C"), "22");
+        assert_eq!(supplied_value("D"), "PAGE1");
+    }
+
+    #[test]
     fn test_parse_macro_invocation_with_equality() {
         let got = parse_successfully_with(
             concat!(
