@@ -56,23 +56,25 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R004 and validator commit `d3d1d9b` move the first
-diagnostic to line 657.
+Repairs R001 through R005 and validator commits `d3d1d9b`, `4d6bf6c`,
+and `81e83f9` move the first diagnostic to line 830.
 
 ```text
-sk.tx2as:657:33
-`@circled_v@` is not a recognized glyph name
+sk.tx2as:830:37
+found unknown subscript glyph `?`
 ```
 
-The token represents the compound exclusive-OR operator.  The validator
-does not support this compound glyph yet.
+The scan is faint at this line and at line 832.  Both missing glyphs are
+part of bit-position designators.  They require visual and semantic
+reconstruction.
 
 ## Validator Changes
 
 The sibling TX-2 simulator checkout uses branch
-`sketchpad-reconstruction`.  Commit `d3d1d9b` adds two M4 forms required
-by the listing.  It expands simple macros inside RC words.  It also treats
-an omitted pipe address as zero.  The complete workspace test suite passes.
+`sketchpad-reconstruction`.  Commit `d3d1d9b` expands simple macros inside
+RC words and treats an omitted pipe address as zero.  Commit `4d6bf6c`
+adds the M4 exclusive-OR operator as `@xor@`.  Commit `81e83f9` accepts
+bare zero-parameter macros.  The complete workspace test suite passes.
 
 ## Evidence Order
 
@@ -110,6 +112,7 @@ file marks it clearly and the log records the alternatives.
 | R002 | `sk.tx2as:453-461`, `2988`, and `3054` | mechanical | Printed logical-AND glyph; Users Handbook section 6-4.5; assembler glyph table | Markup `@and@` replaces the unsupported ASCII caret transcription marker. |
 | R003 | `sk.tx2as:484` | verified | Later `GORR` copies at `sk.tx2as:3112` and `sk2.tx2as:691,3809` | Explicit zero preserves the printed blank address and satisfies the parser. |
 | R004 | `sk.tx2as:492-504` | mechanical | The source invokes `ERROR1` only after both definitions; validator uses one-pass macro lookup | Move `ERROR1` before `ERROR` without changing either definition. |
+| R005 | `sk.tx2as:657,678,696,718,3189,4157,4178,4196,4218` | mechanical | Printed compound XOR glyph; Users Handbook section 6-2.7 | Markup `@xor@` replaces the unsupported compound-glyph name `@circled_v@`. |
 
 ## Publication Gate
 
