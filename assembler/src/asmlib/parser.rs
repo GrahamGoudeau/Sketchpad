@@ -1452,15 +1452,24 @@ where
         }
 
         let grammar = grammar();
+        let expression_origin = grammar
+            .normal_arithmetic_expression_allowing_spaces
+            .clone()
+            .then_ignore(just(Tok::Pipe(Script::Normal)))
+            .map_with(|expr, extra| Origin::Expression(extra.span(), expr));
+        let origin_parser = choice((origin(), expression_origin))
+            .labelled("origin specification")
+            .boxed();
 
-        let optional_origin_with_statement = origin()
+        let optional_origin_with_statement = origin_parser
+            .clone()
             .or_not()
             .then(grammar.tagged_program_instruction.clone())
             .map(build_code_line)
             .labelled("statement with origin");
 
         // TODO: also allowed: "T1->T2->ORIGIN|"
-        let origin_only = origin().map(ManuscriptLine::OriginOnly);
+        let origin_only = origin_parser.map(ManuscriptLine::OriginOnly);
         let tags_only = tag_definition()
             .repeated()
             .at_least(1)
