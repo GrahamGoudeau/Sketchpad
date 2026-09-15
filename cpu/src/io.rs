@@ -80,10 +80,12 @@ use base::prelude::*;
 
 mod dev_lincoln_writer;
 mod dev_petr;
+mod dev_scope;
 mod pollq;
 
 use dev_lincoln_writer::{LincolnWriterInput, LincolnWriterOutput};
 pub(crate) use dev_petr::Petr;
+use dev_scope::ScopeDisplay;
 use pollq::PollQueue;
 
 /// When set, indicates that the controlling sequence has missed a data item.
@@ -1027,6 +1029,12 @@ pub fn set_up_peripherals(ctx: &Context, devices: &mut DeviceManager) {
         UnitType::from(PETR),
         NOT_IN_MAINTENANCE,
         Box::new(Petr::new()),
+    );
+    devices.attach(
+        ctx,
+        UnitType::from(u6!(0o60)),
+        NOT_IN_MAINTENANCE,
+        Box::new(ScopeDisplay::new()),
     );
     attach_lw(
         ctx,

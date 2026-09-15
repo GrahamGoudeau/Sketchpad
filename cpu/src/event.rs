@@ -7,6 +7,15 @@ use base::charset::DescribedChar;
 
 use super::alarm::Alarm;
 
+/// The origin selected for the TX-2 oscilloscope display.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScopeOrigin {
+    Center,
+    BottomCenter,
+    LeftCenter,
+    LowerLeft,
+}
+
 /// An input event.
 #[derive(Debug)]
 pub enum InputEvent {
@@ -65,5 +74,14 @@ pub enum OutputEvent {
     LincolnWriterPrint {
         unit: Unsigned6Bit,
         ch: DescribedChar,
+    },
+
+    /// One point has arrived at the oscilloscope display.
+    ScopePoint {
+        unit: Unsigned6Bit,
+        x: i16,
+        y: i16,
+        intensity: u8,
+        origin: ScopeOrigin,
     },
 }

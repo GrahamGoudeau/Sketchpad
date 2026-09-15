@@ -104,6 +104,7 @@ fn display_output_event(output_event: OutputEvent) {
             let doc: Document = document();
             display_lw_unit_output_event(unit, ch, doc)
         }
+        OutputEvent::ScopePoint { .. } => (),
     }
 }
 

@@ -124,6 +124,7 @@ fn run_until_alarm(
                             );
                         }
                     }
+                    Some(OutputEvent::ScopePoint { .. }) => (),
                 }
             }
             Err(unmasked_alarm) => {

@@ -275,6 +275,9 @@ fn check_output(
                 "printing code {out:o} should have produced no output event, but actually produced {actual:?}"
             );
         }
+        (Some(_), Ok(Some(OutputEvent::ScopePoint { .. }))) => {
+            unreachable!("a Lincoln Writer emitted a scope event")
+        }
         (_, Err(e)) => {
             panic!("output transfer failed {e:?}");
         }
