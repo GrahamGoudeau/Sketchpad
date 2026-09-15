@@ -2227,3 +2227,114 @@ original selection code must identify a line before `TRUEUP`.  It does not fail
 with a CPU alarm.  All 125 CPU unit tests pass.  This checkpoint intentionally
 preserves a narrow, reproducible integration failure instead of hiding it with
 host-language selection logic.
+
+## Checkpoint 54: The Missing `hLDE LPα 0` Instruction
+
+Date: 2026-09-15
+
+A new high-resolution inspection of Part 2 PDF page 93 found an omitted
+instruction in `LPSEES`.  The printed sequence is:
+
+```
+LPSEES→ REX LPα*{60 777777}
+         hLDE LPα 0
+         hITE {377,,377}
+```
+
+The transcription went directly from `REX` to `hITE`.  This omission explains
+the apparent conflict between E-based `ITE` and light-pen selection.  `REX`
+computes the address of the display instruction that emitted the visible point.
+The missing indexed `hLDE` loads that display word into E.  `hITE` then masks E
+to obtain the identifying fields stored in `LPTT`.
+
+Without the `hLDE`, the first light-pen entry sometimes retained the sequence
+change word in E.  Later entries used unrelated values left in E by setup code.
+Those false entries included zero.  The buffer indexes and indexed stores were
+working as documented.  The earlier off-by-one diagnosis in Checkpoint 53 is
+therefore rejected.
+
+The same E-based `ITE` behavior now fits both independent Sketchpad uses.  The
+external-input routine complements the old switch word into E and intersects it
+with the new switch word.  The light-pen routine loads the displayed word into E
+and intersects it with a field mask.  This is also consistent with the March
+1961 circuit description.  The August 1963 handbook example that describes A as
+the input remains a primary-source conflict, but the restored instruction means
+Sketchpad itself no longer requires two incompatible behaviors.
+
+## Checkpoint 55: The Combined Tape Had Erased the Constraint Masters
+
+Date: 2026-09-15
+
+The first successful `TRUEUP` entry failed inside `BLOCKMAKER`.  The runtime
+`HOVS` master at relocated model address `032561` was zero.  This made the
+allocator use a zero block size.  It then cleared memory backward through the
+list header and stopped with an alarm.  The fault was in the reconstruction
+script.  It was not a TX-2 instruction fault.
+
+The `BOO7` job contains the complete constraint-model extension.  Its model
+starts at `022000`.  Its length word covers masters from `IPCONS` through
+`CNLAST`.  The `ONLW` job contains the base model through `NUMBERS`, but it does
+not contain the later constraint masters.  The old combined-tape command moved
+the complete `ONLW` range to `032000`.  The merger filled the absent tail with
+zero words.  Those zero words overwrote the real `BOO7` constraint masters.
+
+The combined tape now composes the model in three ranges.  `BOO7` supplies the
+length word at `032000`.  `ONLW` supplies base masters `032001-032440`.
+`BOO7` supplies constraint masters `032441-033165`.  The resulting tape has
+12,926 words in 29 blocks and occupies 78,048 bytes.  The runtime `HOVS`
+master is no longer zero.
+
+This correction is a tape-linking repair.  It adds no host geometry and no
+host constraint logic.  All eight individual provisional tape checksums still
+differ from the expected historical checksums.  That separate provenance gap
+remains open.
+
+## Checkpoint 56: First Original Constraint and First Solver Motion
+
+Date: 2026-09-15
+
+The March 1961 TX-2 Technical Manual, section 11-7.2, specifies toggle-switch
+storage as 24 manual registers of 37 bits each.  The registers occupy three
+groups of eight.  The reconstructed Sketchpad source reads the third group at
+`377720-377727`.  The emulator previously returned its unknown-V-memory
+sentinel for these addresses.  It now models the full bank as read-only program
+memory whose 36 data bits and metabit are set by the emulated operator.
+
+Two physical console switches are necessary for this interaction.  Sketchpad
+names `377720` bit `4.9` `DRAWASFIX`.  It returns the main program to the
+display cycle after `READIT`.  Sketchpad names `377725` bit `4.9` `SHOWBLKS`.
+The source comment calls it `SHOW NON DRAW JUNK`.  With this display switch
+off, the line can be selected once, but `ATBITS` clears before the queued
+`TRUEUP` command arrives.  With this switch on, the light pen refreshes the
+selection until the original command routine starts.  A diagnostic run first
+reproduced the old sentinel pattern.  Register isolation then reduced the
+required state to these two named bits.  The final test does not depend on the
+sentinel.
+
+The test draws a line with the physical light pen.  The original `PSEUDO`
+routine selects it.  The test then holds external-input button `2.9`, which the
+original `READIT` table sends to the routine at `005420`.  That routine calls
+the original `MAKA`, `BLOCKMAKER`, and `PUT` code.  The list high-water mark
+moves from `001275` to `001313`, a block size of octal `16`.  The new object at
+`025275` has master pointer `000561`, the relocated `HOVS` master.  No host code
+creates this object.
+
+The test next sets the metabit of physical toggle register `377720`.  The main
+assembly loop executes `hJPQ RELAX` through vector `200060`.  One original
+solver pass changes the selected endpoint coordinate from `000012254000` to
+`000012254100`.  The corresponding HOV residual falls from `000026114000` to
+`000026113700`.  The other coordinate is unchanged.  This is the first
+verified geometry change made by the recovered Sketchpad constraint solver.
+
+The regression test now requires all of these facts:
+
+- original line selection sets the line bit in `ATBITS`;
+- `TRUEUP` allocates exactly one octal-`16` block;
+- the new block points to the `HOVS` master at `000561`;
+- the hardware `FIX` toggle causes execution through `RELAX`;
+- assembly execution changes an endpoint; and
+- the selected HOV coordinate residual decreases.
+
+The browser and test supply only console-switch and light-pen state.  Rust
+models the documented toggle hardware.  Rust and JavaScript do not create the
+constraint, choose a point, change a coordinate, or solve the constraint.

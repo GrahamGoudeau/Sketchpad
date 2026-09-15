@@ -3892,6 +3892,7 @@ LPFINDP@arr@
                 DPX LPSEEN
                 **IF LIGHT PEN NOT LOST
 LPSEES@arr@     REX @sub_L@@sub_P@@sub_alpha@*{@sub_6@@sub_0@ 777777}   [LP@alpha@ is listed in equalities table]
+                hLDE @sub_L@@sub_P@@sub_alpha@ 0
                 hITE { 377,,377}
                 hSED LPTT       **SAME POINT AS LAST TIME
                 JPD LPSEES
