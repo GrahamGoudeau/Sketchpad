@@ -3361,7 +3361,7 @@ H2@arr@         HEADER@hamb@HOLDERS@arr@(34,23,,41,25)  **FREEDOM
                 [SPLAT]
                 [(34,23,,41,25)]
                 [T1]
-H3@arr@         HEADER@arr@HOLDERS@arr@(42,32,,41,46)   **WORKS
+H3@arr@         HEADER@hamb@HOLDERS@arr@(42,32,,41,46)   **WORKS
                 [SMASBL,4,,HOLDERS-LIST]
                 [#-NLIST-SMASBL,,#+SMASBL-NLIST]
                 [-2,0]
