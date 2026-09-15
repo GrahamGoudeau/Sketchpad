@@ -223,6 +223,38 @@ fn test_assignment_rhs_is_instruction() {
 }
 
 #[test]
+fn test_assignment_rhs_can_allocate_an_rc_word() {
+    let program = assemble_source("FOO={1}\n100|FOO\n", Default::default())
+        .expect("program with an RC word in an equality is valid");
+
+    assert_eq!(program.chunks.len(), 2);
+    assert_eq!(program.chunks[0].address, Address::from(u18!(0o100)));
+    assert_eq!(program.chunks[0].words, vec![u36!(0o101)]);
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o101)));
+    assert_eq!(program.chunks[1].words, vec![u36!(1)]);
+}
+
+#[test]
+fn test_macro_expansion_uses_local_tags() {
+    let program = assemble_source(
+        concat!(
+            "☛☛DEF LOCAL|P\n",
+            "L->P\n",
+            "L\n",
+            "☛☛EMD\n",
+            "100|\n",
+            "LOCAL|1\n",
+        ),
+        Default::default(),
+    )
+    .expect("macro-local tags are valid");
+
+    assert_eq!(program.chunks.len(), 1);
+    assert_eq!(program.chunks[0].address, Address::from(u18!(0o100)));
+    assert_eq!(program.chunks[0].words, vec![u36!(1), u36!(0o100)]);
+}
+
+#[test]
 fn test_normal_hash_value() {
     // Given a program which uses the value of # ("here") in the
     // instruction at address 101, when we assemble it

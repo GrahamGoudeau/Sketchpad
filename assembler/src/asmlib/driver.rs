@@ -491,7 +491,7 @@ fn assemble_pass3(
 
     let Directive {
         mut blocks,
-        equalities,
+        mut equalities,
         entry_point: _,
     } = directive;
 
@@ -512,22 +512,6 @@ fn assemble_pass3(
             );
         }
     }
-
-    // We call extract_final_equalities here is to ensure that we
-    // diagnose all looping definitions of equalities and get the data
-    // we need for the listing, if there will be one.  It isn't
-    // actually needed to generate the output binary.
-    extract_final_equalities(
-        equalities.as_slice(),
-        body,
-        explicit_symtab,
-        implicit_symtab,
-        memory_map,
-        index_register_assigner,
-        &mut rcblock,
-        &mut final_symbols,
-        &mut bad_symbol_definitions,
-    )?;
 
     let convert_rc_failure = |e: RcWordAllocationFailure| -> AssemblerFailure {
         match e {
@@ -556,6 +540,17 @@ fn assemble_pass3(
             }
         }
     };
+
+    for equality in &mut equalities {
+        if let Err(e) =
+            equality
+                .value
+                .allocate_rc_words(explicit_symtab, implicit_symtab, &mut rcblock)
+        {
+            return Err(convert_rc_failure(e));
+        }
+        explicit_symtab.replace_equality_value(&equality.name, equality.value.clone());
+    }
 
     for directive_block in blocks.values_mut() {
         if let Err(e) =
@@ -588,6 +583,18 @@ fn assemble_pass3(
     if let Err(e) = assign_default_rc_word_tags(implicit_symtab, &mut rcblock, &mut final_symbols) {
         return Err(convert_rc_failure(e));
     }
+
+    extract_final_equalities(
+        equalities.as_slice(),
+        body,
+        explicit_symtab,
+        implicit_symtab,
+        memory_map,
+        index_register_assigner,
+        &mut rcblock,
+        &mut final_symbols,
+        &mut bad_symbol_definitions,
+    )?;
 
     // Emit the binary code.
     for (block_id, directive_block) in blocks {

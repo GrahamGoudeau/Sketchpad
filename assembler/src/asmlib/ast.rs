@@ -1743,6 +1743,16 @@ impl From<(Span, UntaggedProgramInstruction)> for EqualityValue {
 }
 
 impl EqualityValue {
+    pub(crate) fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        self.inner
+            .allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+    }
+
     pub(super) fn substitute_macro_parameters(
         &self,
         param_values: &MacroParameterBindings,
@@ -2105,13 +2115,13 @@ impl InstructionSequence {
                 );
             }
 
-            if self.local_symbols.is_some() {
-                unimplemented!(
-                    "InstructionSequence::build_binary_block: evaluation with local symbol tables is not yet implemented"
-                );
-            }
+            let scoped_symbols = self
+                .local_symbols
+                .as_ref()
+                .map(|local| explicit_symtab.with_overrides(local));
+            let symbols = scoped_symbols.as_ref().unwrap_or(explicit_symtab);
             let mut ctx = EvaluationContext {
-                explicit_symtab,
+                explicit_symtab: symbols,
                 implicit_symtab,
                 memory_map,
                 here: HereValue::Address(address),

@@ -196,7 +196,7 @@ fn assign_default_value(
                     // RC-word) should already have a default value
                     // assigned.
                     unreachable!(
-                        "default assignments for address-context symexes should be assigned before evaluation starts"
+                        "default assignments for address-context symex {name} should be assigned before evaluation starts; contexts: {contexts_used:?}"
                     )
                 } else {
                     unreachable!(

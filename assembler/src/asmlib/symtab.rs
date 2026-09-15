@@ -144,6 +144,19 @@ impl ExplicitSymbolTable {
         self.definitions.is_empty()
     }
 
+    pub(crate) fn replace_equality_value(&mut self, name: &SymbolName, value: EqualityValue) {
+        match self.definitions.get_mut(name) {
+            Some(ExplicitDefinition::Equality(current)) => *current = value,
+            _ => panic!("cannot replace missing or non-equality definition for {name}"),
+        }
+    }
+
+    pub(crate) fn with_overrides(&self, overrides: &ExplicitSymbolTable) -> ExplicitSymbolTable {
+        let mut result = self.clone();
+        result.definitions.extend(overrides.definitions.clone());
+        result
+    }
+
     pub(crate) fn define(
         &mut self,
         name: SymbolName,
