@@ -1736,6 +1736,59 @@ Historical significance:
 - The 1,024-pixel canvas limit matches the TX-2 scope coordinate precision.
 - A real host failure now defines a required desktop acceptance boundary.
 
+## Checkpoint 42: The Browser Follows the Programmed Point Beam
+
+Date: 2026-09-15
+
+The original TX-2 scope did not use a television-style raster.  Sutherland's
+thesis describes a ten-bit-per-axis electrostatic-deflection display.  One
+display instruction intensified one selected position.  The hardware supported
+about 100,000 spots per second.  Sketchpad stored its drawing as a table of spot
+coordinates and normally displayed each entry in turn at 20 microseconds per
+spot.  Its optional interlace displayed every eighth spot.  Its optional
+twinkle mode scrambled the spot order.
+
+Simulator commit `9a6639b` adds an emulated timestamp to each WASM output event.
+The browser now queues unit-60 points in their original event order.  It draws a
+point only when the corresponding TX-2 time reaches the real-time display
+clock.  It never draws a false travel line between two positions.  A small
+blue-white marker samples the newest intensified position once per browser
+frame.  The main canvas retains a dim green afterglow.
+
+The browser still accelerates the paper-tape boot.  The first scope point starts
+the real-time display clock.  After that event, the machine runs no more than 25
+milliseconds ahead of the display.  The scope queue holds at most 2,048 pending
+points.  One browser frame draws at most 840 points.  The prior 2.5-millisecond
+machine budget, 20-millisecond overload stop, 60-frame-per-second cap, and
+1,024-pixel canvas boundary remain active.
+
+A direct Node and WASM measurement avoids Chrome and GPU use.  It collects
+10,281 monotonic scope events from 348,160 TX-2 ticks.  The first event occurs at
+simulated time `185.866456754`.  The sample spans `0.673380800` simulated
+seconds.  Observed adjacent event intervals range from 64 to 334 microseconds.
+The browser therefore draws about 260 points per 60 Hz frame in this scene.  It
+stays well below the 840-point frame boundary.
+
+The 120-millisecond phosphor half-life is a visual calibration.  No primary
+source found in this project establishes the exact phosphor decay constant of
+the connected scope.  The event positions, event order, intensity modes, and
+timing come from the emulator.  The blue beam marker is a browser-rate sample
+of the much faster physical spot sequence.
+
+Release `20260915T134630Z` deploys the timed point beam at
+`https://sketchpad.acyclic.sh/`.  Static HTTP checks confirm the new application
+version, queue limits, timing constants, no-store cache policy, active Caddy
+service, and valid Caddy configuration.  The complete simulator workspace
+passes 581 tests.  No browser process was used for acceptance because of the
+earlier host failure.
+
+Historical significance:
+
+- Scope persistence now follows real time instead of browser frame count.
+- The recovered program controls every displayed historical spot.
+- Display load can now reduce refresh and expose natural flicker.
+- The browser preserves blank beam movement between programmed positions.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.

@@ -98,7 +98,9 @@ freehand stroke, a line, a circle, and a rectangle with real pointer gestures.
 The recovered program continues to draw `INK` below this explicit compatibility
 layer.  Simulator commits `381843c` and `d259d5a` bound browser CPU, WASM,
 rendering, frame rate, canvas size, and overload behavior while keeping
-auto-start.  The canonical application runs at
+auto-start.  Simulator commit `9a6639b` timestamps every scope event and renders
+the programmed point beam against a bounded real-time display clock.  The
+canonical application runs at
 `https://sketchpad.acyclic.sh/`.
 
 ## Validator Changes
