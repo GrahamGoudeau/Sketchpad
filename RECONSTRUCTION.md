@@ -98,8 +98,10 @@ text.  Commit `e2e8fa3` accepts the M4 question-mark symex terminator.  Commit
 `e6e8cd1` completes RC allocation for equality values and evaluates macro-local
 tags in their expansion scope.  Commit `8a0a2e0` evaluates M4 multiplication as
 signed 36-bit one's-complement arithmetic.  Commit `5c5b46f` records undefined
-symbols that occur inside equality values.  The assembler test suite passes 307
-unit tests and 2 golden tests.
+symbols that occur inside equality values.  Commit `b7f2c33` lets nonempty tapes
+continue from the loader block to their program blocks.  Commit `a26313e` makes
+the disassembler read complete six-byte words.  The assembler package passes
+310 unit tests and 2 golden tests.
 
 ## Evidence Order
 

@@ -255,6 +255,10 @@ The final Unit 2 path required three changes.
 
 All four units now assemble from one command.
 
+The hashes in this table identify the first deterministic output.  Checkpoint 10
+shows that these tapes stopped after their begin blocks.  The project preserves
+the hashes here as a record, but `TAPE_SHA256SUMS` no longer accepts them.
+
 | Tape | Binary words | Bytes | SHA-256 |
 | --- | ---: | ---: | --- |
 | `sketchpad-2xmx.tape` | 3,607 | 21,858 | `cffd8122997a0d01f11a77be4fdf2cea33a2ae6f78597f0040cf7f61a7db3aa2` |
@@ -282,6 +286,50 @@ Historical significance:
   output.
 - The next research question changes from "Can this listing assemble?" to
   "Does this output reproduce and run the historical program?"
+
+## Checkpoint 10: Loadable Tape Structure
+
+Date: 2026-09-14
+
+The first structural disassembly found a valid reader leader and a valid
+two-word begin block on every tape.  It also found that the begin block marked
+itself as the final block.  The remaining program bytes followed that marker as
+unreachable trailing data.
+
+Observed cause:
+
+- The tape writer passed `!empty_program` as the `last` flag for the begin block.
+- A nonempty program therefore set the final-block address `27`.
+- The correct continuation address is `3`.
+
+Simulator commit `b7f2c33` corrects the flag.  It adds tests for empty and
+nonempty tapes.  It also regenerates the two example tapes that contained the
+same invalid marker.
+
+The corrected large tapes then exposed a separate disassembler defect.  The
+reader assumed that one `Read::read` call always filled a six-byte TX-2 word.
+Simulator commit `a26313e` uses exact reads and adds a one-byte-at-a-time reader
+test.
+
+Structural validation result:
+
+| Tape | Blocks | Valid TX-2 block checksums | Final markers | SHA-256 |
+| --- | ---: | ---: | ---: | --- |
+| `sketchpad-2xmx.tape` | 7 | 7 | 1 | `f3363b1df0f7c7dd56fcbd24f2a84daaedf25f314d2037d25275b1f5c06aabce` |
+| `sketchpad-oplw.tape` | 15 | 15 | 1 | `9b0f6256493967790274bba47d4b33d8206be42f419ac23d11889cc1e1c2cc03` |
+| `sketchpad-gx7a.tape` | 6 | 6 | 1 | `4ecb87e91f2ea987543d2a14d4f53dfae05f1063517b4cfb45f8c88db5b267d0` |
+| `sketchpad-boo7.tape` | 5 | 5 | 1 | `977c0b0b64d0eacc2ca2042dd064685dde0c6ba4cef912101e7bdc33afc6445a` |
+
+Each tape has a valid standard reader leader.  The disassembler reaches every
+program block.  It reports no trailing data.
+
+Interpretation:
+
+- The new tapes are structurally loadable by the standard reader leader.
+- This validation does not yet prove the correct multi-tape load order or entry
+  address.
+- This validation does not yet compare each generated word with its printed
+  octal witness.
 
 ## Current Research State
 

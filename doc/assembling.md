@@ -57,5 +57,9 @@ The script checks each generated tape against `TAPE_SHA256SUMS`.  A changed
 source file, assembler, or assembly rule can change these checksums.  Review the
 cause before you accept a new checksum.
 
+The script also runs `tx2dis` on each tape.  This check validates the standard
+reader leader, every TX-2 block checksum, the final-block marker, and the end of
+the file.
+
 The script uses the sibling simulator checkout by default.  Set
 `SKETCHPAD_TX2_SIMULATOR_DIR` to use a different checkout.
