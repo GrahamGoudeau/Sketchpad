@@ -2084,8 +2084,12 @@ fn test_pipe_construct() {
     let input = "@sub_alpha@@sub_pipe@@sub_beta@DISPTBL";
     let got = parse_single_instruction_fragment(input);
     let expected = InstructionFragment::PipeConstruct {
-        index: SpannedSymbolOrLiteral {
-            item: SymbolOrLiteral::Symbol(Script::Sub, SymbolName::from("α"), span(0..11)),
+        index: SpannedArithmeticExpression {
+            item: ArithmeticExpression::from(Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(
+                Script::Sub,
+                SymbolName::from("α"),
+                span(0..11),
+            ))),
             span: span(0..11),
         },
         rc_word_span: span(21..38),
@@ -2931,6 +2935,66 @@ mod macro_tests {
         assert_eq!(supplied_value("B"), "DESIGNATED");
         assert_eq!(supplied_value("C"), "22");
         assert_eq!(supplied_value("D"), "PAGE1");
+    }
+
+    #[test]
+    fn test_macro_parameter_in_pipe_index() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF INDEX|P\n",
+                "REX@sub_P@@sub_pipe@@sub_2@0\n",
+                "☛☛EMD\n",
+                "INDEX|@sub_1@\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        assert_eq!(got.blocks.len(), 1);
+        assert_eq!(got.blocks[0].sequences.len(), 1);
+        assert_eq!(got.blocks[0].sequences[0].instructions.len(), 1);
+    }
+
+    #[test]
+    fn test_nested_macro_as_parameter() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF INNER|P\n",
+                "P\n",
+                "☛☛EMD\n",
+                "☛☛DEF SUBR☛A\n",
+                "A\n",
+                "☛☛EMD\n",
+                "SUBR☛(INNER|4)\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        assert_eq!(got.blocks.len(), 1);
+        assert_eq!(got.blocks[0].sequences.len(), 1);
+        assert_eq!(got.blocks[0].sequences[0].instructions.len(), 1);
+    }
+
+    #[test]
+    fn test_nested_sketchpad_macro_as_parameter() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF LGORR☛N×XR=XR2→SUBR→LEXIT\n",
+                "0\n",
+                "☛☛EMD\n",
+                "☛☛DEF SUBR☛A\n",
+                "A\n",
+                "☛☛EMD\n",
+                "SUBR☛(LGORR☛PICBLKS×α=S→CONSOUTSUB)\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        assert_eq!(got.blocks.len(), 1);
+        assert_eq!(got.blocks[0].sequences.len(), 1);
+        assert_eq!(got.blocks[0].sequences[0].instructions.len(), 1);
     }
 
     #[test]

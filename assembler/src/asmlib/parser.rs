@@ -34,8 +34,9 @@ use crate::collections::OneOrMore;
 use super::ast::{
     ArithmeticExpression, Atom, CommaDelimitedFragment, Commas, CommasOrInstruction, ConfigValue,
     Equality, EqualityValue, FragmentWithHold, HoldBit, InstructionFragment, LiteralValue,
-    Operator, Origin, RegisterContaining, RegistersContaining, SignedAtom, SpannedSymbolOrLiteral,
-    SymbolOrLiteral, Tag, TaggedProgramInstruction, UntaggedProgramInstruction,
+    Operator, Origin, RegisterContaining, RegistersContaining, SignedAtom,
+    SpannedArithmeticExpression, SpannedSymbolOrLiteral, SymbolOrLiteral, Tag,
+    TaggedProgramInstruction, UntaggedProgramInstruction,
 };
 use super::lexer::{self};
 use super::manuscript::{
@@ -391,7 +392,7 @@ where
 /// evaluation we will need to generate an RC-word containing Qₜ.
 fn make_pipe_construct(
     (p, (t, maybe_q)): (
-        SpannedSymbolOrLiteral,
+        SpannedArithmeticExpression,
         (SpannedSymbolOrLiteral, Option<(InstructionFragment, Span)>),
     ),
 ) -> InstructionFragment {
@@ -602,7 +603,7 @@ where
     })
 }
 
-type ParsedMacroArg = Option<(Script, ArithmeticExpression)>;
+type ParsedMacroArg = Option<MacroParameterValue>;
 
 fn macro_terminator_operator(token: &Tok, script: Script) -> Option<Operator> {
     match token {
@@ -639,7 +640,6 @@ fn split_macro_argument(
     result
 }
 
-#[derive(Clone)]
 struct MacroInvocationParser<'src, I>
 where
     I: Input<'src, Token = Tok, Span = Span> + ValueInput<'src>,
@@ -657,7 +657,9 @@ where
             expr_parser: arithmetic_expression_in_any_script_allowing_spaces()
                 .or_not()
                 .map_with(|got, extra| match got {
-                    Some((span, script, expr)) => (span, Some((script, expr))),
+                    Some((span, script, expr)) => {
+                        (span, Some(MacroParameterValue::Value(script, expr)))
+                    }
                     None => (extra.span(), None),
                 })
                 .boxed(),
@@ -720,7 +722,10 @@ where
             let param_def = &param_defs[param_index];
             let before = inp.cursor();
             if let Some(got) = inp.peek_maybe().as_deref() {
-                if got == &Tok::Newline || got == &Tok::RightBrace(Script::Normal) {
+                if got == &Tok::Newline
+                    || got == &Tok::RightBrace(Script::Normal)
+                    || got == &Tok::RightParen(Script::Normal)
+                {
                     param_values.insert(param_def.name.clone(), inp.span_since(&before), None);
                     param_index += 1;
                     continue;
@@ -742,8 +747,32 @@ where
                     .into_inner();
                 let span = inp.span_since(&before);
                 if got == param_def.preceding_terminator {
-                    match inp.parse(&self.expr_parser)? {
-                        (_, Some((script, expr))) => {
+                    let parsed_arg =
+                        if inp.peek_maybe().as_deref() == Some(&Tok::LeftParen(Script::Normal)) {
+                            let checkpoint = inp.save();
+                            let nested_start = inp.cursor();
+                            inp.next_maybe();
+                            match self.parse(inp) {
+                                Ok(invocation)
+                                    if inp.peek_maybe().as_deref()
+                                        == Some(&Tok::RightParen(Script::Normal)) =>
+                                {
+                                    inp.next_maybe();
+                                    (
+                                        inp.span_since(&nested_start),
+                                        Some(MacroParameterValue::Expansion(Box::new(invocation))),
+                                    )
+                                }
+                                Ok(_) | Err(_) => {
+                                    inp.rewind(checkpoint);
+                                    inp.parse(&self.expr_parser)?
+                                }
+                            }
+                        } else {
+                            inp.parse(&self.expr_parser)?
+                        };
+                    match parsed_arg {
+                        (_, Some(MacroParameterValue::Value(script, expr))) => {
                             let argument_values =
                                 split_macro_argument(script, expr, &param_defs[param_index + 1..]);
                             for argument in argument_values {
@@ -755,6 +784,10 @@ where
                                 );
                                 param_index += 1;
                             }
+                        }
+                        (span, Some(expansion @ MacroParameterValue::Expansion(_))) => {
+                            param_values.insert(param_def.name.clone(), span, Some(expansion));
+                            param_index += 1;
                         }
                         (span, None) => {
                             // Record the fact that this parameter was missing.
@@ -1154,8 +1187,8 @@ where
         // generate an RC-word containing Qₜ.
 
         let spanned_p_fragment = symbol_or_literal(Script::Sub) // this is p
-            .map_with(|p, extra| SpannedSymbolOrLiteral {
-                item: p,
+            .map_with(|p, extra| SpannedArithmeticExpression {
+                item: ArithmeticExpression::from(p),
                 span: extra.span(),
             })
             .boxed();
@@ -1258,16 +1291,24 @@ where
     });
 
     let nested_macro_arg = choice((
-        arith_expr.clone()(ALLOW_SPACES, Script::Normal)
-            .map_with(|expr, extra| (extra.span(), Script::Normal, expr)),
+        arith_expr.clone()(ALLOW_SPACES, Script::Normal).map_with(|expr, extra| {
+            (
+                extra.span(),
+                MacroParameterValue::Value(Script::Normal, expr),
+            )
+        }),
         arith_expr.clone()(ALLOW_SPACES, Script::Sub)
-            .map_with(|expr, extra| (extra.span(), Script::Sub, expr)),
-        arith_expr.clone()(ALLOW_SPACES, Script::Super)
-            .map_with(|expr, extra| (extra.span(), Script::Super, expr)),
+            .map_with(|expr, extra| (extra.span(), MacroParameterValue::Value(Script::Sub, expr))),
+        arith_expr.clone()(ALLOW_SPACES, Script::Super).map_with(|expr, extra| {
+            (
+                extra.span(),
+                MacroParameterValue::Value(Script::Super, expr),
+            )
+        }),
     ))
     .or_not()
     .map_with(|got, extra| match got {
-        Some((span, script, expr)) => (span, Some((script, expr))),
+        Some((span, value)) => (span, Some(value)),
         None => (extra.span(), None),
     })
     .boxed();
