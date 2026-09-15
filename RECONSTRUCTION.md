@@ -65,7 +65,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R056 and the validator changes let the complete source
+Repairs R001 through R061 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -213,6 +213,11 @@ file marks it clearly and the log records the alternatives.
 | R054 | `sk2.tx2as:3951` | verified | Sketchpad part 2, PDF page 94; the printed operation has a clear final `N`; the preceding status test also uses `SKN` | Read `SKX 2.8 S1STATE` as `SKN 2.8 S1STATE`. |
 | R055 | after `sk2.tx2as:6666` | inferred | Sketchpad part 2, PDF page 149 preserves the tops of the clipped glyphs; the plot routine must clear `PLESW` before it sets `PLPSW` and `PLPLBUSY`; the punch initializer uses the same switch-reset pattern | Complete the clipped line as `MKZ PLESW`. |
 | R056 | 19 readings in `sk.tx2as` and `sk2.tx2as` | verified | 400-600-DPI views of Part 1 page 130 and Part 2 pages 27, 58, 66, 68-69, 75-78, 90, 94, 96, 105, 132, 148, and 154; repeated local forms and symbol sequences | Remove stale uncertainty notes from readings that the scans now verify. |
+| R057 | `sk2.tx2as:6366` | verified | Sketchpad part 2, PDF page 144; the damaged digit has the `9` form; `26419202030 / 2^35 = 0.7688999857`, which matches the printed `-.7689` comment | Read `MUL {-26415202030.}` as `MUL {-26419202030.}`. |
+| R058 | `sk2.tx2as:1314` | verified | Sketchpad part 2, PDF page 34; the operation clearly has a final `X`; the operand initializes index register `S` to 6 for the `CPICT` loop | Read `RES S 6` as `REX S 6`. |
+| R059 | `sk2.tx2as:2611` | inferred | Sketchpad part 2, PDF page 62 clips the final `COMBR` line; two earlier copies of the same macro contain the exact line | Restore `¹DPX T|XR LIST+(N)+1` before the macro end. |
+| R060 | `sk2.tx2as:6370` | verified | Sketchpad part 2, PDF page 144; the printed approximation comment reads `-.54433`; the constant ratio is `0.5443300000` | Read the comment `-.5433` as `-.54433`. |
+| R061 | 30 readings and three page boundaries in `sk.tx2as` and `sk2.tx2as` | verified | 400-600-DPI views of Part 1 PDF pages 7, 18, 23, 34, 56, 101, and 134 and Part 2 PDF pages 4-7, 11, 15-16, 34-35, 60, 62-63, 107, 118, and 144; repeated definitions and paired control flow | Remove stale uncertainty notes.  Record that the OPLW numbering skips page 011 without losing source statements. |
 
 ## Publication Gate
 

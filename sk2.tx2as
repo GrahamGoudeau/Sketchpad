@@ -138,14 +138,14 @@ HOVSX@arr@      JPQ #
 HOVSCOMP1@arr@
                 SUBR@hamb@LDA DELTA1 [instruction as a macro parameter]
 HOVSCOMP2@arr@
-                SUBR@hamb@LDA DELTA1+1 [best guess, part of the line is damaged]
+                SUBR@hamb@LDA DELTA1+1
 IBVERTCOMP@arr@
                 @sup_1@STE IBCOMPX
                 SETIX@hamb@@beta@
                 GETVAL@hamb@0,1@times@@beta@@arr@DELTA1
                 EITHER@hamb@HOVSCOMP1,HOVSCOMP2@arr@12
 IBCOMPX@arr@
-                JPQ # [best guess, some damage/smudging]
+                JPQ #
 DISTCOMP@arr@
                 @sup_1@STE DISTCOMPX
                 SETIX@hamb@@delta@,@beta@,@gamma@
@@ -191,8 +191,8 @@ MIDP2@arr@      @sup_1@STE MIDP2X
                 SUB DELTA1+1
                 hJOV BADOV
 MIDP2X@arr@     JPQ #
-3SET@arr@       @sup_1@STE 3SETX        [best guess, line damaged in the listing]
-                SETIX@hamb@@beta@,@gamma@,@delta@       [best guess, line damaged in the listing]
+3SET@arr@       @sup_1@STE 3SETX
+                SETIX@hamb@@beta@,@gamma@,@delta@
                 DPX @sub_alpha@ SAVE@alpha@
                 WHEREIS@hamb@@beta@@arr@DELTA1
                 WHEREIS@hamb@@gamma@@arr@DELTA2
@@ -245,9 +245,9 @@ PNNU2@arr@      @sup_1@STE PNNU1X
                 LDA DELTA1+1
                 STA DELTA1
                 LDA DELTA2+1
-                STA DELTA2      [best guess, line damaged]
+                STA DELTA2
                 JPQ PNNUT
-PNNUT1@arr@     @sup_1@STE PNNUT1X      [best guess for the label, line damaged]
+PNNUT1@arr@     @sup_1@STE PNNUT1X
                 DIFF@hamb@DELTA1@arr@DELTA2@arr@BADOV
 PNNUT1X@arr@
                 JPQ #
@@ -300,7 +300,7 @@ DELTA3@arr@     0
 RI@arr@         hJPQ 377750
 CL@arr@         hJPQ 200000
 ST@arr@         hJPQ 200001
-LAST@arr@       ZZLAST  [best guess for the label, line damaged]
+LAST@arr@       ZZLAST
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=8 doc_page=158 type=symex proof=1]
 [Handwritten: "P21"]
@@ -352,11 +352,11 @@ CCFR= LIST-2
 DRAWASFIX=SKM @sub_4@@sub_dot@@sub_9@ 377720
 DISPLAY= 5      **MASTER DISPLAY SUBROUTINE
 DEADS= 11@times@SMASBL+LIST+1
-DISPLAYK= 2     [line damaged, guessing that it's DISPLAYK based on previous equalities table]
+DISPLAYK= 2
 DEGEN=hJMP DEGEN1
 DESIGS= 13@times@SMASBL+LIST+1
 
-ERRORSTOP=SKM @sub_4@@sub_dot@@sub_1@@sub_0@ 377731 [line damaged, guessing ERRORSTOP]
+ERRORSTOP=SKM @sub_4@@sub_dot@@sub_1@@sub_0@ 377731
 EXPINS=SKM @sub_4@@sub_dot@@sub_1@@sub_0@ EXPAIRTS      **EXPANDING INSTANCE
 
 FREES= 5@times@SMASBL+LIST+1
@@ -549,7 +549,7 @@ WHERE= 12       **LOCATION OF THING IN PICTURE
 
 @beta@= 2
 
-[Possible problem: page with header "IES ONLW 011" is missing]
+[The printed page sequence skips 011.  The earlier OPLW listing has the same complete 010-to-012 transition.]
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=16 doc_page=166 type=macros proof=1]
 [Page header: "IES ONLW 012"]
@@ -1311,10 +1311,9 @@ CPIC1@arr@      STA @sub_alpha@ LIST+CVAL+1
                 STA CPTU        **RADIUS
                 DIREC@hamb@AFST@arr@AFCEN=CPTS@arr@BADOV
                 MOVE|LIST+CVAL@sub_alpha@@arr@CPTV
-                RES @sub_S@ 6   [best guess: 6]
+                REX @sub_S@ 6
 CPIC2@arr@      LDA @sub_S@ CPICT
-                SUB CPTS        [problem: partially clipped, other interpretations possible]
-                [possibly more lines clipped?]
+                SUB CPTS
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=35 doc_page=185 type=code proof=1]
 [Page header: "IES ONLW 007"]
@@ -2497,7 +2496,6 @@ hJPQ {ERROR1@hamb@@alpha@@arr@P}
 @hand@@hand@EMD
 
 @hand@@hand@DEF ADCON@hamb@C@arr@P
-[Problem: some symbols may be clipped by the left margin]
 DPX@sub_C@A
 @sup_2@DPX@sub_P@A [inferred from the paired index packing]
 hJPQ ADCONER
@@ -2610,8 +2608,7 @@ RSX@sub_beta@*{LIST+A@sub_beta@}+(A@xor@(370,))
                 @sup_1@@sup_1@RSX@sub_S@@sub_pipe@@sub_X@@sub_R@LIST+(N)+1
                 @sup_2@EXX@sub_T@@sub_pipe@@sub_S@LIST
                 @sup_2@DPX@sub_T@@sub_pipe@@sub_X@@sub_R@LIST+(N)+1
-                [Possible problem: the following line is present in earlier def, but not in this one, clipped by the bottom margin? Compare with COMBL above.]
-                [@sup_1@DPX@sub_T@@sub_pipe@@sub_X@@sub_R@LIST+(N)+1]
+                @sup_1@DPX@sub_T@@sub_pipe@@sub_X@@sub_R@LIST+(N)+1 [inferred completion; the printed line is clipped]
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=63 doc_page=213 type=macros proof=1]
 [Page header: "HHL APY5 014"]
@@ -4650,10 +4647,10 @@ PS5CC2A@arr@
                 PYTH@hamb@PENLOC@arr@PSX2=PSTT@arr@PS5CC4
                 SUB PSTS
                 JNA PS5CC3
-PS5CC4@arr@     LDA PSX1        [5 in PS5CC4 is not quite legible, guessing]
+PS5CC4@arr@     LDA PSX1
                 LDB PSY1
                 JPQ #+3
-PS5CC3@arr@     LDA PSX2        [3 in PS5CC3 is not quite legible, guessing]
+PS5CC3@arr@     LDA PSX2
                 LDB PSY2
 PS5NE@arr@      STA PSX1
                 STB PSY1
@@ -5053,7 +5050,6 @@ LDA P
 STA Q
 @hand@@hand@EMD
 
-[guessing some superscripts in this def as they are pretty smudged, may be wrong]
 @hand@@hand@DEF DUALNORM|P@arr@Q,R@arr@S=T
 LDA P
 SUB Q
@@ -6367,11 +6363,11 @@ SQUARE ROOT BY HPP@arr@
                 MUL #+57-15     **@times@N
                 SKN MKN CYR @sub_4@@sub_dot@@sub_1@#+61-16**HALVE EXPONENT [Handwritten: left margin: "->", right margin: "<-"; syntax, three instruction codes?]
                 JPQ #+24-17**IF EXP ODD [Handwritten at the rigt margin: arrow pointing right and then down]
-                MUL {-26415202030.}** - .7689   [guessing some digits]
+                MUL {-26419202030.}** - .7689
                 SCA { 1,}
-                ADD { 11003700211.}**+.32025    [guessing some digits]
+                ADD { 11003700211.}**+.32025
                 JPQ #+30-23** TO ITERATION
-                MUL {-18703036386.}**- .5433    [Handwritten at the left margin: "->"]
+                MUL {-18703036386.}**- .54433   [Handwritten at the left margin: "->"]
                 ADD { 3890553174.}**+.11323
                 SCA { 1,}
                 MKZ CYR @sub_1@@sub_dot@@sub_1@#+57-27**HALVE N [Handwritten at the right margin: "232420"]

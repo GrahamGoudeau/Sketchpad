@@ -1166,6 +1166,69 @@ Historical significance:
 - A clipped source line now has an explicit and reproducible completion.
 - The uncertainty record now keeps damaged evidence separate from settled text.
 
+## Checkpoint 29: The Broad Uncertainty Audit Finds Two More Machine Errors
+
+Date: 2026-09-15
+
+The audit expanded across both source volumes.  It checked every remaining
+marker that called a reading a guess, a smudge, an illegible line, or a possible
+page-boundary loss.  It used 400-DPI through 600-DPI images, repeated macro
+definitions, paired control flow, and numerical interpretation.
+
+R057 changes the first square-root coefficient from `-26415202030` to
+`-26419202030`.  The source glyph is `9`.  The corrected magnitude divided by
+`2^35` is `0.7688999857`.  This agrees with the printed `-.7689` comment.  The
+repair changes one Y3HT word.
+
+R058 changes `RES S 6` to `REX S 6` in the ONLW circle display routine.  The
+scan clearly prints `REX`.  The instruction initializes index register `S` to
+6 for the `CPICT` search.  The repair changes one ONLW word.
+
+R059 restores the final line of the APY5 `COMBR` macro.  The page clips this
+line completely.  Two earlier copies of `COMBR` contain the same final
+instruction.  The restored source reads:
+
+```text
+¹DPX T|XR LIST+(N)+1
+```
+
+This is an inferred completion.  APY5 does not expand this macro, so its tape
+does not change.
+
+R060 repairs the nearby square-root comment from `-.5433` to `-.54433`.  The
+scan and the encoded value agree.
+
+R061 settles 30 other marked readings.  It also settles three page-boundary
+questions.  `PUTRQ` and `CPIC` continue directly on their next pages.  The two
+OPLW listings both skip printed page number 011 after a complete equality table
+and before the same macro library.  No source statement is missing there.
+
+One executable glyph remains explicitly open.  Part 1, PDF page 42 may or may
+not print a held-address `h` before the destination `LIST+1` in the 2XMX merge
+routine.  The current source retains `h` and its uncertainty note.
+
+All eight jobs assemble.  The new tape identities are:
+
+| Job | Emitted words | Tape SHA-256 |
+| --- | ---: | --- |
+| `2XMX` | 2,834 | `3f023845020d26429e47d930eccaf1be66ec67a3c0788c1ef45e3315e8b76371` |
+| `OPLW` | 269 | `a02a9e2951957e825f8e9b118d19821ea365f017a2486d0e788aa474d1660792` |
+| `GX7A` | 2,043 | `4359c83fb274016b0643f546ce9c85592017d79f64f4b72004fb316d748eddd4` |
+| `BOO7` | 1,033 | `eb165a49557653b607a43be780c9eb969acaa8b17e1ebea6c3fe7ab423acddbd` |
+| `ONLW` | 1,829 | `1ac889ff5bb2727f0c086532b23db9f93b3f3867062158c85c4519a6519259e9` |
+| `APY5` | 1,266 | `eb0cf5629454a3687da900d4482530dd259a55e6d94360e7d42059c92599d550` |
+| `LYUO` | 1,435 | `567e2f7fcd419238f22e131141cbb9ec47b6db658111f7d6f66f4769964ecb5f` |
+| `Y3HT` | 1,853 | `62ab2a1eedc46c32cd79d888b0215f6809205ddd99bbdec81ef3e0c233f83f56` |
+
+The checksum gate rejects all eight provisional tapes.  This remains expected.
+
+Historical significance:
+
+- A digit-level numerical check exposed a wrong fixed-point coefficient.
+- A damaged operation changed index initialization into an unrelated reserve operation.
+- Repeated macro libraries supplied an exact clipped-line completion.
+- The source now has one marked executable glyph uncertainty instead of dozens.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1186,9 +1249,10 @@ expansion, and one global tag-offset defect.  Seven selected program tags now
 match the printed table exactly.  The `APY5` audit has repaired one false
 operation name.  The complete printed `2XMX` automatic table is now a direct
 oracle.  The first focused uncertainty audit has verified 17 more `2XMX`
-readings.  The Part 2 audit has repaired two instruction words and completed
-one clipped Y3HT line.  It has also verified 19 more marked readings.  One
-marked held-address glyph remains open in the first `2XMX` region.  The next
+readings.  The broad uncertainty audit has repaired four instruction or data
+words and completed two clipped lines.  It has also settled 49 marked readings
+across both volumes.  One marked held-address glyph remains open in the first
+`2XMX` region.  The next
 goal is the mixed RC and automatic allocation schedule.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.

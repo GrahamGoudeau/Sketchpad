@@ -254,8 +254,8 @@ CVTS= 6         **VARIABLE TO MOVE TO SATISFY THIS
 CPNAME= 200054
 COMP= 16        **CONSTRAINT COMPUTATION ROUTINE
 CHVAR= 20       **# CHANGABLE VARIABLES
-CURPICS= 15@times@SMASBL+LIST+1         [line illegible, copied from previous table]
-CONSTRAINTS= 4@times@SMASBL+LIST+1      [line illegible, copied from previous table]
+CURPICS= 15@times@SMASBL+LIST+1
+CONSTRAINTS= 4@times@SMASBL+LIST+1
 CONLET= 12      **CONSTRAINT LETTER DESIGNATOR
 
 DESIGNATED=SKM @sub_4@@sub_dot@@sub_1@@sub_0@ PAGE1
@@ -601,7 +601,6 @@ SKX@sub_S@@sub_pipe@@sub_X@@sub_R@@sub_2@0
 hJPX@sub_S@#+2
 SKX@sub_S@@sub_pipe@@sub_X@@sub_R@@sub_2@0
 @sup_1@DPX@sub_S@@sub_pipe@@sub_X@@sub_R@LIST+(N)
-[Problem: possible clipping. PUTR above has similar structure and one extra line.]
 
 [meta file_name=102726903-05-01-acc.pdf pdf_page=19 doc_page=17 type=macros proof=1]
 [Page header: "IES 2XMX 015"]
@@ -795,7 +794,7 @@ STARTS@arr@     RXF @sub_4@@sub_7@ 47START
                 DPX 1
                 DPX 2
                 DPX 47TABLE
-                RXF @sub_5@@sub_4@ 200040 [some smudge before address, assuming junk]
+                RXF @sub_5@@sub_4@ 200040
                 RXF @sub_6@@sub_5@ KEYSTART
                 RXF @sub_7@@sub_6@ START76
                 MKZ MOVED
@@ -1406,12 +1405,12 @@ MAKPATAX@arr@
 TRUEUP@arr@     @sup_1@STE TRUEUPX
                 SKN ATLINE
                 JPQ TRUEUP1
-                MAKA@hamb@HOVS@arr@@alpha@      [@alpha@ looks a bit smudged, but second argument to MAKA is always a Greek letter]
+                MAKA@hamb@HOVS@arr@@alpha@
                 RSX @sub_beta@ ATBITS+1
                 RSX @sub_gamma@@sub_pipe@@sub_beta@ LSP+LIST
-                PUT|HOVP1,@alpha@@arr@VCON,@gamma@ [same, second arg to PUT is usually a Greek letter]
+                PUT|HOVP1,@alpha@@arr@VCON,@gamma@
                 RSX @sub_gamma@@sub_pipe@@sub_beta@ LEP+LIST
-                PUT|HOVP2,@alpha@@arr@VCON,@gamma@ [ditto]
+                PUT|HOVP2,@alpha@@arr@VCON,@gamma@
                 [Handwritten: "<- MKM MOVED", looks like an intended correction]
                 JPQ TRUEUPX
 TRUEUP1@arr@
@@ -2589,7 +2588,7 @@ ORDCIRC2@arr@
                 hLDE @sub_alpha@ LIST+CVAL
                 hSED {(h)}
                 @sup_1@@sup_1@RSX @sub_S@@sub_pipe@@sub_alpha@ LIST+LSP
-                SED {-(h)}      [Putting h here, by analogy with similar instruction, but it may also be @delta@.]
+                SED {-(h)}
                 @sup_1@@sup_1@RSX @sub_S@@sub_pipe@@sub_alpha@ LIST+LSP
 ORDCIRC3@arr@
                 LDA @sub_S@ LIST+PVAL
@@ -4492,7 +4491,7 @@ TAFSCHK@arr@    h@sup_1@STE TAFST
                 @sup_1@IOS@sub_4@@sub_1@30000   **CONNECT IOA
                 @sup_1@DPX@sub_3@@sub_4@{TPK@beta@}+1   **SAVE SEARCH NO.
                 @sup_2@DPX@sub_3@@sub_4@TAFBL   **ORIGINAL NO.
-                @sup_2@@sup_1@COM TAFBL         ** -(ORIG NO.) [some smudge  after COM, interpreting as junk]
+                @sup_2@@sup_1@COM TAFBL         ** -(ORIG NO.)
                 @sup_2@DPX@sub_3@@sub_5@{TPK@beta@}+1   ** SAVE X@sub_3@@sub_5@
                 @sup_1@DPX@sub_3@@sub_7@{TPK@beta@}+8.  ** SAVE X@sub_3@@sub_7@
 EOTCHK@arr@     h@sup_1@IOS@sub_4@@sub_6@0      **GET REPORT
@@ -6259,7 +6258,7 @@ TX21STRD@arr@
                 hJPQ TX2RD3     **MOD TO h@sup_1@@sup_4@JNX TX2RD3
                 h@sup_6@TSD B   **DATA OR SC1
                 h@sup_1@JNX @sub_3@@sub_4@ TX2RDCONT
-TX2RD2@arr@     h@sup_3@TSD B   **SC2 [guessing the superscript, maybe not 3?]
+TX2RD2@arr@     h@sup_3@TSD B   **SC2
                 @sup_1@IOS @sub_4@@sub_6@ 30120
                 @sup_2@ADD B
 
