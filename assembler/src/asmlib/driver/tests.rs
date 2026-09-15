@@ -1175,6 +1175,45 @@ fn ae_register_names_have_standard_addresses() {
 }
 
 #[test]
+fn default_storage_uses_three_character_groups_and_first_use_order() {
+    let input = concat!(
+        "100|\n",
+        "TEXTPLACE\n",
+        "TEXT\n",
+        "TEXTINDEX\n",
+        "NUMTT\n",
+        "NUMTS\n",
+        "NUMBER\n",
+        "LETΔ\n",
+        "LETCNT\n",
+        "LETS\n",
+        "LETT\n",
+    );
+
+    let program = assemble_source(input, Default::default()).expect("program is valid");
+
+    assert_eq!(program.chunks.len(), 2);
+    assert_eq!(program.chunks[0].address, Address::from(u18!(0o100)));
+    assert_eq!(
+        program.chunks[0].words,
+        vec![
+            u36!(0o121),
+            u36!(0o122),
+            u36!(0o123),
+            u36!(0o116),
+            u36!(0o117),
+            u36!(0o120),
+            u36!(0o112),
+            u36!(0o113),
+            u36!(0o114),
+            u36!(0o115),
+        ]
+    );
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o112)));
+    assert_eq!(program.chunks[1].words, vec![u36!(0); 10]);
+}
+
+#[test]
 fn default_assigned_index_register_easy_case() {
     // See section 6-2.2 of the User Handbook for a description of how
     // this is supposed to work.

@@ -453,7 +453,36 @@ pub(super) fn assign_default_rc_word_tags<R: RcAllocator>(
     rcblock: &mut R,
     final_symbols: &mut FinalSymbolTable,
 ) -> Result<(), RcWordAllocationFailure> {
-    for (name, def) in &mut implicit_symtab.definitions {
+    let mut names = implicit_symtab
+        .definitions
+        .iter()
+        .filter_map(|(name, def)| {
+            if matches!(def, ImplicitDefinition::Undefined(context) if context.requires_rc_word_allocation())
+            {
+                Some(name.clone())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    names.sort_by_key(|name| {
+        let context = implicit_symtab
+            .definitions
+            .get(name)
+            .expect("a collected implicit symbol must still exist")
+            .context();
+        (
+            name.canonical.chars().take(3).collect::<String>(),
+            context.any_span().start,
+            name.clone(),
+        )
+    });
+
+    for name in names {
+        let def = implicit_symtab
+            .definitions
+            .get_mut(&name)
+            .expect("a collected implicit symbol must still exist");
         if let ImplicitDefinition::Undefined(context) = def
             && context.requires_rc_word_allocation()
         {
@@ -467,7 +496,7 @@ pub(super) fn assign_default_rc_word_tags<R: RcAllocator>(
                 value,
             )?;
             final_symbols.define(
-                name.clone(),
+                name,
                 FinalSymbolType::Equality,
                 value.to_string(),
                 FinalSymbolDefinition::PositionIndependent(value),
