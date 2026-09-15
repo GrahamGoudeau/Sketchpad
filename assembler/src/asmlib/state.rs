@@ -5,7 +5,6 @@
 //! - Current numeric base (octal or decimal)
 //! - Currently-known macro definitions
 use std::collections::BTreeMap;
-use std::fmt::Debug;
 
 use chumsky::{inspector::Inspector, prelude::Input};
 
@@ -39,14 +38,14 @@ fn test_numeral_mode_default() {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct TruncatableMap<K: Eq, V: Eq> {
-    in_insertion_order: Vec<K>,
+    history: Vec<(K, Option<V>)>,
     items: BTreeMap<K, V>,
 }
 
 impl<K: Eq, V: Eq> Default for TruncatableMap<K, V> {
     fn default() -> Self {
         TruncatableMap {
-            in_insertion_order: Default::default(),
+            history: Default::default(),
             items: BTreeMap::new(),
         }
     }
@@ -54,15 +53,12 @@ impl<K: Eq, V: Eq> Default for TruncatableMap<K, V> {
 
 impl<K, V> TruncatableMap<K, V>
 where
-    K: Clone + Eq + Ord + Debug,
+    K: Clone + Eq + Ord,
     V: Eq,
 {
     pub(crate) fn insert(&mut self, k: K, v: V) {
-        if self.items.insert(k.clone(), v).is_some() {
-            panic!("cannot insert duplicate entry for {k:?}");
-        } else {
-            self.in_insertion_order.push(k);
-        }
+        let previous = self.items.insert(k.clone(), v);
+        self.history.push((k, previous));
     }
 
     pub(crate) fn get(&self, k: &K) -> Option<&V> {
@@ -70,18 +66,40 @@ where
     }
 
     pub(crate) fn len(&self) -> usize {
-        self.in_insertion_order.len()
+        self.history.len()
     }
 
     pub(crate) fn truncate(&mut self, newlen: usize) {
-        for k in self.in_insertion_order.drain(newlen..) {
-            self.items.remove(&k);
+        let discarded: Vec<(K, Option<V>)> = self.history.drain(newlen..).collect();
+        for (k, previous) in discarded.into_iter().rev() {
+            match previous {
+                Some(value) => {
+                    self.items.insert(k, value);
+                }
+                None => {
+                    self.items.remove(&k);
+                }
+            }
         }
     }
 
     pub(crate) fn map_ref(&self) -> &BTreeMap<K, V> {
         &self.items
     }
+}
+
+#[test]
+fn truncating_a_replacement_restores_the_previous_value() {
+    let mut values = TruncatableMap::default();
+    values.insert("A", 1);
+    let checkpoint = values.len();
+    values.insert("A", 2);
+    values.insert("B", 3);
+
+    values.truncate(checkpoint);
+
+    assert_eq!(values.get(&"A"), Some(&1));
+    assert_eq!(values.get(&"B"), None);
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -101,7 +119,8 @@ impl<'src> State<'src> {
     }
 
     pub(crate) fn define_macro(&mut self, definition: MacroDefinition) {
-        // TODO: provide a diagnostic when a macro is redefined.
+        // Section 6-1.3 of the Users Handbook explicitly permits a
+        // macro instruction to be redefined.
         self.macros.insert(definition.name.clone(), definition);
     }
 
