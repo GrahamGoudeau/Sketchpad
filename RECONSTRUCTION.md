@@ -70,9 +70,10 @@ parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
 All eight jobs emit deterministic machine tapes.  The build checks their SHA-256
-values against `TAPE_SHA256SUMS`.  The next phase compares emitted words with
-the printed octal output.  It then identifies compatible jobs and loads them
-into the simulator.
+values against `TAPE_SHA256SUMS`.  The checksum gate currently rejects all
+eight tapes because the approved hashes predate the historical allocation
+repairs.  The next phase compares emitted words and symbols with the printed
+output.  It then identifies compatible jobs and loads them into the simulator.
 
 ## Validator Changes
 
@@ -109,8 +110,14 @@ in global scope.  Commit `1551fbf` supports local symbols in RC-word macro
 expansions.  Commit `2692cbd` places the RC block after the last manuscript
 block, reuses complete bracketed groups, preserves contiguous RC routines,
 resolves forward macros inside RC words, and preassigns the standard `A`
-through `E` register names.  The assembler package passes 321 unit tests and
-2 golden tests.
+through `E` register names.  Commit `a049fff` assigns automatic storage in
+M4's historical three-character groups and keeps first-use order inside each
+group.  That change brought the assembler package to 322 unit tests and 2
+golden tests.
+Commit `a0ce838` removes redundant parentheses from RC-word identity keys and
+ignores unrelated macro-local definitions in those keys.  It makes all sixteen
+automatic `GX7A` addresses match the printed M4 table.  The assembler package
+passes 323 unit tests and 2 golden tests.
 
 ## Evidence Order
 

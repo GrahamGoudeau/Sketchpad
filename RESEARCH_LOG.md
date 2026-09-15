@@ -746,6 +746,107 @@ Historical significance:
 - The checksum gate prevents a plausible intermediate model from becoming an
   approved reconstruction by accident.
 
+## Checkpoint 21: The Printed Table Reveals Automatic Storage Order
+
+Date: 2026-09-15
+
+The sixteen printed `GX7A` automatic addresses have a complete ordering rule.
+M4 groups the names by their first three characters.  It keeps first-use order
+inside each group.
+
+This rule explains the cases that a complete Unicode sort cannot explain:
+
+- `LETΔ` occurs before `LETCNT`, `LETS`, and `LETT` because all four names are
+  in the `LET` group.  `LETΔ` has the earliest source use in that group.
+- `NUMTT` occurs before `NUMTS` because both names are in the `NUM` group and
+  `NUMTT` occurs first.
+- `TEXTPLACE`, `TEXT`, and `TEXTINDEX` occur in that order because all three
+  names are in the `TEX` group and their first uses have that order.
+
+Simulator commit `a049fff` implements this order.  A regression test covers
+all three groups.  The assembler passes 322 unit tests and 2 golden tests.
+
+The modern addresses now have the exact historical relative order.  Each
+modern address remains nine words above its printed address.  The first modern
+assignment is `020347`.  The first printed assignment is `020336`.
+
+The table is now stored in `evidence/gx7a-automatic-symbols.tsv`.  Each row has
+the exact PDF page and printed page.  This file turns the scan into a direct
+test oracle.
+
+The `2XMX` table also exposed a different class of defect.  Some names that the
+modern assembler treats as automatic storage have ordinary program addresses
+in the printed table.  Those cases indicate missing or damaged tag definitions
+in the recovered source.  They must be repaired from the source pages before
+allocator changes can explain them.
+
+Historical significance:
+
+- The project can now separate ordering errors from placement errors.
+- The symbol tables can detect missing source tags even when assembly succeeds.
+- Successful assembly is therefore a midpoint.  It is not the completion gate.
+
+## Checkpoint 22: GX7A Matches Its Printed Automatic Addresses
+
+Date: 2026-09-15
+
+The remaining nine-word `GX7A` difference came from RC-word identity.  Macro
+substitution inserts parentheses around an argument.  Nested macro calls can
+insert more than one pair.  These forms have the same value:
+
+```text
+α
+(α)
+((α))
+```
+
+The modern assembler used the syntax trees as reuse keys.  It therefore gave
+new RC addresses to nine words that M4 reused.  The nine differences occur in
+pipe constructs.  Their evaluated words are identical.  Their syntax trees
+differ only by redundant single-atom parentheses.
+
+Simulator commit `a0ce838` normalizes a cloned word before it creates the
+reuse key.  It does not change the expression that the assembler emits or
+evaluates.  It also limits a macro-local reuse key to definitions that the word
+uses.  A new regression test proves that `{X}` and `{((X))}` share one address.
+The assembler passes 323 unit tests and 2 golden tests.
+
+The `GX7A` RC block still starts at `017277`.  The corrected build emits 2,043
+words.  All sixteen automatic symbols now equal the printed M4 addresses:
+
+| First symbol | Address | Last symbol | Address |
+| --- | ---: | --- | ---: |
+| `45TYPE` | `020336` | `ZZLAST` | `020355` |
+
+The complete row-by-row oracle remains in
+`evidence/gx7a-automatic-symbols.tsv`.  The exact match covers every address
+from `45TYPE` through `ZZLAST`.  It confirms both the three-character ordering
+rule and the nine RC-word reuses.
+
+All eight jobs still assemble after this repair:
+
+| Job | Emitted words | Tape SHA-256 |
+| --- | ---: | --- |
+| `2XMX` | 2,839 | `93df3304f5903edf98086b16b60be097a406bd784a1dd0ef4dc6a87d2716ece1` |
+| `OPLW` | 269 | `ba66d1c0e9b7648ad3eb55fadd657056615fdcf6719e9d11e7baa8d0d3073503` |
+| `GX7A` | 2,043 | `63e52f4a13778128cb0c34608be1b058477edb22e1e28519a21a04c15b17a6c9` |
+| `BOO7` | 1,033 | `06b21dbfc7c5e9d62505478a26e4d1448db4eb21b5f439625862c0e433fefcce` |
+| `ONLW` | 1,826 | `08456f0f24e48d45cd3590b7d1caead76908303c36b004876f125fa061b90fab` |
+| `APY5` | 1,267 | `bed25cf8494c2a32f7166b51d1bd1b7773e9570c838893a0c6ebc74e60cd4b30` |
+| `LYUO` | 1,435 | `d5fd96201aee0288b71cae78c8dd514c280d68348f0ccd1226fe123a52a5113f` |
+| `Y3HT` | 1,852 | `afa26e6188394d172cf501f5fdb9ed5750e46ad82ce6f99e5f0bbd240e6ffda9` |
+
+The checksum gate rejects all eight tapes.  This is expected.  Commit
+`a049fff` changes automatic assignment order.  Commit `a0ce838` changes RC
+reuse.  The approved hashes still describe the earlier allocator model.
+
+Historical significance:
+
+- A printed M4 table now validates a complete modern allocation result.
+- Nine apparent missing words were duplicate allocations, not lost source.
+- The repair follows a semantic rule that applies across all eight jobs.
+- The project now has a direct address oracle for future assembler changes.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -756,11 +857,13 @@ All four Part 1 fragments now assemble into deterministic tapes.
 The complete cross-volume `BOO7` job also assembles into deterministic output.
 All eight recovered assembly jobs now have deterministic machine output.
 One reproducible command builds all eight tapes.  The checksum gate currently
-rejects seven changed tapes and accepts the unaffected `OPLW` control tape.
+rejects all eight provisional tapes.
 The `GX7A` RC block now has a printed historical address oracle.
 The forward-macro shortfall and its false automatic symbols are resolved.
-The next goal is to recover the historical RC allocation schedule and the
-automatic-symbol ordering from the printed `GX7A` addresses.
+The automatic-symbol order now matches the printed `GX7A` sequence.
+All sixteen automatic `GX7A` addresses now match that sequence exactly.
+The next goal is to transcribe wider symbol tables and repair missing tags in
+the other jobs.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.
