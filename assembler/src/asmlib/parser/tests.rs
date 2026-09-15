@@ -2998,6 +2998,32 @@ mod macro_tests {
     }
 
     #[test]
+    fn test_mixed_script_macro_parameter() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF MOVE|A→B\n",
+                "hLDE A\n",
+                "STE B\n",
+                "☛☛EMD\n",
+                "MOVE|PSPL→VA@sub_alpha@\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        assert_eq!(got.blocks.len(), 1);
+        assert_eq!(got.blocks[0].sequences.len(), 1);
+        assert_eq!(got.blocks[0].sequences[0].instructions.len(), 2);
+        assert_eq!(
+            got.blocks[0].sequences[0].instructions[1]
+                .instruction
+                .fragments
+                .len(),
+            3
+        );
+    }
+
+    #[test]
     fn test_parse_macro_invocation_with_equality() {
         let got = parse_successfully_with(
             concat!(

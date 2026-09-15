@@ -994,6 +994,11 @@ impl SymbolOrLiteral {
                     Some((_, Some(MacroParameterValue::Expansion(_)))) => {
                         unreachable!("macro expansions require a standalone parameter line")
                     }
+                    Some((span, Some(MacroParameterValue::Fragments(_)))) => {
+                        panic!(
+                            "mixed-script macro parameter {symbol_name} at {span:?} is not a standalone instruction fragment"
+                        )
+                    }
                     Some((span, None)) => {
                         // symbol_name was a parameter name, but the
                         // macro invocation did not specify it, so we
@@ -1478,6 +1483,31 @@ impl CommaDelimitedFragment {
         self.fragment.symbol_uses(block_id, block_offset)
     }
 
+    fn mixed_script_substitution(
+        &self,
+        param_values: &MacroParameterBindings,
+    ) -> Option<Vec<(Script, ArithmeticExpression)>> {
+        let InstructionFragment::Arithmetic(ArithmeticExpression { first, tail }) = &self.fragment
+        else {
+            return None;
+        };
+        let Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(script, name, _)) = &first.magnitude
+        else {
+            return None;
+        };
+        if first.negated {
+            return None;
+        }
+        let Some((_, Some(MacroParameterValue::Fragments(fragments)))) = param_values.get(name)
+        else {
+            return None;
+        };
+        let mut fragments = fragments.clone();
+        let (_, expression) = fragments.iter_mut().find(|(got, _)| got == script)?;
+        expression.tail.extend(tail.clone());
+        Some(fragments)
+    }
+
     fn substitute_macro_parameters(
         &self,
         param_values: &MacroParameterBindings,
@@ -1551,20 +1581,34 @@ impl UntaggedProgramInstruction {
         on_missing: OnUnboundMacroParameter,
         macros: &BTreeMap<SymbolName, MacroDefinition>,
     ) -> Option<UntaggedProgramInstruction> {
-        let tmp_frags: OneOrMore<Option<CommaDelimitedFragment>> = self
-            .fragments
-            .map(|frag| frag.substitute_macro_parameters(param_values, on_missing, macros));
-        if tmp_frags.iter().any(Option::is_none) {
-            None
-        } else {
-            Some(UntaggedProgramInstruction {
-                fragments: tmp_frags.into_map(|mut maybe_frag| {
-                    maybe_frag
-                        .take()
-                        .expect("we already checked this fragment wasn't None")
-                }),
-            })
+        let mut result = Vec::new();
+        for fragment in self.fragments.iter() {
+            if let Some(fragments) = fragment.mixed_script_substitution(param_values) {
+                let last = fragments.len() - 1;
+                result.extend(fragments.iter().enumerate().map(|(index, (_, expr))| {
+                    CommaDelimitedFragment {
+                        span: expr.span(),
+                        leading_commas: (index == 0)
+                            .then(|| fragment.leading_commas.clone())
+                            .flatten(),
+                        holdbit: if index == 0 {
+                            fragment.holdbit
+                        } else {
+                            HoldBit::Unspecified
+                        },
+                        fragment: InstructionFragment::Arithmetic(expr.clone()),
+                        trailing_commas: (index == last)
+                            .then(|| fragment.trailing_commas.clone())
+                            .flatten(),
+                    }
+                }));
+                continue;
+            }
+            result.push(fragment.substitute_macro_parameters(param_values, on_missing, macros)?);
         }
+        Some(UntaggedProgramInstruction {
+            fragments: OneOrMore::try_from_vec(result).ok()?,
+        })
     }
 }
 

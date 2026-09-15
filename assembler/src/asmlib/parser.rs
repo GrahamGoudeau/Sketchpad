@@ -640,6 +640,13 @@ fn split_macro_argument(
     result
 }
 
+fn is_macro_argument_boundary(token: &Tok) -> bool {
+    matches!(
+        token,
+        Tok::Newline | Tok::RightBrace(Script::Normal) | Tok::RightParen(Script::Normal)
+    )
+}
+
 struct MacroInvocationParser<'src, I>
 where
     I: Input<'src, Token = Tok, Span = Span> + ValueInput<'src>,
@@ -722,10 +729,7 @@ where
             let param_def = &param_defs[param_index];
             let before = inp.cursor();
             if let Some(got) = inp.peek_maybe().as_deref() {
-                if got == &Tok::Newline
-                    || got == &Tok::RightBrace(Script::Normal)
-                    || got == &Tok::RightParen(Script::Normal)
-                {
+                if is_macro_argument_boundary(got) {
                     param_values.insert(param_def.name.clone(), inp.span_since(&before), None);
                     param_index += 1;
                     continue;
@@ -773,17 +777,70 @@ where
                         };
                     match parsed_arg {
                         (_, Some(MacroParameterValue::Value(script, expr))) => {
-                            let argument_values =
-                                split_macro_argument(script, expr, &param_defs[param_index + 1..]);
-                            for argument in argument_values {
-                                let argument_span = argument.span();
+                            let mut argument_values: Vec<Vec<(Script, ArithmeticExpression)>> =
+                                split_macro_argument(script, expr, &param_defs[param_index + 1..])
+                                    .into_iter()
+                                    .map(|expr| vec![(script, expr)])
+                                    .collect();
+                            let next_param_index = param_index + argument_values.len();
+                            while inp
+                                .peek_maybe()
+                                .as_deref()
+                                .is_some_and(|token| !is_macro_argument_boundary(token))
+                                && param_defs.get(next_param_index).is_none_or(|next_param| {
+                                    inp.peek_maybe().as_deref()
+                                        != Some(&next_param.preceding_terminator)
+                                })
+                            {
+                                let checkpoint = inp.save();
+                                match inp.parse(&self.expr_parser)? {
+                                    (_, Some(MacroParameterValue::Value(script, expr))) => {
+                                        argument_values
+                                            .last_mut()
+                                            .expect("there is at least one argument")
+                                            .push((script, expr));
+                                    }
+                                    _ => {
+                                        inp.rewind(checkpoint);
+                                        break;
+                                    }
+                                }
+                            }
+                            for fragments in argument_values {
+                                let argument_span = Span::from(
+                                    fragments
+                                        .first()
+                                        .expect("argument is not empty")
+                                        .1
+                                        .span()
+                                        .start
+                                        ..fragments
+                                            .last()
+                                            .expect("argument is not empty")
+                                            .1
+                                            .span()
+                                            .end,
+                                );
+                                let value = if fragments.len() == 1 {
+                                    let (script, expr) = fragments
+                                        .into_iter()
+                                        .next()
+                                        .expect("argument is not empty");
+                                    MacroParameterValue::Value(script, expr)
+                                } else {
+                                    MacroParameterValue::Fragments(fragments)
+                                };
                                 param_values.insert(
                                     param_defs[param_index].name.clone(),
                                     argument_span,
-                                    Some(MacroParameterValue::Value(script, argument)),
+                                    Some(value),
                                 );
                                 param_index += 1;
                             }
+                        }
+                        (span, Some(fragments @ MacroParameterValue::Fragments(_))) => {
+                            param_values.insert(param_def.name.clone(), span, Some(fragments));
+                            param_index += 1;
                         }
                         (span, Some(expansion @ MacroParameterValue::Expansion(_))) => {
                             param_values.insert(param_def.name.clone(), span, Some(expansion));
