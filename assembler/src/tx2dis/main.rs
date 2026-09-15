@@ -7,7 +7,7 @@ use std::error::Error;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display, Formatter};
 use std::fs::OpenOptions;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, ErrorKind, Read};
 use tracing::{Level, span};
 use tracing_subscriber::prelude::*;
 
@@ -61,16 +61,8 @@ fn read_splayed_words<R: Read>(
     for _ in 0..count {
         let mut w = Unsigned36Bit::ZERO;
         let mut buf: [u8; SPLAY_SIZE] = [0; SPLAY_SIZE];
-        match input.read(&mut buf) {
-            Ok(0) => {
-                return Err(Fail::ShortFile);
-            }
-            Ok(nbytes) => {
-                if nbytes != SPLAY_SIZE {
-                    return Err(Fail::Generic(
-                        "input file length should be a multiple of 6 bytes".to_string(),
-                    ));
-                }
+        match input.read_exact(&mut buf) {
+            Ok(()) => {
                 for byte in buf.into_iter() {
                     let line: Unsigned6Bit = Unsigned6Bit::try_from(byte & 0o77).unwrap();
                     w = cycle_and_splay(w, line);
@@ -79,6 +71,9 @@ fn read_splayed_words<R: Read>(
                     **checksum = update_sum(**checksum, w);
                 }
                 result.push(w);
+            }
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                return Err(Fail::ShortFile);
             }
             Err(e) => {
                 return Err(Fail::ReadFailed(e.to_string()));
@@ -272,5 +267,39 @@ fn main() {
         Ok(()) => {
             std::process::exit(0);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Unsigned36Bit, read_splayed_words};
+    use std::io::{self, Read};
+
+    struct OneByteReader {
+        bytes: Vec<u8>,
+        position: usize,
+    }
+
+    impl Read for OneByteReader {
+        fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
+            if self.position == self.bytes.len() {
+                return Ok(0);
+            }
+            output[0] = self.bytes[self.position];
+            self.position += 1;
+            Ok(1)
+        }
+    }
+
+    #[test]
+    fn reads_a_word_across_short_reads() {
+        let mut input = OneByteReader {
+            bytes: vec![0; 6],
+            position: 0,
+        };
+
+        let words = read_splayed_words(&mut input, 1, None).expect("the word is complete");
+
+        assert_eq!(words, vec![Unsigned36Bit::ZERO]);
     }
 }
