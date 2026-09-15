@@ -554,7 +554,7 @@ try {
   runButton.disabled = false;
   resetButton.disabled = false;
   mobileRunButton.disabled = false;
-  start();
+  setMessage("The reconstructed machine is ready. Select RUN to begin.");
 } catch (error) {
   stopWithError(error);
 }

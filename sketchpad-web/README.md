@@ -17,9 +17,8 @@ npm run dev
 
 Open `http://localhost:8082`.
 
-The machine starts automatically.  The browser changes each WASM batch size to
-keep about 10 milliseconds of simulator work in one animation frame.  This
-keeps the controls responsive on slower mobile devices.
+The machine waits for the user to select `RUN`.  This prevents an unbounded
+simulator workload during page load.
 
 The bundled tape is the compatible seven-job Sketchpad reconstruction.  Its
 entry point is octal address `200140`.  Its SHA-256 is
