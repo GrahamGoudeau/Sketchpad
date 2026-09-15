@@ -56,17 +56,18 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R006 and validator commits `d3d1d9b`, `4d6bf6c`,
-and `81e83f9` move the first diagnostic to line 851.
+Repairs R001 through R007 and validator commits `d3d1d9b`, `4d6bf6c`,
+`81e83f9`, `5b2e5c0`, `2e15acd`, and `5e2c77b` move the first
+diagnostic to line 1152.
 
 ```text
-sk.tx2as:851:39
-found arrow after an unexpected macro terminator
+sk.tx2as:1152:33
+found `@sub_alpha@` after the normal-script macro argument `VA`
 ```
 
-The line appears to invoke `MOVEB`, but it uses `@times@` where the macro
-definition requires `|`.  Check the scan and other copies before changing
-the line.
+The `MOVE` call supplies `VA@sub_alpha@` as one mixed-script macro
+argument.  The scan is clear.  Extend macro parameter substitution before
+changing the source.
 
 ## Validator Changes
 
@@ -74,7 +75,11 @@ The sibling TX-2 simulator checkout uses branch
 `sketchpad-reconstruction`.  Commit `d3d1d9b` expands simple macros inside
 RC words and treats an omitted pipe address as zero.  Commit `4d6bf6c`
 adds the M4 exclusive-OR operator as `@xor@`.  Commit `81e83f9` accepts
-bare zero-parameter macros.  The complete workspace test suite passes.
+bare zero-parameter macros.  Commit `5b2e5c0` accepts omitted macro
+parameters and arithmetic-looking macro terminators.  Commit `2e15acd`
+accepts arithmetic expressions in origins.  Commit `5e2c77b` accepts macro
+substitution in pipe indexes and a nested macro as a parameter.  The
+assembler test suite passes.
 
 ## Evidence Order
 
@@ -114,6 +119,7 @@ file marks it clearly and the log records the alternatives.
 | R004 | `sk.tx2as:492-504` | mechanical | The source invokes `ERROR1` only after both definitions; validator uses one-pass macro lookup | Move `ERROR1` before `ERROR` without changing either definition. |
 | R005 | `sk.tx2as:657,678,696,718,3189,4157,4178,4196,4218` | mechanical | Printed compound XOR glyph; Users Handbook section 6-2.7 | Markup `@xor@` replaces the unsupported compound-glyph name `@circled_v@`. |
 | R006 | `sk.tx2as:830,832` | inferred | High-resolution view of Sketchpad part 1, PDF page 23; matching faint glyphs; nearby bit-position pattern | Read both missing bit numbers as `8`. |
+| R007 | `sk.tx2as:886,888,889,892,920` | verified | High-resolution views of Sketchpad part 1, PDF pages 24 and 25; repeated `α` glyph shape; handwritten button map | Restore three `α` subscripts, draw selector `1.8`, and constraint selector `2.8`. |
 
 ## Publication Gate
 

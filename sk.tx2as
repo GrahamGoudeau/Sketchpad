@@ -883,13 +883,13 @@ READIT@arr@     @sup_1@STE READITEX
                 REX @sub_alpha@ 0
                 hSXL @sub_alpha@ *47TABLE
                 hJPQ ALLREAD
-                LDA @sub_?@ 47TABLE+1
+                LDA @sub_alpha@ 47TABLE+1
                 STA 76BUT
-                INX @sub_?@ 1
-                DPX @sub_?@ 76TABLE
+                INX @sub_alpha@ 1
+                DPX @sub_alpha@ 76TABLE
 PAGE1D@arr@     SKZ @sub_1@@sub_dot@@sub_6@ 76BUT [Handwritten: "<- JUNK 2.1", "JUNK" is crossed out]
                 hJPQ STOPMOVEP
-                SKZ @sub_1@@sub_dot@@sub_?@ 76BUT
+                SKZ @sub_1@@sub_dot@@sub_8@ 76BUT
                 hJPQ STARTDRAW
                 SKZ @sub_1@@sub_dot@@sub_7@ 76BUT
                 hJPQ DESIGNATE
@@ -917,7 +917,7 @@ PAGE1D@arr@     SKZ @sub_1@@sub_dot@@sub_6@ 76BUT [Handwritten: "<- JUNK 2.1", "
                 hJPQ MAKESCALER
                 SKZ @sub_4@@sub_dot@@sub_1@ 76BUT
                 hJPQ MGPSTART
-                SKZ @sub_2@@sub_dot@@sub_?@ 76BUT [Handwritten: "<- 1.1"]
+                SKZ @sub_2@@sub_dot@@sub_8@ 76BUT [Handwritten: "<- 1.1"]
                 hJPQ MAKECONS
 PAGE1E@arr@     SKZ @sub_2@@sub_dot@@sub_9@ 76BUT [Handwritten: "<- 1.2"]
                 hJPQ TRUEUP
