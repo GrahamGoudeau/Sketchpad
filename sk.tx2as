@@ -2349,7 +2349,7 @@ GARBS@arr@      INX @sub_beta@ 0
                 JPQ GARB4A
 GARB6@arr@      hLDE @sub_S@ LIST-1
                 @sup_1@SED { 0}
-                JPQ GARB?       [problem: illegible character]
+                JPQ GARB3
                 hLDE GARBA
                 @sup_1@STE @sub_S@ LIST-1
                 RSX @sub_S@@sub_pipe@@sub_S@ LIST

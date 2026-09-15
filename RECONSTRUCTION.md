@@ -65,18 +65,18 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R007 and validator commits `d3d1d9b`, `4d6bf6c`,
-`81e83f9`, `5b2e5c0`, `2e15acd`, `5e2c77b`, and `8d7b8da` move the
-first diagnostic to line 1259.
+Repairs R001 through R008 and validator commits `d3d1d9b`, `4d6bf6c`,
+`81e83f9`, `5b2e5c0`, `2e15acd`, `5e2c77b`, `8d7b8da`, `ebf7800`,
+`8d07d2d`, and `b7f4f9d` move the first diagnostic to line 2432.
 
 ```text
-sk.tx2as:1259:21
-found `@hamb@` after the tag `MKCN2@arr@` and macro name `MAKA`
+sk.tx2as:2432:24
+found `h` inside the RC word `{-(h)}`
 ```
 
-The tagged line invokes `MAKA@hamb@TPVALS@arr@@gamma@`.  Untagged calls of
-the same macro already parse.  The scan is clear.  Extend tagged macro
-invocation support before changing the source.
+The source appears to use the hold symbol as a value inside a negated
+parenthesized expression.  Verify the scan and M4 word-assembly rules before
+changing either the source or the validator.
 
 ## Validator Changes
 
@@ -88,8 +88,10 @@ bare zero-parameter macros.  Commit `5b2e5c0` accepts omitted macro
 parameters and arithmetic-looking macro terminators.  Commit `2e15acd`
 accepts arithmetic expressions in origins.  Commit `5e2c77b` accepts macro
 substitution in pipe indexes and a nested macro as a parameter.  Commit
-`8d7b8da` accepts mixed-script macro parameters.  The assembler test suite
-passes.
+`8d7b8da` accepts mixed-script macro parameters.  Commit `ebf7800` accepts
+tags on macro invocations.  Commit `8d07d2d` accepts hold bits in macro
+parameters.  Commit `b7f4f9d` treats an omitted pipe index as zero.  The
+assembler test suite passes.
 
 ## Evidence Order
 
@@ -130,6 +132,7 @@ file marks it clearly and the log records the alternatives.
 | R005 | `sk.tx2as:657,678,696,718,3189,4157,4178,4196,4218` | mechanical | Printed compound XOR glyph; Users Handbook section 6-2.7 | Markup `@xor@` replaces the unsupported compound-glyph name `@circled_v@`. |
 | R006 | `sk.tx2as:830,832` | inferred | High-resolution view of Sketchpad part 1, PDF page 23; matching faint glyphs; nearby bit-position pattern | Read both missing bit numbers as `8`. |
 | R007 | `sk.tx2as:886,888,889,892,920` | verified | High-resolution views of Sketchpad part 1, PDF pages 24 and 25; repeated `α` glyph shape; handwritten button map | Restore three `α` subscripts, draw selector `1.8`, and constraint selector `2.8`. |
+| R008 | `sk.tx2as:2352` | inferred | Enhanced view of Sketchpad part 1, PDF page 51; same-page `3` glyph; `SED` branch and garbage-collector control flow; no `GARB8` definition | Read the final label character as `3`, producing `JPQ GARB3`. |
 
 ## Publication Gate
 
