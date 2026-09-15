@@ -2456,3 +2456,56 @@ must resolve the exact light-pen and pushbutton release timing expected by
 `DESIGNATE`.  It must also inspect the sequence-76 run flag and the sequence-47
 queue at the point where Q1.7 transfers control.  Circle creation remains
 unverified.
+
+## Checkpoint 61: Browser Scope Clock and Light-Pen Acquisition Repair
+
+Date: 2026-09-15
+
+A desktop operator could create lines, but the light pen appeared to work only
+in a very small area.  The assembly-drawn tracker also followed the pointer
+with a large delay.  Inspection found a browser timing error.  The emulator
+could execute and test the light pen up to 25 milliseconds ahead of the scope
+image that the browser showed.  The operator therefore aimed at old phosphor
+while the emulated photocell tested newer unit-60 points.
+
+The browser now uses one scope-clock function for both execution and display.
+It no longer adds the 25-millisecond lead.  This change does not alter the TX-2
+clock, unit 55, unit 60, or Sketchpad assembly.  A focused test requires the
+execution target and display time to be identical.
+
+The same inspection found two presentation defects.  A maximum coordinate
+mapped to canvas coordinate `width` or `height`, which is outside the last
+valid pixel and clipped half of an edge spot.  All four hardware origin modes
+now map both coordinate extremes to valid pixels.  A CSS graticule also drew a
+vertical and horizontal line through the exact center.  That decoration matched
+the reported center seam.  It was not unit-60 output, so it was removed.
+
+The primary source is `sources/TX-2_UsersHandbook_Nov63.pdf`, PDF pages 111 and
+112, unit 60, "OSCILLOSCOPE DISPLAY."  It specifies a 7-by-7-inch,
+point-addressed display with 10-bit signed one's-complement coordinates.  It
+states that each point must be specified separately and that the display must
+repeat points for continuous viewing.  It specifies center, bottom-center,
+left-center, and lower-left origin modes.  It explains that moved origins use
+automatic sign-bit complementation.  It does not show a fixed center
+graticule.
+
+The preceding handbook page for unit 55 states that the light pen responds
+only during scope-60 intensification.  It also describes a manual sensitivity
+dial.  The proper setting depended on scope intensity and was set by trial and
+error.  The browser now exposes the modeled pickup radius instead of hiding a
+fixed value.  The default radius is 40 of 1022 physical scope units.  This is a
+model parameter.  It is not claimed as a recovered historical dial setting.
+
+Two read-only operator diagnostics were added.  The light-pen readout combines
+unit-55 detection count with Sketchpad's original `LPLOST` metabit.  The
+selection readout decodes object-type bits from the original `ATBITS` word at
+`200044`.  Neither readout writes emulator or program state.  They make the
+real acquisition sequence visible: touch active scope ink, wait for tracking,
+wait for `LINE` selection, and then press the physical command input.
+
+The display mapping test passes.  The full WebAssembly regression still draws
+and selects an assembly-created line.  It enters `TRUEUP`, creates an HOV
+constraint, enters `RELAX`, changes an endpoint, and reduces the residual.  A
+second regression still enters `FIXIT`, links the selected line into `FIXEDS`,
+enters `UNFIX`, and restores every changed list word.  No Rust CPU or assembly
+source changed in this checkpoint.
