@@ -1627,10 +1627,13 @@ site definition.  The script builds release WASM.  It installs an immutable
 dated directory.  It changes the `current` symlink.  It validates Caddy before
 it reloads Caddy.  It does not restart Caddy.
 
-Release `20260915T112912Z` now runs at
-`https://scratchpad.acyclic.sh/`.  Its active server path is
-`/opt/acyclic/Scratchpad/releases/20260915T112912Z`.  Caddy serves the WASM
-file as `application/wasm`.  HTTPS, HSTS, content-type protection, a restrictive
+The first public release was `20260915T112912Z`.  A packaging audit found
+macOS metadata in that archive.  Simulator commits `775e223` and `29de852`
+remove AppleDouble files and extended attributes from later archives.  Release
+`20260915T113252Z` supersedes the first release.  Its active server path is
+`/opt/acyclic/Scratchpad/releases/20260915T113252Z`.  It runs at
+`https://scratchpad.acyclic.sh/`.  Caddy serves the WASM file as
+`application/wasm`.  HTTPS, HSTS, content-type protection, a restrictive
 permissions policy, and a no-referrer policy are active.
 
 A live browser test uses a 390 by 844 pixel mobile viewport.  The machine
