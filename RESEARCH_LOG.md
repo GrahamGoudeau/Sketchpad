@@ -2410,3 +2410,11 @@ No graphical browser was opened for this production check.  This avoids the
 host failure previously associated with loading an earlier build in Chrome.
 The release had already passed Node and WebAssembly interaction tests.  The
 public check verified the deployed static artifacts and redirect path only.
+
+After the `FIXIT` and `UNFIX` regression passed, reconstruction commit
+`06ea20f` and simulator commit `6b8fc88` were pushed.  Static release
+`20260915T222217Z` then replaced the public symlink.  Caddy again validated and
+reloaded.  Public checks returned HTTP 200 for the canonical page, versioned
+JavaScript, and WebAssembly.  The page contains the advanced command status
+guide.  The JavaScript contains the Q3.3 and Q2.7 keyboard routes.  The WASM
+file remains 593,792 bytes.
