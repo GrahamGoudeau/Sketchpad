@@ -3872,11 +3872,12 @@ STARTS@arr@     CSQ@sub_5@@sub_4@
                 RXF @sub_5@@sub_5@ LPFIND
                 JPQ INTSTART
 SQ60SEE@arr@
-                RSX @sub_S@@sub_pipe@@sub_alpha@ LPSEEN
+                RSX @sub_S@@sub_1@@sub_alpha@ LPSEEN
                 JPQ #+3
-                hLDQ @sub_S@@sub_pipe@@sub_alpha@ LPSEE
-                STE @sub_S@@sub_pipe@@sub_alpha@ PENSEE
-                @sup_minus@@sup_1@JPX @sub_S@@sub_pipe@@sub_alpha@#-2
+SQ60SEELOOP@arr@
+                hLDE @sub_S@@sub_1@@sub_alpha@ LPSEE
+                STE @sub_S@@sub_1@@sub_alpha@ PENSEE
+                @sup_minus@@sup_1@JPX @sub_S@@sub_1@@sub_alpha@ SQ60SEELOOP
                 MOVE|LPSEEN@arr@PENSEEN
                 DPX LPSEEN
                 DPX LPTT        **SO IT'LL SEE SAME LINE AGAIN
@@ -4284,7 +4285,7 @@ PSEUDO@arr@     @sup_1@STE PSEXIT
                 STA PSTS
                 @sup_1@@sup_2@LDA PSTS
                 MUL SCSZ
-                SAB { 10.,}
+                SAB { 18.,}   **RECONSTRUCTION: 10. IN SCAN CONTRADICTS 18-BIT FRACTION FORMAT
                 ADD SCCEN
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=101 doc_page=251 type=code proof=1]
@@ -4293,7 +4294,7 @@ PSEUDO@arr@     @sup_1@STE PSEXIT
                 STA PENLOC
                 @sup_1@@sup_1@LDA PSTS
                 MUL SCSZ
-                SAB { 10.,}
+                SAB { 18.,}   **RECONSTRUCTION: 10. IN SCAN CONTRADICTS 18-BIT FRACTION FORMAT
                 ADD SCCEN+1
                 STA PENLOC+1
                 RSX @sub_P@@sub_S@@sub_alpha@ PENSEEN
@@ -4528,11 +4529,11 @@ PSAL@arr@       LDA PSNPS
                 LDD { 1}
                 @sup_2@RSX @sub_P@@sub_S@@sub_alpha@ PSNPS+3
                 SXD @sub_P@@sub_S@@sub_alpha@ CIRCLES-LIST
-                MKN ((ATCIRCLE)@xor@(377777,,))+ D
+                MKN ((ATCIRCLE)@and@(377777,,))+ D
                 SXD @sub_P@@sub_S@@sub_alpha@ LINES-LIST
-                MKN ((ATLINE)@xor@(377777,,))+ D
+                MKN ((ATLINE)@and@(377777,,))+ D
                 SXD @sub_P@@sub_S@@sub_alpha@ INSTANCES-LIST
-                MKN ((ATINS)@xor@(377777,,))+ D
+                MKN ((ATINS)@and@(377777,,))+ D
                 hSTC ATBITS+1
                 STD ATBITS
                 hSTA PSPL
@@ -6087,7 +6088,7 @@ LMAG1@arr@      LDA LMDX
                 LDA LMSST
                 LDB {-0,400,,-0,400}
                 LDC LMNAME
-                INC C
+                INS C
                 STC @sub_C@@sub_M@@sub_alpha@ DISPLAY FILE-1
                 DPX @sub_C@@sub_M@@sub_alpha@ NDISP
                 JPQ LMAGEXIT
@@ -6178,9 +6179,9 @@ LMAG4@arr@      HDIF|LMSTART+1,SCCEN+1  **X@delta@Y-Y@delta@X
 [Page header: "LMH Y3HT 020"]
 
 LMAG5@arr@      SCNORM|LMSTART=LMSST@arr@LMAG5A
-                SCNORM|LMSTART+1@arr@1=@sup_2@@sup_2@ LMSST-LMAG5A
+                SCNORM|LMSTART+1@arr@1=@sup_2@@sup_2@ LMSST@arr@LMAG5A
                 SCNORM|LMEND=LMSEND@arr@LMAG5B
-                SCNORM|LMEND+1@arr@1=@sup_2@@sup_2@ LMSEND-LMAG5B
+                SCNORM|LMEND+1@arr@1=@sup_2@@sup_2@ LMSEND@arr@LMAG5B
                 JPQ LMDRAW      **BOTH ON
 LMAG5A@arr@     SCNORM|LMEND=LMSEND@arr@LMAG5C
                 SCNORM|LMEND+1@arr@1=@sup_2@@sup_2@ LMSEND@arr@LMAG5C
@@ -6395,7 +6396,7 @@ SQUARE ROOT BY HPP@arr@
 
                 SKU MKZ @sub_4@@sub_dot@@sub_9@ A
                 SAB {-1,}**ROOT TO 36 BITS IN A
-                SAB #+61-52**PROPER EXPONENT [Handwritten on the right: "<- 202422"
+                SAB #+61-52**PROPER EXPONENT [Handwritten on the right: "<- 202422"]
                 JPQ #+3
                 COM B**FALLS THRU IF N<0
                 COM A

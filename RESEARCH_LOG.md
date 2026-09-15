@@ -1978,3 +1978,252 @@ tracking or allocate a line.  No assembly-created shape or solved constraint
 has passed acceptance.  The public site still runs the
 prior safe release at `https://sketchpad.acyclic.sh/`.  The readable C
 translation remains a separate explanatory artifact.
+
+## Checkpoint 45: Later Instructions and a Real Sketchpad Line Record
+
+The hardware-only interaction path exposed more missing TX-2 operations.  The
+simulator now implements and tests `SAB`, `DIV`, `NAB`, `SCB`, `CYA`, `CYB`,
+`CAB`, `ITA`, `UNA`, `DSA`, and `INS`.  It also accepts the two AOP forms used
+by this program.  These changes are CPU behavior.  They do not implement any
+Sketchpad geometry.
+
+The recovered M4 source also uses `0/0` in omitted macro-parameter expressions.
+The contemporary M4 convention makes this expression zero.  The reconstruction
+assembler previously rejected it as division by zero.  The assembler now
+implements the historical convention and has a focused regression test.
+
+A stationary physical pen and external button `1.8` now make original sequence
+47 allocate two point records and one line record.  The picture-list high-water
+mark at `024000` grows from `000635` to `000715`.  The two point records start at
+`024635` and `024657`.  The line record starts at `024701`.  Its endpoint links
+at `024711` and `024713` refer to those two point records.
+
+This is direct evidence that the original assembly performs object creation.
+It is not evidence of a drawn line.  The two point records currently contain
+equal coordinates.  A host-language renderer must not turn that degenerate
+record into a visible line.
+
+## Checkpoint 46: Square Root Failure and the `CYR` Evidence
+
+Continuous pen tracking first failed in the original `ROTATER` path.  The
+`PYTHAGORIAN` routine returned zero.  `ROTATER` then divided by a zero value in
+`MATD` and entered `BADOV`.
+
+An instruction trace isolated the loss to the signed exponent-halving operation
+in the 1960 square-root routine.  The instruction is `SKN MKN CYR 4.1` and the
+source comment says `HALVE EXPONENT`.  The previous emulator used a zero-fill
+right shift for `CYR`.  This erased the sign bit.  A quarter-local rotation was
+also tested and rejected because it broke the independent original `TRACK`
+shift loop.
+
+The current implementation performs a full-word right shift and preserves the
+left sign bit.  This choice is an evidence-based reconstruction.  The User
+Handbook calls `CYR` a right cycle.  The Volume 2 technical manual states that
+the Exchange Element cycles or shifts E into M.  The two independent original
+code paths constrain the remaining ambiguity: `TRACK` requires movement across
+quarter boundaries and eventual zero, while the square-root routine requires
+signed halving.  No consulted sentence explicitly says "arithmetic full-word
+right shift."  This inference therefore remains documented as an inference.
+
+After this change, the square-root result remains nonzero.  The traced run does
+not enter `BADOV`.  Focused tests preserve the exact square-root input case and
+the sign-extending `CYR` behavior.
+
+## Checkpoint 47: `SQ60SEE` Index-Register Transcription Repair
+
+A slow physical pen path next reached an invalid word at `003417`.  The alarm
+originated at `SQ60SEE`, address `001020`.  The first inspection misread the
+four operands in this routine as the M4 pipe construct `S|α`.  A named loop
+target appeared to pass the immediate alarm, but the next run copied one word
+over thousands of memory locations.  This overwrite happened during the fourth
+pen movement.  It happened before any later button input.
+
+Closer inspection of source PDF page 93 shows `S1α`, not `S|α`, on all four
+instructions.  The equality table defines `S1α=34`.  The scope-display job
+also uses that dedicated index register throughout `SQ60A`.  In contrast, the
+false pipe form used index register `α=1` to index the address of `LPSEEN`.
+When `X1` held one, deferred `RSX` read `LPSTATE` instead.  The right half of
+that valid unit-55 report word is `040000`.  It became the loop count in `X7`.
+The following `STE` and `JPX` instructions then caused the broad overwrite.
+
+The transcription now uses `S1α` on all four instructions.  A local name still
+identifies the printed `#-2` loop target.  This name changes no machine
+instruction.  It avoids an unrelated ambiguity in relative expression handling.
+
+Before this repair, the tracker followed the first three small physical pen
+movements.  `PREDIC` changed from `000000034000` through `777777035600` and
+`004000041600` to `005400043600`.  This behavior corrects the earlier statement
+that the prediction did not follow the path.  A new run must now prove that the
+`S1α` repair removes the overwrite and permits continued tracking.  No drawing
+or constraint claim passes until that test succeeds.
+
+## Checkpoint 48: `LMAG5` Return-Arrow Transcription Repair
+
+The first real line record reached the original `LMAG` and `LMDRAW` display
+path.  Two `SCNORM` calls at `LMAG5` did not return to their named error exits.
+Instead, the generated instructions stored into the numerical difference
+between two labels.  This damaged an unrelated low-memory address.
+
+Source PDF page 141 shows a return arrow between each normalized result and its
+error exit.  The transcription had a minus sign in both places.  The source now
+uses the printed return arrow in these calls:
+
+```
+SCNORM|LMSTART+1→1=²² LMSST→LMAG5A
+SCNORM|LMEND+1→1=²² LMSEND→LMAG5B
+```
+
+After this repair, `SCNORM` writes packed endpoint values to `LMSST` and
+`LMSEND`.  A traced test produced `000111000111` and approximately
+`000203000204`.  These values follow the physical pen path.  The display path
+still emits only the origin point.  Therefore this repair proves correct
+control flow and normalization.  It does not yet prove a displayed line.
+
+## Checkpoint 49: Rejected Screen-Scale Inference
+
+The TX-2 User Handbook says that scope coordinates occupy the high ten bits of
+each 18-bit half-word.  The normalized endpoint values above occupy lower bits.
+This mismatch suggested that the omitted optional factor in the printed
+`SCNORM` macro could supply a nine-bit scale.
+
+A temporary experiment supplied a factor of `-9` to both `SCNORM` definitions.
+The experiment caused a `QSAL` alarm during original tracker execution.  It
+also changed every expansion of this shared macro.  No primary source supports
+that specific factor.  The experiment was rejected and removed.  The combined
+tape and WASM package were rebuilt from the unmodified macro.
+
+This negative result narrows the fault.  The remaining candidates include an
+incorrect arithmetic register alignment, a missing TX-2 arithmetic detail, or
+another transcription error near the display path.  No host-language scaling
+or geometry was added.
+
+## Checkpoint 50: First Assembly-Created Line on Scope 60
+
+Date: 2026-09-15
+
+The display failure was isolated to the paired `PSEUDO` coordinate transform.
+The surviving listing gives both shift counts as `10.`.  That value returns
+coordinates eight bit positions below the documented scope format.  A focused
+experiment changed both counts to `18.`.  This restores the inverse pair used
+by the program and puts each ten-bit scope coordinate in the high ten bits of
+its 18-bit half-word, as required by the TX-2 User Handbook.
+
+This change contradicts the readable listing.  It is an evidence-based
+reconstruction inference.  It is not a confirmed transcription repair.  The
+source marks the inference at both changed instructions.
+
+With this change, the original assembly creates a non-degenerate line.  Its
+point records start at `024635` and `024657`.  Its line record starts at
+`024701`.  The endpoint links at `024711` and `024713` refer to those point
+records.  The assembly builds an 85-word display file at `100000`.  During one
+simulated second, it emits 18,556 unit-60 points at 76 distinct positions.
+Those positions run from approximately `(584,584)` to `(643,643)` and follow
+the 64-step physical light-pen path used by the test.
+
+This is the first accepted drawing result in this reconstruction.  The browser
+does not create the line.  The test only supplies a physical light-pen path and
+the `DRAW` console button.  The original program creates the point and line
+records, rasterizes the line into its display file, and sends the points through
+the emulated scope-60 interface.
+
+## Checkpoint 51: Real Line Selection and Two Scan Repairs
+
+Date: 2026-09-15
+
+The first attempt to select the displayed line entered an invalid operation at
+address `001016`.  A high-resolution inspection of Part 1 PDF page 24 and the
+corresponding display routine shows `hLDE`, not `hLDQ`.  `LDQ` is not a TX-2
+operation.  The source now uses the printed `hLDE` instruction.
+
+Selection then reached three point-selection flag expressions in `PSAL`.
+Their logical operator was transcribed as exclusive OR.  The high-resolution
+listing shows logical AND.  The independent related source in `sk.tx2as` also
+uses AND for the same class of mask.  The exclusive-OR form assembled into a
+word that executed as `SUB` and corrupted A.  The three expressions now use
+the printed AND operator.
+
+After these repairs, the original selection code identifies the real line.
+`ATBITS` becomes `000004000001`.  `ATBITS+1` becomes `000201000701`.
+Type `000201` is the `LINES` master.  Address `000701` refers to the line record
+at `024701`.  This proves original assembly hit testing against an
+assembly-created line.  It does not yet prove constraint creation or solving.
+
+## Checkpoint 52: NOA and the Sequence 47 ITE Conflict
+
+Date: 2026-09-15
+
+The line-selection distance calculation required the missing TX-2 `NOA`
+operation.  The emulator now normalizes each active configured subword in A.
+It records the prior count minus the leading sign bits in the corresponding D
+sign quarter.  It clears active overflow and loads E by the documented load
+path.  Focused tests cover full-word and independent active-subword behavior.
+The original nearest-line calculation completes after this hardware repair.
+
+The next test holds console button `2.9`, which the original `READIT` table maps
+to `TRUEUP`.  The external input register at `377621` contains the expected
+`000000400000` value.  Sequence 47 sees the change, but its queue initially
+receives no `2.9` event.
+
+The cause is a conflict between two primary descriptions of `ITE`.  The August
+1963 User Handbook example table describes an intersection between memory and
+A whose result enters E.  The March 1961 Volume 2 Technical Manual describes
+the actual register transfer: during ITE, zeroes from M transfer into E and
+ones do not.  That circuit computes `E AND M`.  The surviving Sketchpad input
+sequence independently requires the same behavior.  It complements the old
+switch state into E and then applies ITE to the new switch state to compute
+`new AND NOT old`.
+
+The emulator's first ITE implementation followed the handbook example and used
+A.  An experimental implementation now follows the circuit manual and uses E.
+Focused tests describe that experimental behavior.  It makes the `2.9` edge
+enter `TRUEUP`, but it changes the state used by the light-pen selection path.
+The conflict is not resolved.  Neither behavior is accepted only because one
+integration path advances farther.
+
+## Checkpoint 53: Correct Scope-to-Pen Timing Exposes a Selection Regression
+
+Date: 2026-09-15
+
+The emulator previously selected the next sequence before the caller could
+deliver a scope output event to the light pen.  This order cannot model the
+documented TX-2 behavior.  A visible scope spot could raise the light-pen flag
+and transfer control from the display sequence before the next instruction.
+
+The control unit now returns a scope output before it makes the next sequence
+choice.  The machine delivers that output to the light pen.  The following
+instruction fetch then sees the light-pen flag.  No instruction executes
+between the output and this fetch.  The complete CPU test suite passes with
+this order.
+
+This repair changes the interrupted display state recorded by the original
+light-pen handler.  The handler now records sequence 55 with display positions
+`000303` and `000304`.  These positions are consistent with the active scope
+display loop.  The previous run recorded position `000261` after the display
+sequence had already yielded.
+
+The more accurate timing invalidates the current end-to-end selection result.
+The assembly-created line still exists and still emits real scope points.  The
+light pen still detects those points and enters the original handler.  However,
+the first `PENSEE` record is present at the second word of its array while the
+selection scan reads the first word.  It therefore reads zero and does not set
+the line bit in `ATBITS`.
+
+The immediate research question is the indexed store in `LPSEES4` and the
+following indexed scan in `PSEUDO`.  The source intends `PENSEE-1` plus an index
+value of one to address the first `PENSEE` word.  The observed run addresses the
+second word.  Candidate causes are TX-2 address indexation, the exact `INX` and
+`JPX` update order, or the recorded interrupted program counter.  No source or
+emulator change is accepted until a primary description and a focused machine
+test identify the cause.
+
+The earlier Checkpoint 51 trace remains useful evidence that the repaired
+selection expressions can identify the line.  It is not a current acceptance
+result because it used the old scope scheduling order and the A-based ITE
+implementation.  Current acceptance requires line selection with the corrected
+scope scheduling order and one historically supported ITE behavior.
+
+The current local integration run fails at the explicit assertion that the
+original selection code must identify a line before `TRUEUP`.  It does not fail
+with a CPU alarm.  All 125 CPU unit tests pass.  This checkpoint intentionally
+preserves a narrow, reproducible integration failure instead of hiding it with
+host-language selection logic.

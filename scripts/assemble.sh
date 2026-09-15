@@ -82,6 +82,7 @@ done
   --output "$output_dir/sketchpad-combined.tape" \
   --entry 200140 \
   --allow-overwrite 022000 \
+  --relocate-input-range 4:022000:022605:032000 \
   "$output_dir/sketchpad-2xmx.tape" \
   "$output_dir/sketchpad-gx7a.tape" \
   "$output_dir/sketchpad-boo7.tape" \
