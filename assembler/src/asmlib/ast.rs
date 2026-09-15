@@ -345,13 +345,6 @@ impl Spanned for ArithmeticExpression {
 }
 
 impl ArithmeticExpression {
-    fn normalize_for_rc_reuse(&mut self) {
-        self.first.magnitude.normalize_for_rc_reuse();
-        for (_, atom) in &mut self.tail {
-            atom.magnitude.normalize_for_rc_reuse();
-        }
-    }
-
     fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
         self.first.resolve_rc_word_macros(macros);
         for (_, atom) in &mut self.tail {
@@ -600,12 +593,6 @@ pub(crate) struct RegistersContaining {
 }
 
 impl RegistersContaining {
-    fn normalize_for_rc_reuse(&mut self) {
-        for word in self.words.iter_mut() {
-            word.normalize_for_rc_reuse();
-        }
-    }
-
     pub(super) fn from_words(words: OneOrMore<RegisterContaining>) -> RegistersContaining {
         Self {
             local_symbols: None,
@@ -735,22 +722,7 @@ impl RegistersContaining {
             span,
             kind: RcWordKind::Braces,
         };
-        let referenced_names = self
-            .words
-            .iter()
-            .flat_map(|word| word.symbol_uses(BlockIdentifier::from(0), Unsigned18Bit::ZERO))
-            .filter_map(Result::ok)
-            .map(|(name, _, _)| name)
-            .collect::<BTreeSet<_>>();
-        let relevant_local_symbols = self
-            .local_symbols
-            .as_ref()
-            .and_then(|symbols| symbols.subset(&referenced_names));
-        let mut normalized_words = self.words.clone();
-        for word in normalized_words.iter_mut() {
-            word.normalize_for_rc_reuse();
-        }
-        let group_key = rc_word_reuse_key(&normalized_words, relevant_local_symbols.as_ref());
+        let group_key = rc_word_reuse_key(&self.words, self.local_symbols.as_ref());
         let addresses = rc_allocator.allocate_reusable_group(
             source,
             Unsigned36Bit::ZERO,
@@ -813,10 +785,6 @@ impl Spanned for RegisterContaining {
 }
 
 impl RegisterContaining {
-    fn normalize_for_rc_reuse(&mut self) {
-        self.instruction_mut().normalize_for_rc_reuse();
-    }
-
     fn instruction(&self) -> &TaggedProgramInstruction {
         match self {
             RegisterContaining::Unallocated(tpi) | RegisterContaining::Allocated(_, tpi) => tpi,
@@ -1044,31 +1012,6 @@ impl From<SymbolOrLiteral> for Atom {
 }
 
 impl Atom {
-    fn normalize_for_rc_reuse(&mut self) {
-        let replacement = match self {
-            Atom::SymbolOrLiteral(_) => None,
-            Atom::Parens(_, _, expression) => {
-                expression.normalize_for_rc_reuse();
-                if expression.tail.is_empty() && !expression.first.negated {
-                    Some(expression.first.magnitude.clone())
-                } else {
-                    None
-                }
-            }
-            Atom::AssembledWord(_, instruction) => {
-                instruction.normalize_for_rc_reuse();
-                None
-            }
-            Atom::RcRef(_, words) => {
-                words.normalize_for_rc_reuse();
-                None
-            }
-        };
-        if let Some(replacement) = replacement {
-            *self = replacement;
-        }
-    }
-
     fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
         match self {
             Atom::SymbolOrLiteral(_) => {}
@@ -1129,9 +1072,15 @@ impl Atom {
                     SymbolSubstitution::AsIs(symbol_or_literal) => {
                         Some(Atom::SymbolOrLiteral(symbol_or_literal))
                     }
-                    SymbolSubstitution::Hit(span, script, arithmetic_expression) => Some(
-                        Atom::Parens(span, script, Box::new(arithmetic_expression.clone())),
-                    ),
+                    SymbolSubstitution::Hit(span, script, arithmetic_expression) => {
+                        if arithmetic_expression.tail.is_empty()
+                            && !arithmetic_expression.first.negated
+                        {
+                            Some(arithmetic_expression.first.magnitude)
+                        } else {
+                            Some(Atom::Parens(span, script, Box::new(arithmetic_expression)))
+                        }
+                    }
                     SymbolSubstitution::Structured(span, instruction) => {
                         Some(Atom::AssembledWord(span, Box::new(instruction)))
                     }
@@ -1467,24 +1416,6 @@ impl Spanned for InstructionFragment {
 }
 
 impl InstructionFragment {
-    fn normalize_for_rc_reuse(&mut self) {
-        match self {
-            InstructionFragment::Arithmetic(expression) => {
-                expression.normalize_for_rc_reuse();
-            }
-            InstructionFragment::Config(config) => config.expr.normalize_for_rc_reuse(),
-            InstructionFragment::PipeConstruct {
-                index,
-                rc_word_value,
-                ..
-            } => {
-                index.item.normalize_for_rc_reuse();
-                rc_word_value.normalize_for_rc_reuse();
-            }
-            InstructionFragment::DeferredAddressing(_) | InstructionFragment::Null(_) => {}
-        }
-    }
-
     fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
         match self {
             InstructionFragment::Arithmetic(expression) => {
@@ -1614,9 +1545,7 @@ impl InstructionFragment {
             } => {
                 let span: Span = *rc_word_span;
                 let w = rc_word_value.clone();
-                let mut normalized_word = w.clone();
-                normalized_word.normalize_for_rc_reuse();
-                let reuse_key = rc_word_reuse_key(&normalized_word, None);
+                let reuse_key = rc_word_reuse_key(&w, None);
                 let mut local_symbols = None;
                 *rc_word_value = w.assign_rc_word(
                     RcWordSource {
@@ -1822,10 +1751,6 @@ pub(super) struct CommaDelimitedFragment {
 }
 
 impl CommaDelimitedFragment {
-    fn normalize_for_rc_reuse(&mut self) {
-        self.fragment.normalize_for_rc_reuse();
-    }
-
     fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
         self.fragment.resolve_rc_word_macros(macros);
     }
@@ -1923,12 +1848,6 @@ impl From<OneOrMore<CommaDelimitedFragment>> for UntaggedProgramInstruction {
 }
 
 impl UntaggedProgramInstruction {
-    fn normalize_for_rc_reuse(&mut self) {
-        for fragment in self.fragments.iter_mut() {
-            fragment.normalize_for_rc_reuse();
-        }
-    }
-
     fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
         for fragment in self.fragments.iter_mut() {
             fragment.resolve_rc_word_macros(macros);
@@ -2185,10 +2104,6 @@ pub(crate) struct TaggedProgramInstruction {
 }
 
 impl TaggedProgramInstruction {
-    fn normalize_for_rc_reuse(&mut self) {
-        self.instruction.normalize_for_rc_reuse();
-    }
-
     fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
         self.instruction.resolve_rc_word_macros(macros);
     }
