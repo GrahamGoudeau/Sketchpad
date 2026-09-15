@@ -125,6 +125,12 @@ It removes parentheses that single-atom macro substitution creates.  It keeps
 parentheses that the source states explicitly.  The exact `GX7A` match remains.
 The assembler package passes 324 unit tests and 2 golden tests.
 
+The printed `2XMX` automatic table belongs to a different visible revision.
+Its automatic `COPYNUM` conflicts with the surviving explicit
+`COPYNUM=NITOG` equality.  A block-scoped RC-reuse experiment also fails its
+address range.  The reconstruction keeps both witnesses and does not change
+the verified allocator to force a false exact match.
+
 ## Evidence Order
 
 Use the strongest available evidence first:

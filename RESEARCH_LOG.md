@@ -1229,6 +1229,44 @@ Historical significance:
 - Repeated macro libraries supplied an exact clipped-line completion.
 - The source now has one marked executable glyph uncertainty instead of dozens.
 
+## Checkpoint 30: A Rejected RC Model Defines the Revision Boundary
+
+Date: 2026-09-15
+
+The 2XMX address arithmetic now separates allocation order from revision
+content.  The current RC block starts at `011012`.  It has octal length `0420`.
+The 20 current automatic words occupy `011406` through `011431`.
+
+The printed table places 21 automatic names from `011410` through `011451`.
+Its range contains 34 words.  The 21 named automatic words leave 13 unnamed
+positions inside the range.  Two more positions occur between the current and
+printed first automatic addresses.  `COPYNUM` supplies one additional named
+word.  A model that matches the printed end therefore needs 15 additional RC
+or program words and the different `COPYNUM` revision.
+
+A detached diagnostic simulator tested reuse scopes at manuscript block
+boundaries.  The broad block-scope model adds four RC words.  A scope change at
+the boundary between the two main 2XMX blocks gives the same result.  Both
+models put `47BUT` at `011412`, keep all automatic words contiguous, and end at
+`011435`.  The printed values are `011410` and `011451`.  The model fails.
+
+The same diagnostic leaves every printed GX7A automatic address unchanged.
+This confirms that GX7A remains the coherent allocator oracle.  It does not
+make the conflicting 2XMX witnesses one revision.
+
+The project will not change the canonical simulator for this rejected model.
+The source equality `COPYNUM=NITOG` and the printed automatic
+`COPYNUM=011421` remain explicit evidence of two 2XMX revisions.  Exact late
+2XMX automatic addresses are not a completion gate for a self-consistent
+assembly of the surviving source revision.
+
+Historical significance:
+
+- Address arithmetic distinguishes missing allocation content from mere order.
+- A plausible allocator change now has a reproducible negative result.
+- The revision conflict prevents false precision in the reconstructed tape.
+- The executable project can proceed without erasing either primary witness.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1252,8 +1290,8 @@ oracle.  The first focused uncertainty audit has verified 17 more `2XMX`
 readings.  The broad uncertainty audit has repaired four instruction or data
 words and completed two clipped lines.  It has also settled 49 marked readings
 across both volumes.  One marked held-address glyph remains open in the first
-`2XMX` region.  The next
-goal is the mixed RC and automatic allocation schedule.
+`2XMX` region.  The next goal is compatible-set loading and executable
+simulator integration.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.
