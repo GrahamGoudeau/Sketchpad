@@ -2140,6 +2140,15 @@ fn test_pipe_construct() {
 }
 
 #[test]
+fn test_pipe_construct_with_omitted_index() {
+    let got = parse_single_instruction_fragment("@sub_pipe@@sub_beta@LIST");
+    let InstructionFragment::PipeConstruct { index, .. } = got else {
+        panic!("expected a pipe construct");
+    };
+    assert_eq!(index.item.to_string(), "₀");
+}
+
+#[test]
 fn test_comments_without_newline_manuscript() {
     assert_eq!(
         parse_successfully_with("** NO NEWLINE AFTER COMMENT", source_file(), no_state_setup),

@@ -1286,6 +1286,17 @@ where
                 item: ArithmeticExpression::from(p),
                 span: extra.span(),
             })
+            .or_not()
+            .map_with(|maybe_p, extra| {
+                maybe_p.unwrap_or_else(|| SpannedArithmeticExpression {
+                    item: ArithmeticExpression::from(Atom::from((
+                        extra.span(),
+                        Script::Sub,
+                        Unsigned36Bit::ZERO,
+                    ))),
+                    span: extra.span(),
+                })
+            })
             .boxed();
 
         let spanned_tq_fragment = symbol_or_literal(Script::Sub) // this is t
