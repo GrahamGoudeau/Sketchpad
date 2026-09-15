@@ -58,7 +58,7 @@ impl From<OutputEvent> for BrowserOutput {
                 origin: scope_origin_name(origin),
             },
             OutputEvent::LincolnWriterPrint { unit, ch } => {
-                let text = ch.unicode_representation.or_else(|| match ch.base_char {
+                let text = ch.unicode_representation.or(match ch.base_char {
                     LincolnChar::UnicodeBaseChar(c) => Some(c),
                     LincolnChar::Unprintable(_) => None,
                 });
