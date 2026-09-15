@@ -265,6 +265,24 @@ impl Tx2 {
             .set_external_input_register(join_halves(left, right), meta);
     }
 
+    /// Set one of the 24 manual toggle registers.
+    pub fn set_toggle_register(
+        &mut self,
+        register: Unsigned5Bit,
+        quarters: [Unsigned9Bit; 4],
+        meta: bool,
+    ) {
+        let index = usize::from(register);
+        assert!(
+            index < 24,
+            "toggle register number must be between 0 and 27 octal"
+        );
+        let left = join_quarters(quarters[0], quarters[1]);
+        let right = join_quarters(quarters[2], quarters[3]);
+        self.mem
+            .set_toggle_register(index, join_halves(left, right), meta);
+    }
+
     /// Inspect one memory word without changing the emulated machine state.
     pub fn inspect_memory_word(
         &mut self,

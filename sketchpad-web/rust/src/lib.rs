@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use base::charset::LincolnChar;
-use base::prelude::{Unsigned6Bit, Unsigned9Bit, Unsigned18Bit};
+use base::prelude::{Unsigned5Bit, Unsigned6Bit, Unsigned9Bit, Unsigned18Bit};
 use cpu::{
     AlarmKind, Context, InputFlagRaised, MemoryConfiguration, OutputEvent, PanicOnUnmaskedAlarm,
     ResetMode, RunMode, ScopeOrigin, Tx2,
@@ -271,6 +271,38 @@ impl SketchpadMachine {
         Ok(())
     }
 
+    pub fn set_toggle_register(
+        &mut self,
+        register: u8,
+        quarter_4: u16,
+        quarter_3: u16,
+        quarter_2: u16,
+        quarter_1: u16,
+        meta: bool,
+    ) -> Result<(), JsValue> {
+        if register >= 24 {
+            return Err(JsValue::from_str(
+                "a toggle register number must be between 0 and 23",
+            ));
+        }
+        let convert = |value| {
+            Unsigned9Bit::try_from(value)
+                .map_err(|_| JsValue::from_str("a toggle quarter must be between 0 and 511"))
+        };
+        self.tx2.set_toggle_register(
+            Unsigned5Bit::try_from(register)
+                .expect("a validated toggle register fits in five bits"),
+            [
+                convert(quarter_4)?,
+                convert(quarter_3)?,
+                convert(quarter_2)?,
+                convert(quarter_1)?,
+            ],
+            meta,
+        );
+        Ok(())
+    }
+
     /// Return one hardware or software sequence state for diagnostics.
     pub fn unit_status(&mut self, unit: u8, real_elapsed_seconds: f64) -> Result<JsValue, JsValue> {
         let unit = Unsigned6Bit::try_from(unit)
@@ -421,7 +453,7 @@ mod tests {
 
     #[test]
     fn bundled_sketchpad_tape_is_present() {
-        assert_eq!(SKETCHPAD.len(), 76_602);
+        assert_eq!(SKETCHPAD.len(), 78_048);
     }
 
     #[test]
@@ -440,6 +472,16 @@ mod tests {
         assert!(
             machine
                 .set_external_input_register(0o400, 0o200, 0o100, 0o001, true)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn accepts_manual_toggle_register_state() {
+        let mut machine = SketchpadMachine::new();
+        assert!(
+            machine
+                .set_toggle_register(0o27, 0o400, 0o200, 0o100, 0o001, true)
                 .is_ok()
         );
     }

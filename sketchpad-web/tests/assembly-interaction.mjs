@@ -11,6 +11,11 @@ const wasmUrl = new URL("../web/pkg/sketchpad_web_bg.wasm", import.meta.url);
 await init({ module_or_path: await readFile(fileURLToPath(wasmUrl)) });
 
 const machine = new SketchpadMachine();
+// Physical console switches used by the original program during interactive work.
+// DRAWASFIX returns to the display cycle after READIT. SHOWBLKS keeps selectable
+// non-drawing display records visible to the light pen.
+machine.set_toggle_register(0o20, 0o400, 0, 0, 0, false);
+machine.set_toggle_register(0o25, 0o400, 0, 0, 0, false);
 machine.mount_tape(sketchpad_tape(), 0);
 machine.set_light_pen(575 / 1022, 1 - 575 / 1022, 26 / 1022, true);
 machine.codabo(0);
@@ -160,6 +165,40 @@ function octal(value, width = 12) {
 
 function hasOctalBit(value, mask) {
   return (BigInt(value) & BigInt(mask)) !== 0n;
+}
+
+function rightHalf(value) {
+  return value % 0o1000000;
+}
+
+function lineGeometry(linePointerWord) {
+  const lineAddress = 0o024000 + rightHalf(linePointerWord);
+  const pointAddress = (fieldOffset) => (
+    0o024000 + rightHalf(machine.memory_word(lineAddress + fieldOffset, machine.simulated_time).value)
+  );
+  const firstAddress = pointAddress(0o10);
+  const secondAddress = pointAddress(0o12);
+  const readPoint = (address) => [
+    machine.memory_word(address + 0o20, machine.simulated_time).value,
+    machine.memory_word(address + 0o21, machine.simulated_time).value,
+  ];
+  return {
+    lineAddress,
+    firstAddress,
+    secondAddress,
+    first: readPoint(firstAddress),
+    second: readPoint(secondAddress),
+  };
+}
+
+function geometryForReport(geometry) {
+  return {
+    lineAddress: octal(geometry.lineAddress, 6),
+    firstAddress: octal(geometry.firstAddress, 6),
+    secondAddress: octal(geometry.secondAddress, 6),
+    first: geometry.first.map((value) => octal(value)),
+    second: geometry.second.map((value) => octal(value)),
+  };
 }
 
 function changes(before, after) {
@@ -521,13 +560,14 @@ while (!reacquired && machine.simulated_time < reacquireDeadline) {
 }
 const penUnitAfterReacquire = machine.unit_status(0o55, machine.simulated_time);
 const executionTraceAfterReacquire = traceTicks(0);
-const finalX = firstX + 64 / 1022;
-const finalY = firstY - 64 / 1022;
+const movementSteps = 160;
+const finalX = firstX + movementSteps / 1022;
+const finalY = firstY - movementSteps / 1022;
 const movement = [];
 const trackerDebug = [];
-for (let step = 1; step <= 64; step += 1) {
+for (let step = 1; step <= movementSteps; step += 1) {
   phase = `move-${step}`;
-  const fraction = step / 64;
+  const fraction = step / movementSteps;
   const detectionsBeforeStep = Number(machine.light_pen_detection_count);
   machine.set_light_pen(
     firstX + (finalX - firstX) * fraction,
@@ -839,7 +879,7 @@ const penAtEnd = [
 const memoryAfterStop = snapshot();
 const trackerAfterStop = trackerWords();
 
-console.log(JSON.stringify({
+if (process.env.CONSTRAINT_ONLY !== "1") console.log(JSON.stringify({
   simulatedSeconds: machine.simulated_time,
   scopePoints,
   lightPenDetections: Number(machine.light_pen_detection_count),
@@ -886,204 +926,124 @@ assert.ok(reachedReadit || queueAfter === 0, "sequence 76 must consume the DRAW 
 
 if (process.env.CONSTRAINT_ONLY === "1") {
   phase = "select-line";
-  const midpoint = Math.round((584 + 643) / 2);
-  machine.set_light_pen(midpoint / 1022, 1 - midpoint / 1022, 1 / 1022, true);
-  const detectionsBeforeSelection = Number(machine.light_pen_detection_count);
-  const selectionTrace = [];
+  const lineStats = phaseScope.get("verify-line");
+  const centerX = (lineStats.x[0] + lineStats.x[1]) / 2;
+  const centerY = (lineStats.y[0] + lineStats.y[1]) / 2;
+  const selectionPoint = verificationScope.reduce((closest, point) => {
+    const distanceSquared = (point.x - centerX) ** 2 + (point.y - centerY) ** 2;
+    return distanceSquared < closest.distanceSquared ? { ...point, distanceSquared } : closest;
+  }, { x: null, y: null, distanceSquared: Infinity });
+  const midpointX = selectionPoint.x;
+  const midpointY = selectionPoint.y;
+  machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 2 / 1022, true);
   const beforeAtBits = octal(machine.memory_word(0o200044, machine.simulated_time).value);
   const beforeConstraintList = machine.memory_word(0o024000, machine.simulated_time).value;
-  const selectionDeadline = machine.simulated_time + 2;
-  const selectionRing = [];
-  const selectionArithmetic = [];
-  const selectionTransitions = [];
-  const selectionDetections = [];
-  let previousSelectionBits = machine.memory_word(0o200044, machine.simulated_time).value;
-  let previousSelectionObject = machine.memory_word(0o200045, machine.simulated_time).value;
-  try {
-    while (machine.simulated_time < selectionDeadline) {
-      const state = machine.control_state();
-      selectionRing.push({
-        state,
-        a: octal(machine.memory_word(0o377604, machine.simulated_time).value),
-        b: octal(machine.memory_word(0o377605, machine.simulated_time).value),
-        d: octal(machine.memory_word(0o377607, machine.simulated_time).value),
-        indexes: Object.fromEntries([1, 2, 3, 4, 5, 7, 0o34].map((index) => [
-          octal(index, 2), machine.index_register(index),
-        ])),
-      });
-      if (
-        state.sequence === 0o76
-        && (
-          (state.instruction_address >= 0o001460 && state.instruction_address <= 0o001644)
-          || (state.instruction_address >= 0o002264 && state.instruction_address <= 0o002317)
-        )
-        && selectionArithmetic.length < 200
-      ) {
-        selectionArithmetic.push({
-          state,
-          a: octal(machine.memory_word(0o377604, machine.simulated_time).value),
-          b: octal(machine.memory_word(0o377605, machine.simulated_time).value),
-          c: octal(machine.memory_word(0o377606, machine.simulated_time).value),
-          d: octal(machine.memory_word(0o377607, machine.simulated_time).value),
-          indexes: Object.fromEntries([2, 3, 4, 5, 7, 0o23].map((index) => [
-            octal(index, 2), machine.index_register(index),
-          ])),
-          seenWords: Array.from({ length: 5 }, (_, offset) =>
-            octal(machine.memory_word(0o001105 + offset, machine.simulated_time).value)),
-          psnps: Array.from({ length: 8 }, (_, offset) =>
-            octal(machine.memory_word(0o000740 + offset, machine.simulated_time).value)),
-          pspl: Array.from({ length: 4 }, (_, offset) =>
-            octal(machine.memory_word(0o200042 + offset, machine.simulated_time).value)),
-        });
-      }
-      if (selectionRing.length > 100) selectionRing.shift();
-      const atBits = machine.memory_word(0o200044, machine.simulated_time).value;
-      if (selectionTrace.length < 500 && (
-        state.sequence === 0o47
-        || state.sequence === 0o76
-        || octal(atBits) !== beforeAtBits
-      )) {
-        selectionTrace.push({
-          state,
-          atBits: octal(atBits),
-          atObject: octal(machine.memory_word(0o200045, machine.simulated_time).value),
-          penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
-        });
-      }
-      const detectionsBeforeTick = Number(machine.light_pen_detection_count);
-      const tickEvents = stepBatch(1);
-      assert.equal(machine.alarm_active, false, machine.last_alarm);
-      if (
-        Number(machine.light_pen_detection_count) > detectionsBeforeTick
-        && selectionDetections.length < 40
-      ) {
-        selectionDetections.push({
-          state,
-          events: tickEvents,
-          detectionCount: Number(machine.light_pen_detection_count),
-          scopePlacekeeper: machine.index_register(0o60),
-          scopeWords: Object.fromEntries(Array.from({ length: 5 }, (_, offset) => {
-            const address = machine.index_register(0o60) - 2 + offset;
-            return [octal(address, 6), octal(machine.memory_word(address, machine.simulated_time).value)];
-          })),
-          penWork: Object.fromEntries(Array.from({ length: 0o20 }, (_, offset) => {
-            const address = 0o003550 + offset;
-            return [octal(address, 6), octal(machine.memory_word(address, machine.simulated_time).value)];
-          })),
-        });
-      }
-      const currentSelectionBits = machine.memory_word(0o200044, machine.simulated_time).value;
-      const currentSelectionObject = machine.memory_word(0o200045, machine.simulated_time).value;
-      if (
-        currentSelectionBits !== previousSelectionBits
-        || currentSelectionObject !== previousSelectionObject
-      ) {
-        selectionTransitions.push({
-          state: machine.control_state(),
-          atBits: octal(currentSelectionBits),
-          atObject: octal(currentSelectionObject),
-          detections: Number(machine.light_pen_detection_count) - detectionsBeforeSelection,
-          penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
-          a: octal(machine.memory_word(0o377604, machine.simulated_time).value),
-          d: octal(machine.memory_word(0o377607, machine.simulated_time).value),
-          seenWords: Object.fromEntries(Array.from({ length: 0o12 }, (_, offset) => {
-            const address = 0o001100 + offset;
-            return [octal(address, 6), octal(machine.memory_word(address, machine.simulated_time).value)];
-          })),
-          penWork: Object.fromEntries(Array.from({ length: 0o20 }, (_, offset) => {
-            const address = 0o003550 + offset;
-            return [octal(address, 6), octal(machine.memory_word(address, machine.simulated_time).value)];
-          })),
-        });
-        previousSelectionBits = currentSelectionBits;
-        previousSelectionObject = currentSelectionObject;
-      }
-      if (currentSelectionBits !== 0) {
-        break;
-      }
+  const selectionDeadline = machine.simulated_time + 5;
+  let trueupPressed = false;
+  while (machine.simulated_time < selectionDeadline) {
+    const state = machine.control_state();
+    const atBitsAtInstruction = machine.memory_word(0o200044, machine.simulated_time).value;
+    if (
+      state.sequence === 0o76
+      && state.instruction_address === 0o002320
+      && hasOctalBit(atBitsAtInstruction, 0o4000000)
+    ) {
+      machine.set_external_input_register(0, 0, 0o400, 0, false);
+      trueupPressed = true;
+      break;
     }
-  } catch (error) {
-    console.error(JSON.stringify({ error: String(error), selectionTransitions, selectionDetections, selectionArithmetic, selectionRing }, null, 2));
-    throw error;
+    stepBatch(1);
+    assert.equal(machine.alarm_active, false, machine.last_alarm);
   }
-  machine.set_light_pen(midpoint / 1022, 1 - midpoint / 1022, 1 / 1022, false);
   const selectedAtBits = octal(machine.memory_word(0o200044, machine.simulated_time).value);
   const selectedObject = octal(machine.memory_word(0o200045, machine.simulated_time).value);
-  console.error(JSON.stringify({ beforeAtBits, selectedAtBits, selectedObject, selectionTransitions, selectionDetections, selectionArithmetic }, null, 2));
   assert.ok(
     hasOctalBit(machine.memory_word(0o200044, machine.simulated_time).value, 0o4000000),
     "the original selection code must identify a line before TRUEUP",
   );
-  machine.set_external_input_register(0, 0, 0o400, 0, false);
+  assert.equal(trueupPressed, true, "the TRUEUP button must be pressed while the line remains selected");
   const trueupStart = machine.simulated_time;
-  const commandTrace = [];
   let enteredTrueup = false;
-  while (machine.simulated_time < trueupStart + 20 && !enteredTrueup) {
+  while (machine.simulated_time < trueupStart + 200 && !enteredTrueup) {
     const state = machine.control_state();
-    enteredTrueup ||= state.sequence === 0o76
-      && state.instruction_address >= 0o005420
-      && state.instruction_address <= 0o005454;
-    if (
-      commandTrace.length < 2_000
-      && (
-        (
-          state.sequence === 0o47
-          && state.instruction_address >= 0o004075
-          && state.instruction_address <= 0o004300
-        )
-        || (
-          state.sequence === 0o76
-          && state.instruction_address >= 0o004147
-          && state.instruction_address <= 0o004300
-        )
-        || enteredTrueup
-      )
-    ) {
-      commandTrace.push({
-        state,
-        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
-        atObject: octal(machine.memory_word(0o200045, machine.simulated_time).value),
-        externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
-        inputQueue: Array.from({ length: 8 }, (_, offset) =>
-          octal(machine.memory_word(0o004127 + offset, machine.simulated_time).value)),
-        inputCursor: octal(machine.memory_word(0o011410, machine.simulated_time).value),
-        currentButton: octal(machine.memory_word(0o011407, machine.simulated_time).value),
-        list: octal(machine.memory_word(0o024000, machine.simulated_time).value),
-        hovs: Array.from({ length: 0o24 }, (_, offset) =>
-          octal(machine.memory_word(0o024561 + offset, machine.simulated_time).value)),
-      });
-    }
+    enteredTrueup ||= state.sequence === 0o76 && state.instruction_address === 0o005421;
     stepBatch(1);
     assert.equal(machine.alarm_active, false, machine.last_alarm);
   }
   machine.set_external_input_register(0, 0, 0, 0, false);
+  machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 2 / 1022, false);
+  assert.equal(enteredTrueup, true, "the TRUEUP button must enter the original routine");
+  const constraintAddress = 0o024000 + Number(beforeConstraintList);
   const constraintDeadline = machine.simulated_time + 20;
-  while (
-    machine.memory_word(0o024000, machine.simulated_time).value === beforeConstraintList
-    && machine.simulated_time < constraintDeadline
-  ) {
+  let returnedFromTrueup = false;
+  while (!returnedFromTrueup && machine.simulated_time < constraintDeadline) {
+    const state = machine.control_state();
+    returnedFromTrueup = state.sequence === 0o76 && state.instruction_address === 0o005454;
+    if (returnedFromTrueup) break;
     stepBatch(1);
     assert.equal(machine.alarm_active, false, machine.last_alarm);
   }
+  const selectedLineWord = machine.memory_word(0o200045, machine.simulated_time).value;
+  const geometryBeforeRelax = lineGeometry(selectedLineWord);
+  machine.set_toggle_register(0o20, 0o400, 0, 0, 0, true);
+  const relaxDeadline = machine.simulated_time + 200;
+  let enteredRelax = false;
+  let geometryAfterRelax = lineGeometry(selectedLineWord);
+  while (machine.simulated_time < relaxDeadline) {
+    const state = machine.control_state();
+    if (state.instruction_address === 0o200060) {
+      enteredRelax = true;
+    }
+    stepBatch(1);
+    assert.equal(machine.alarm_active, false, machine.last_alarm);
+    geometryAfterRelax = lineGeometry(selectedLineWord);
+    if (
+      geometryAfterRelax.first.some((value, index) => value !== geometryBeforeRelax.first[index])
+      || geometryAfterRelax.second.some((value, index) => value !== geometryBeforeRelax.second[index])
+    ) {
+      break;
+    }
+  }
+  machine.set_toggle_register(0o20, 0o400, 0, 0, 0, false);
+  const geometryChanged = (
+    geometryAfterRelax.first.some((value, index) => value !== geometryBeforeRelax.first[index])
+    || geometryAfterRelax.second.some((value, index) => value !== geometryBeforeRelax.second[index])
+  );
+  const afterConstraintList = machine.memory_word(0o024000, machine.simulated_time).value;
+  const constraintObject = Array.from({ length: 0o24 }, (_, offset) =>
+    machine.memory_word(constraintAddress + offset, machine.simulated_time).value);
+  const residualBefore = geometryBeforeRelax.first.map((value, index) =>
+    Math.abs(value - geometryBeforeRelax.second[index]));
+  const residualAfter = geometryAfterRelax.first.map((value, index) =>
+    Math.abs(value - geometryAfterRelax.second[index]));
   console.log(JSON.stringify({
     beforeAtBits,
     selectedAtBits,
     selectedObject,
     beforeConstraintList: octal(beforeConstraintList),
-    afterConstraintList: octal(machine.memory_word(0o024000, machine.simulated_time).value),
+    afterConstraintList: octal(afterConstraintList),
+    constraintAddress: octal(constraintAddress, 6),
+    constraintMaster: octal(rightHalf(constraintObject[0]), 6),
     enteredTrueup,
-    commandTrace,
-    inputState: Object.fromEntries([
-      0o004127,
-      0o011406,
-      0o011407,
-      0o011410,
-      0o011427,
-      0o011430,
-      0o377621,
-    ].map((address) => [octal(address, 6), machine.memory_word(address, machine.simulated_time)])),
-    selectionTrace,
+    returnedFromTrueup,
+    enteredRelax,
+    geometryChanged,
+    geometryBeforeRelax: geometryForReport(geometryBeforeRelax),
+    geometryAfterRelax: geometryForReport(geometryAfterRelax),
+    residualBefore: residualBefore.map((value) => octal(value)),
+    residualAfter: residualAfter.map((value) => octal(value)),
     controlAfterConstraint: machine.control_state(),
     alarm: machine.last_alarm,
   }, null, 2));
+  assert.equal(afterConstraintList, Number(beforeConstraintList) + 0o16,
+    "TRUEUP must allocate one HOV constraint block");
+  assert.equal(returnedFromTrueup, true, "the original TRUEUP routine must return");
+  assert.equal(rightHalf(constraintObject[0]), 0o561,
+    "the new constraint must use the HOV master");
+  assert.equal(enteredRelax, true, "the enabled FIX toggle must call the original RELAX routine");
+  assert.equal(geometryChanged, true, "the original RELAX routine must change the constrained line");
+  assert.ok(
+    residualAfter.some((value, index) => value < residualBefore[index]),
+    "the original RELAX routine must reduce one HOV coordinate residual",
+  );
 }

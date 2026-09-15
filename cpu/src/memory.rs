@@ -67,14 +67,8 @@
 //! | 0377620 | Knob (Shaft Encoder) Register (User Handbook, 5-20)           |
 //! | 0377621 | External Input Register (User Handbook, 5-20)                 |
 //! | 0377630 | Real Time Clock                                               |
-//! | 0377710 | Location of CODABO start point 0                              |
-//! | 0377711 | Location of CODABO start point 1                              |
-//! | 0377712 | Location of CODABO start point 2                              |
-//! | 0377713 | Location of CODABO start point 3                              |
-//! | 0377714 | Location of CODABO start point 4                              |
-//! | 0377715 | Location of CODABO start point 5                              |
-//! | 0377716 | Location of CODABO start point 6                              |
-//! | 0377717 | Location of CODABO start point 7                              |
+//! | 0377700 | Toggle switch storage start (Technical Manual, 11-7.2)         |
+//! | 0377727 | Toggle switch storage end                                     |
 //! | 0377740 | **Plugboard B memory start**. The plugboard program code is given in section 5-5.2 (page 5-27) of the User Handbook. |
 //! | 0377740 | 8 (Octal 10) words of data used by `SPG` instructions of the code at 0377750 to set the standard configuration in F-memory. |
 //! | 0377750 | Standard program, **Set Configuration**. Loads the standard configuration into F-memory.  Then proceed to 0377760. |
@@ -524,6 +518,10 @@ impl MemoryUnit {
         self.v_memory.set_external_input_register(value, meta);
     }
 
+    pub fn set_toggle_register(&mut self, index: usize, value: Unsigned36Bit, meta: bool) {
+        self.v_memory.set_toggle_register(index, value, meta);
+    }
+
     /// Perform a memory read access.  Return a [`MemoryReadRef`] for
     /// the memory word being accessed.
     fn read_access<'a>(
@@ -869,7 +867,7 @@ struct VMemory {
     external_input_register: MemoryWord,
     rtc: MemoryWord,
     rtc_start: Duration,
-    codabo_start_point: [Unsigned36Bit; 8],
+    toggle_registers: [MemoryWord; 24],
     plugboard: [Unsigned36Bit; 32],
 
     /// Writes to unknown locations are required to be ignored, but
@@ -969,16 +967,7 @@ impl VMemory {
             e_register: Unsigned36Bit::default(),
             overflow_indicators: [false; 4],
             m_register_metabit: false,
-            codabo_start_point: [
-                Unsigned36Bit::default(),
-                Unsigned36Bit::default(),
-                Unsigned36Bit::default(),
-                Unsigned36Bit::default(),
-                Unsigned36Bit::default(),
-                Unsigned36Bit::default(),
-                Unsigned36Bit::default(),
-                Unsigned36Bit::default(),
-            ],
+            toggle_registers: [MemoryWord::default(); 24],
             plugboard: standard_plugboard_internal(),
             knob_register: MemoryWord::default(),
             external_input_register: MemoryWord::default(),
@@ -1040,6 +1029,10 @@ impl VMemory {
         self.external_input_register = MemoryWord { word: value, meta };
     }
 
+    fn set_toggle_register(&mut self, index: usize, value: Unsigned36Bit, meta: bool) {
+        self.toggle_registers[index] = MemoryWord { word: value, meta };
+    }
+
     /// Perform a memory read.
     fn read_access<'a>(
         &'a mut self,
@@ -1091,46 +1084,14 @@ impl VMemory {
                 self.update_rtc(ctx);
                 Ok(MemoryReadRef::readonly_from(&mut self.rtc))
             }
-            0o0377710 => Ok(readonly(
-                &self.codabo_start_point[0],
-                false,
-                &mut self.sacrificial_metabit,
-            )), // CODABO Reset0
-            0o0377711 => Ok(readonly(
-                &mut self.codabo_start_point[1],
-                false,
-                &mut self.sacrificial_metabit,
-            )), // CODABO Reset1
-            0o0377712 => Ok(readonly(
-                &mut self.codabo_start_point[2],
-                false,
-                &mut self.sacrificial_metabit,
-            )), // CODABO Reset2
-            0o0377713 => Ok(readonly(
-                &mut self.codabo_start_point[3],
-                false,
-                &mut self.sacrificial_metabit,
-            )), // CODABO Reset3
-            0o0377714 => Ok(readonly(
-                &mut self.codabo_start_point[4],
-                false,
-                &mut self.sacrificial_metabit,
-            )), // CODABO Reset4
-            0o0377715 => Ok(readonly(
-                &mut self.codabo_start_point[5],
-                false,
-                &mut self.sacrificial_metabit,
-            )), // CODABO Reset5
-            0o0377716 => Ok(readonly(
-                &mut self.codabo_start_point[6],
-                false,
-                &mut self.sacrificial_metabit,
-            )), // CODABO Reset6
-            0o0377717 => Ok(readonly(
-                &mut self.codabo_start_point[7],
-                false,
-                &mut self.sacrificial_metabit,
-            )), // CODABO Reset7
+            a @ 0o0377700..=0o0377727 => {
+                let offset = usize::try_from(a - 0o0377700).expect("toggle register offset fits");
+                Ok(readonly(
+                    &self.toggle_registers[offset].word,
+                    self.toggle_registers[offset].meta,
+                    &mut self.sacrificial_metabit,
+                ))
+            }
 
             a @ 0o0377740..=0o0377777 => {
                 if let Ok(offset) = TryInto::<usize>::try_into(a - 0o0377740) {
@@ -1456,4 +1417,40 @@ fn external_input_register_is_set_by_hardware_and_read_only_to_software() {
         .expect("the released external input register should be readable");
     assert_eq!(released.get_value(), Unsigned36Bit::ZERO);
     assert!(released.get_meta_bit());
+}
+
+#[test]
+fn toggle_registers_are_set_by_hardware_and_read_only_to_software() {
+    let context = make_ctx();
+    let mut mem = MemoryUnit::new(
+        &context,
+        &MemoryConfiguration {
+            with_u_memory: false,
+        },
+    );
+    let first_address = Address::from(u18!(0o0377700));
+    let last_address = Address::from(u18!(0o0377727));
+    let first_value = u36!(0o123_456_654_321);
+    let last_value = u36!(0o400_200_100_001);
+    mem.set_toggle_register(0, first_value, false);
+    mem.set_toggle_register(23, last_value, true);
+
+    let first = mem
+        .read_access(&context, &first_address)
+        .expect("the first toggle register should be readable");
+    assert_eq!(first.get_value(), first_value);
+    assert!(!first.get_meta_bit());
+
+    let last = mem
+        .read_access(&context, &last_address)
+        .expect("the last toggle register should be readable");
+    assert_eq!(last.get_value(), last_value);
+    assert!(last.get_meta_bit());
+
+    assert!(
+        mem.write_access(&context, &first_address)
+            .unwrap()
+            .is_none()
+    );
+    assert!(mem.write_access(&context, &last_address).unwrap().is_none());
 }
