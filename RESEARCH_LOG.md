@@ -1603,6 +1603,50 @@ Historical significance:
 - The implementation uses the original TX-2 bit numbering.
 - The recovered program still decides what each input means.
 
+## Checkpoint 39: Recovered Sketchpad Runs on the Public Web
+
+Date: 2026-09-15
+
+The reconstruction and simulator histories now have public GitHub forks.  The
+`reconstruction` branch lives at
+`https://github.com/GrahamGoudeau/Sketchpad`.  The
+`sketchpad-reconstruction` branch lives at
+`https://github.com/GrahamGoudeau/TX-2-simulator`.  Each fork also contains
+its dated upstream baseline tag.  The official TX-2 repositories remain the
+upstream remotes.
+
+Simulator commit `47aff8b` prepares the browser application for public and
+mobile use.  The machine now starts automatically.  The browser measures the
+cost of each WASM batch.  It changes the next batch size between 250 and 8,000
+ticks.  It targets about 10 milliseconds of machine work per animation frame.
+This keeps slower devices responsive while faster devices reach the recovered
+display loop quickly.
+
+The same commit adds a reproducible deployment script and a versioned Caddy
+site definition.  The script builds release WASM.  It installs an immutable
+dated directory.  It changes the `current` symlink.  It validates Caddy before
+it reloads Caddy.  It does not restart Caddy.
+
+Release `20260915T112912Z` now runs at
+`https://scratchpad.acyclic.sh/`.  Its active server path is
+`/opt/acyclic/Scratchpad/releases/20260915T112912Z`.  Caddy serves the WASM
+file as `application/wasm`.  HTTPS, HSTS, content-type protection, a restrictive
+permissions policy, and a no-referrer policy are active.
+
+A live browser test uses a 390 by 844 pixel mobile viewport.  The machine
+starts without a user action.  After six seconds it reaches simulated time
+`187.027432` and emits 18,302 points.  The scope shows `INK`.  The page reports
+no JavaScript errors.  A local mobile test also verifies pause, resume, shaft
+value `123` in octal, and momentary release of external button `4.8`.
+
+Historical significance:
+
+- The recovered 1960s program now runs from a public URL.
+- The deployed page executes the TX-2 machine code through WASM.
+- A phone can display the original lettering and operate the input surfaces.
+- Git preserves the source, machine reconstruction, deployment method, and
+  research record.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1633,5 +1677,6 @@ Sketchpad scope points.  The WASM application runs the combined tape and shows
 the recovered program.  Address `377620` now carries four browser shaft
 encoders and their metabit into the recovered program.  Address `377621` now
 carries 37 momentary browser buttons into the recovered program.  The next goal
-is a verified light-pen, shaft-encoder, or external-button response.
+is a verified light-pen, shaft-encoder, or external-button response.  The live
+mobile browser application runs at `https://scratchpad.acyclic.sh/`.
 The readable C translation will remain a separate explanatory artifact.

@@ -87,7 +87,9 @@ word `INK` from the recovered machine code.  Simulator commit `32e7961`
 connects browser pointer hits to a modeled unit-55 light pen.  Simulator commit
 `8720bb4` connects four browser shaft encoders and their metabit to Knob
 Register address `377620`.  Simulator commit `5ef2170` connects 37 momentary
-browser buttons to External Input Register address `377621`.  A verified
+browser buttons to External Input Register address `377621`.  Simulator commit
+`47aff8b` adds adaptive mobile execution and the production deployment record.
+The recovered program now runs at `https://scratchpad.acyclic.sh/`.  A verified
 interactive response is next.
 
 ## Validator Changes
