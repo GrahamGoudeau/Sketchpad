@@ -44,6 +44,7 @@ let running = false;
 let pointCount = 0;
 let startedAt = performance.now();
 let frameRequest;
+let ticksPerFrame = 1000;
 const lightPen = { active: false, x: 0, y: 0 };
 
 function setMessage(message, error = false) {
@@ -164,12 +165,15 @@ function frame() {
   const realElapsed = (frameStart - startedAt) / 1000;
 
   try {
-    const events = machine.step_batch(realElapsed, 2000);
+    const events = machine.step_batch(realElapsed, ticksPerFrame);
     for (const event of events) {
       if (event?.kind === "scope_point") {
         drawScopePoint(event, realElapsed);
       }
     }
+    const workTime = Math.max(0.25, performance.now() - frameStart);
+    const scale = Math.max(0.6, Math.min(1.5, 10 / workTime));
+    ticksPerFrame = Math.round(Math.max(250, Math.min(8000, ticksPerFrame * scale)));
   } catch (error) {
     stopWithError(error);
     return;
@@ -203,6 +207,7 @@ function loadMachine(tape) {
   activeTape = tape;
   lightPen.active = false;
   pointCount = 0;
+  ticksPerFrame = 1000;
   startedAt = performance.now();
   resizeCanvas();
   context.fillStyle = "#010503";
@@ -304,6 +309,7 @@ try {
   loadMachine(sketchpad_tape());
   runButton.disabled = false;
   resetButton.disabled = false;
+  start();
 } catch (error) {
   stopWithError(error);
 }
