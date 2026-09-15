@@ -13,6 +13,14 @@ const knobInputs = Array.from(document.querySelectorAll("[data-knob]"));
 const knobMeta = document.querySelector("#knob-meta");
 const externalButtonRows = document.querySelector("#external-buttons");
 const externalMeta = document.querySelector("#external-meta");
+const mobileRunButton = document.querySelector("#mobile-run");
+const mobileResetButton = document.querySelector("#mobile-reset");
+const mobileStateNode = document.querySelector("#mobile-state");
+const mobileMessageNode = document.querySelector("#mobile-message");
+const mobileControlsButton = document.querySelector("#mobile-controls");
+const closeControlsButton = document.querySelector("#close-controls");
+const advancedPanel = document.querySelector("#advanced-panel");
+const mobileToolButtons = Array.from(document.querySelectorAll("[data-mobile-tool]"));
 
 for (const quarter of [4, 3, 2, 1]) {
   const row = document.createElement("div");
@@ -37,6 +45,8 @@ for (const quarter of [4, 3, 2, 1]) {
 
 const externalButtons = Array.from(document.querySelectorAll("[data-external-button]"));
 const heldExternalButtons = new Set();
+let selectedMobileTool = mobileToolButtons[0];
+let mobileBridgeActive = false;
 
 let machine;
 let activeTape;
@@ -45,11 +55,15 @@ let pointCount = 0;
 let startedAt = performance.now();
 let frameRequest;
 let ticksPerFrame = 1000;
-const lightPen = { active: false, x: 0, y: 0 };
+const lightPen = { active: false, pointerId: null, x: 0, y: 0 };
 
 function setMessage(message, error = false) {
   messageNode.textContent = message;
   messageNode.classList.toggle("error", error);
+  if (error) {
+    mobileMessageNode.textContent = message;
+    mobileMessageNode.classList.add("error");
+  }
 }
 
 function resizeCanvas() {
@@ -110,6 +124,8 @@ function updateReadouts() {
   timeNode.textContent = `${simulatedTime.toFixed(6)} s`;
   countNode.textContent = pointCount.toLocaleString();
   runButton.textContent = running ? "PAUSE" : "RUN";
+  mobileRunButton.textContent = running ? "PAUSE" : "RUN";
+  mobileStateNode.textContent = running ? "RUNNING" : "STOPPED";
 }
 
 function applyKnobRegister() {
@@ -130,10 +146,16 @@ function applyExternalInputRegister() {
     const bit = Number(button.dataset.switchBit);
     quarters[4 - quarter] |= 1 << (bit - 1);
   }
+  if (mobileBridgeActive && selectedMobileTool?.dataset.switchQuarter) {
+    const quarter = Number(selectedMobileTool.dataset.switchQuarter);
+    const bit = Number(selectedMobileTool.dataset.switchBit);
+    quarters[4 - quarter] |= 1 << (bit - 1);
+  }
   machine?.set_external_input_register(
     ...quarters,
     heldExternalButtons.has(externalMeta),
   );
+  document.documentElement.dataset.bridgeActive = String(mobileBridgeActive);
 }
 
 function holdExternalButton(button, held) {
@@ -206,6 +228,8 @@ function loadMachine(tape) {
   machine = new SketchpadMachine();
   activeTape = tape;
   lightPen.active = false;
+  lightPen.pointerId = null;
+  mobileBridgeActive = false;
   pointCount = 0;
   ticksPerFrame = 1000;
   startedAt = performance.now();
@@ -220,18 +244,24 @@ function loadMachine(tape) {
   updateReadouts();
 }
 
-runButton.addEventListener("click", () => {
+function toggleRunning() {
   if (running) {
     pause();
   } else {
     start();
   }
-});
+}
 
-resetButton.addEventListener("click", () => {
+runButton.addEventListener("click", toggleRunning);
+mobileRunButton.addEventListener("click", toggleRunning);
+
+function resetMachine() {
   loadMachine(activeTape ?? sketchpad_tape());
   start();
-});
+}
+
+resetButton.addEventListener("click", resetMachine);
+mobileResetButton.addEventListener("click", resetMachine);
 
 tapeInput.addEventListener("change", async () => {
   const [file] = tapeInput.files;
@@ -254,22 +284,77 @@ function updateLightPen(event) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
+  if (event.pointerType === "mouse" && event.button !== 0) {
+    return;
+  }
+  event.preventDefault();
   updateLightPen(event);
   lightPen.active = true;
+  lightPen.pointerId = event.pointerId;
+  mobileBridgeActive = true;
+  applyExternalInputRegister();
   canvas.setPointerCapture(event.pointerId);
 });
 
 canvas.addEventListener("pointermove", (event) => {
-  if (lightPen.active) {
+  event.preventDefault();
+  if (lightPen.active && event.pointerId === lightPen.pointerId) {
     updateLightPen(event);
   }
 });
 
-for (const eventName of ["pointerup", "pointercancel"]) {
-  canvas.addEventListener(eventName, () => {
+for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
+  canvas.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    if (lightPen.pointerId !== null && event.pointerId !== lightPen.pointerId) {
+      return;
+    }
     lightPen.active = false;
+    lightPen.pointerId = null;
+    mobileBridgeActive = false;
+    applyExternalInputRegister();
   });
 }
+
+for (const eventName of ["touchstart", "touchmove", "touchend", "touchcancel"]) {
+  canvas.addEventListener(eventName, (event) => event.preventDefault(), { passive: false });
+}
+
+for (const eventName of ["selectstart", "contextmenu", "dragstart"]) {
+  document.addEventListener(eventName, (event) => event.preventDefault());
+}
+
+for (const button of mobileToolButtons) {
+  button.addEventListener("click", () => {
+    selectedMobileTool = button;
+    for (const candidate of mobileToolButtons) {
+      const active = candidate === selectedMobileTool;
+      candidate.classList.toggle("active", active);
+      candidate.setAttribute("aria-pressed", String(active));
+    }
+    const toolName = button.querySelector("span:last-child").textContent;
+    mobileMessageNode.textContent = `${toolName} is ready. Touch visible ink.`;
+    mobileMessageNode.classList.remove("error");
+  });
+}
+
+function setAdvancedPanel(open) {
+  advancedPanel.classList.toggle("open", open);
+  mobileControlsButton.setAttribute("aria-expanded", String(open));
+  if (open) {
+    closeControlsButton.focus();
+  } else {
+    mobileControlsButton.focus();
+  }
+}
+
+mobileControlsButton.addEventListener("click", () => setAdvancedPanel(true));
+closeControlsButton.addEventListener("click", () => setAdvancedPanel(false));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && advancedPanel.classList.contains("open")) {
+    setAdvancedPanel(false);
+  }
+});
 
 for (const input of [...knobInputs, knobMeta]) {
   input.addEventListener("input", applyKnobRegister);
@@ -309,6 +394,8 @@ try {
   loadMachine(sketchpad_tape());
   runButton.disabled = false;
   resetButton.disabled = false;
+  mobileRunButton.disabled = false;
+  mobileResetButton.disabled = false;
   start();
 } catch (error) {
   stopWithError(error);

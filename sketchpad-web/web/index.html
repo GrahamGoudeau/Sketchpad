@@ -2,8 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="theme-color" content="#07100d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Sketchpad on TX-2</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
@@ -17,6 +20,13 @@
 
       <section class="machine" aria-label="TX-2 oscilloscope simulator">
         <div class="scope-frame">
+          <div class="scope-topbar mobile-only">
+            <div class="mobile-brand">
+              <span>SKETCHPAD</span>
+              <span id="mobile-state" class="mobile-state">INITIALIZING</span>
+            </div>
+            <button id="mobile-run" class="compact-button" type="button" disabled>RUN</button>
+          </div>
           <div class="scope-glass">
             <canvas id="scope" aria-label="TX-2 oscilloscope display"></canvas>
             <div class="graticule" aria-hidden="true"></div>
@@ -41,60 +51,99 @@
             <strong id="point-count">0</strong>
           </div>
 
-          <fieldset class="knobs">
-            <legend>SHAFT ENCODERS</legend>
-            <label class="knob">
-              <span>Q4</span>
-              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 4">
-              <output>000</output>
-            </label>
-            <label class="knob">
-              <span>Q3</span>
-              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 3">
-              <output>000</output>
-            </label>
-            <label class="knob">
-              <span>Q2</span>
-              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 2">
-              <output>000</output>
-            </label>
-            <label class="knob">
-              <span>Q1</span>
-              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 1">
-              <output>000</output>
-            </label>
-            <label class="meta-control">
-              <input id="knob-meta" type="checkbox">
-              <span>KNOB META</span>
-            </label>
-          </fieldset>
+          <nav class="tool-hud mobile-only" aria-label="Sketchpad tools">
+            <button class="tool-button active" data-mobile-tool type="button" aria-pressed="true">
+              <span class="tool-mark">+</span>
+              <span>PEN</span>
+            </button>
+            <button class="tool-button" data-mobile-tool data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="false">
+              <span class="tool-mark">/</span>
+              <span>DRAW</span>
+            </button>
+            <button class="tool-button" data-mobile-tool data-switch-quarter="2" data-switch-bit="1" type="button" aria-pressed="false">
+              <span class="tool-mark">↗</span>
+              <span>MOVE</span>
+            </button>
+            <button class="tool-button" data-mobile-tool data-switch-quarter="1" data-switch-bit="3" type="button" aria-pressed="false">
+              <span class="tool-mark">×</span>
+              <span>ERASE</span>
+            </button>
+            <button class="tool-button" data-mobile-tool data-switch-quarter="1" data-switch-bit="9" type="button" aria-pressed="false">
+              <span class="tool-mark">□</span>
+              <span>COPY</span>
+            </button>
+          </nav>
 
-          <fieldset class="external-input">
-            <legend>EXTERNAL INPUT · 377621</legend>
-            <p>Hold one or more buttons. Each row and number identifies a TX-2 bit.</p>
-            <div id="external-buttons" class="switch-rows"></div>
-            <button
-              id="external-meta"
-              class="external-button external-meta"
-              data-external-button
-              type="button"
-              aria-pressed="false"
-            >4.10 META</button>
-          </fieldset>
-
-          <div class="controls">
-            <button id="run" type="button" disabled>RUN</button>
-            <button id="reset" type="button" disabled>RESET</button>
-            <label class="file-control">
-              <span>LOAD PAPER TAPE</span>
-              <input id="tape" type="file">
-            </label>
+          <div class="mobile-actions mobile-only">
+            <p id="mobile-message">Choose a tool. Then touch visible ink.</p>
+            <button id="mobile-reset" class="compact-button" type="button" disabled>RESET</button>
+            <button id="mobile-controls" class="compact-button" type="button" aria-expanded="false" aria-controls="advanced-panel">MACHINE</button>
           </div>
 
-          <p id="message" class="message" role="status">
-            Loading the WebAssembly machine.
-          </p>
-          <p class="message">Touch and hold visible scope ink to use the light pen.</p>
+          <div id="advanced-panel" class="advanced-panel">
+            <div class="sheet-heading mobile-only">
+              <div>
+                <strong>TX-2 CONTROL PANEL</strong>
+                <span>Original input registers</span>
+              </div>
+              <button id="close-controls" class="compact-button" type="button">CLOSE</button>
+            </div>
+
+            <fieldset class="knobs">
+              <legend>SHAFT ENCODERS</legend>
+              <label class="knob">
+                <span>Q4</span>
+                <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 4">
+                <output>000</output>
+              </label>
+              <label class="knob">
+                <span>Q3</span>
+                <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 3">
+                <output>000</output>
+              </label>
+              <label class="knob">
+                <span>Q2</span>
+                <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 2">
+                <output>000</output>
+              </label>
+              <label class="knob">
+                <span>Q1</span>
+                <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 1">
+                <output>000</output>
+              </label>
+              <label class="meta-control">
+                <input id="knob-meta" type="checkbox">
+                <span>KNOB META</span>
+              </label>
+            </fieldset>
+
+            <fieldset class="external-input">
+              <legend>EXTERNAL INPUT · 377621</legend>
+              <p>Hold one or more buttons. Each row and number identifies a TX-2 bit.</p>
+              <div id="external-buttons" class="switch-rows"></div>
+              <button
+                id="external-meta"
+                class="external-button external-meta"
+                data-external-button
+                type="button"
+                aria-pressed="false"
+              >4.10 META</button>
+            </fieldset>
+
+            <div class="controls">
+              <button id="run" type="button" disabled>RUN</button>
+              <button id="reset" type="button" disabled>RESET</button>
+              <label class="file-control">
+                <span>LOAD PAPER TAPE</span>
+                <input id="tape" type="file">
+              </label>
+            </div>
+
+            <p id="message" class="message" role="status">
+              Loading the WebAssembly machine.
+            </p>
+            <p class="message">Touch and hold visible scope ink to use the light pen.</p>
+          </div>
         </aside>
       </section>
 

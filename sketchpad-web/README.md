@@ -31,6 +31,13 @@ the unit-55 light pen.  Four sliders control the shaft encoders at address
 `377620`.  Thirty-seven momentary buttons control the External Input Register
 at address `377621`.  The application also accepts a local paper-tape file.
 
+On a narrow screen, the scope and a five-tool HUD fill the viewport.  The user
+selects a tool before touching the scope.  The mobile bridge holds the matching
+historical External Input Register bit for the duration of the light-pen
+gesture.  This replaces the two-handed physical-console gesture with one touch.
+The `MACHINE` drawer keeps all original shaft and button inputs available.
+Selection, callout, drag, and scrolling gestures are disabled on the scope.
+
 Deploy the current release:
 
 ```sh
