@@ -409,7 +409,7 @@ impl ArithmeticExpression {
         }
     }
 
-    fn substitute_macro_parameters(
+    pub(super) fn substitute_macro_parameters(
         &self,
         param_values: &MacroParameterBindings,
         on_missing: OnUnboundMacroParameter,

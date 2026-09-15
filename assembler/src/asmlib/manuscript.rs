@@ -521,8 +521,16 @@ impl MacroDefinition {
         let mut instructions: Vec<TaggedProgramInstruction> = Vec::with_capacity(self.body.len());
         for body_line in &self.body {
             match body_line {
-                MacroBodyLine::Expansion(_macro_invocation) => {
-                    unimplemented!("recursive macros are not yet supported")
+                MacroBodyLine::Expansion(macro_invocation) => {
+                    let nested_invocation =
+                        macro_invocation.substitute_invocation_parameters(bindings, macros);
+                    let expansion = nested_invocation.substitute_macro_parameters(macros);
+                    if let Some(nested_symbols) = expansion.local_symbols
+                        && let Err(errors) = local_symbols.merge(nested_symbols)
+                    {
+                        panic!("conflicting local symbols in nested macro: {errors:?}");
+                    }
+                    instructions.extend(expansion.instructions);
                 }
                 MacroBodyLine::Instruction(tagged_program_instruction) => {
                     if let Some(name) = tagged_program_instruction.standalone_symbol()
@@ -622,6 +630,62 @@ impl MacroParameterBindings {
     pub(super) fn get(&self, name: &SymbolName) -> Option<&(Span, Option<MacroParameterValue>)> {
         self.inner.get(name)
     }
+
+    fn substitute_macro_parameters(
+        &self,
+        outer_bindings: &MacroParameterBindings,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> MacroParameterBindings {
+        let mut result = MacroParameterBindings::default();
+        for (name, (span, maybe_value)) in &self.inner {
+            let value = maybe_value
+                .as_ref()
+                .and_then(|value| value.substitute_macro_parameters(outer_bindings, macros));
+            result.insert(name.clone(), *span, value);
+        }
+        result
+    }
+}
+
+impl MacroParameterValue {
+    fn substitute_macro_parameters(
+        &self,
+        outer_bindings: &MacroParameterBindings,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<MacroParameterValue> {
+        match self {
+            MacroParameterValue::Value(script, expression) => expression
+                .substitute_macro_parameters(
+                    outer_bindings,
+                    OnUnboundMacroParameter::ElideReference,
+                    macros,
+                )
+                .map(|expression| MacroParameterValue::Value(*script, expression)),
+            MacroParameterValue::Fragments {
+                holdbit,
+                defer_span,
+                fragments,
+            } => {
+                let mut substituted = Vec::with_capacity(fragments.len());
+                for (script, expression) in fragments {
+                    let expression = expression.substitute_macro_parameters(
+                        outer_bindings,
+                        OnUnboundMacroParameter::ElideReference,
+                        macros,
+                    )?;
+                    substituted.push((*script, expression));
+                }
+                Some(MacroParameterValue::Fragments {
+                    holdbit: *holdbit,
+                    defer_span: *defer_span,
+                    fragments: substituted,
+                })
+            }
+            MacroParameterValue::Expansion(invocation) => Some(MacroParameterValue::Expansion(
+                Box::new(invocation.substitute_invocation_parameters(outer_bindings, macros)),
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -631,6 +695,19 @@ pub(crate) struct MacroInvocation {
 }
 
 impl MacroInvocation {
+    fn substitute_invocation_parameters(
+        &self,
+        outer_bindings: &MacroParameterBindings,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> MacroInvocation {
+        MacroInvocation {
+            macro_def: self.macro_def.clone(),
+            param_values: self
+                .param_values
+                .substitute_macro_parameters(outer_bindings, macros),
+        }
+    }
+
     pub(super) fn substitute_macro_parameters(
         &self,
         macros: &BTreeMap<SymbolName, MacroDefinition>,

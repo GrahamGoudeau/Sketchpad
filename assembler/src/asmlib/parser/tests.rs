@@ -3007,6 +3007,27 @@ mod macro_tests {
     }
 
     #[test]
+    fn test_macro_expansion_inside_macro_body() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF INNER|X\n",
+                "LDA X\n",
+                "☛☛EMD\n",
+                "☛☛DEF OUTER|Y\n",
+                "INNER|Y\n",
+                "☛☛EMD\n",
+                "OUTER|123\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        assert_eq!(got.blocks.len(), 1);
+        assert_eq!(got.blocks[0].sequences.len(), 1);
+        assert_eq!(got.blocks[0].sequences[0].instructions.len(), 1);
+    }
+
+    #[test]
     fn test_mixed_script_macro_parameter() {
         let got = parse_successfully_with(
             concat!(
