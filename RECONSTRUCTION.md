@@ -73,9 +73,18 @@ M4 assembly jobs.  They are not one assembly job.
 All eight jobs emit deterministic machine tapes.  The build checks their SHA-256
 values against `TAPE_SHA256SUMS`.  The checksum gate currently rejects all
 eight tapes because the approved hashes predate the historical allocation
-repairs.  The next phase identifies compatible jobs and loads them into the
-simulator.  The simulator now has the first output device that this execution
-requires.
+repairs.
+
+Seven jobs form the current compatible machine image.  The load order is
+`2XMX`, `GX7A`, `BOO7`, `ONLW`, `APY5`, `LYUO`, and `Y3HT`.  The earlier and
+shorter `OPLW` job is not in this set.  The merged tape contains 12,292 words in
+28 blocks.  It starts at octal address `200140`.  Its SHA-256 is
+`18b4a0f69853faf0a60aab0c0c7943d29dcb21c98c2426250e521706953badae`.
+
+The simulator runs this image through WebAssembly.  A bounded native run emits
+63,080 scope points by simulated time 190 seconds.  A browser run draws the
+word `INK` from the recovered machine code.  Light-pen and console input are
+the next runtime tasks.
 
 ## Validator Changes
 
@@ -135,6 +144,15 @@ The complete simulator workspace passes its tests after this change.
 Commit `8f4a1ff` adds the separate `sketchpad-web` WASM bridge and browser
 surface.  A deterministic scope-check paper tape now exercises the complete
 loader, CPU, unit-60 event, WASM, and canvas path.
+
+Commit `a9882dd` confines a negative M4 configuration value to its five-bit
+instruction syllable.  Commit `fabc843` adds a validated tape reader and the
+ordered `tx2mergetape` tool.  Commit `efe4c73` implements `ADX`, all 32 `SKX`
+forms, correct direct `DPX` addressing, and the current-sequence `RFD` rule.
+Commit `673b33c` adds alarm masks, deterministic simulated-time limits, and
+runtime event counters to the command-line simulator.  Commit `0514de6`
+bundles the recovered Sketchpad image in the WASM application and batches
+machine ticks across the JavaScript boundary.
 
 The printed `2XMX` automatic table belongs to a different visible revision.
 Its automatic `COPYNUM` conflicts with the surviving explicit

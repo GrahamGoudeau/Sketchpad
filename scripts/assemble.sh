@@ -5,6 +5,7 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 simulator_dir=${SKETCHPAD_TX2_SIMULATOR_DIR:-"$repo_dir/../TX-2-simulator"}
 assembler="$simulator_dir/target/debug/tx2m4as"
 disassembler="$simulator_dir/target/debug/tx2dis"
+merger="$simulator_dir/target/debug/tx2mergetape"
 output_dir="$repo_dir/build"
 
 if [[ ! -x "$assembler" ]]; then
@@ -15,6 +16,12 @@ fi
 
 if [[ ! -x "$disassembler" ]]; then
   echo "Missing disassembler: $disassembler" >&2
+  echo "Build it with: cd $simulator_dir && cargo build --workspace" >&2
+  exit 2
+fi
+
+if [[ ! -x "$merger" ]]; then
+  echo "Missing tape merger: $merger" >&2
   echo "Build it with: cd $simulator_dir && cargo build --workspace" >&2
   exit 2
 fi
@@ -71,11 +78,26 @@ for unit in "${units[@]}"; do
   echo "Built $output"
 done
 
+"$merger" \
+  --output "$output_dir/sketchpad-combined.tape" \
+  --entry 200140 \
+  --allow-overwrite 022000 \
+  "$output_dir/sketchpad-2xmx.tape" \
+  "$output_dir/sketchpad-gx7a.tape" \
+  "$output_dir/sketchpad-boo7.tape" \
+  "$output_dir/sketchpad-onlw.tape" \
+  "$output_dir/sketchpad-apy5.tape" \
+  "$output_dir/sketchpad-lyuo.tape" \
+  "$output_dir/sketchpad-y3ht.tape"
+"$disassembler" "$output_dir/sketchpad-combined.tape" >/dev/null
+echo "Built $output_dir/sketchpad-combined.tape"
+
 (
   cd "$output_dir"
   shasum -a 256 sketchpad-2xmx.tape sketchpad-oplw.tape \
     sketchpad-gx7a.tape sketchpad-boo7.tape sketchpad-onlw.tape \
-    sketchpad-apy5.tape sketchpad-lyuo.tape sketchpad-y3ht.tape > SHA256SUMS
+    sketchpad-apy5.tape sketchpad-lyuo.tape sketchpad-y3ht.tape \
+    sketchpad-combined.tape > SHA256SUMS
   shasum -a 256 -c "$repo_dir/TAPE_SHA256SUMS"
 )
 

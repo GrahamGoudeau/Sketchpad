@@ -1355,6 +1355,132 @@ Historical significance:
 - The dedicated interface keeps the reconstruction distinct from the earlier
   general simulator demo.
 
+## Checkpoint 33: Seven Historical Jobs Form One Load Image
+
+Date: 2026-09-15
+
+The eight printed M4 jobs do not represent eight independent applications.
+They contain successive pieces and revisions of the Sketchpad system.  An
+address and content comparison selects this ordered set:
+
+1. `2XMX`
+2. `GX7A`
+3. `BOO7`
+4. `ONLW`
+5. `APY5`
+6. `LYUO`
+7. `Y3HT`
+
+`OPLW` and `ONLW` occupy the same functional place.  `OPLW` is the earlier and
+shorter witness.  The combined set uses `ONLW` and excludes `OPLW`.
+
+Simulator commit `fabc843` adds a validated paper-tape reader and the
+`tx2mergetape` tool.  The tool removes the separate M4 begin blocks.  It then
+merges program blocks in stated load order.  It rejects every unequal overlap
+unless the command names that exact address.
+
+The seven jobs have one unequal program-word overlap.  `BOO7` supplies
+`000000001165` at address `022000`.  Later `ONLW` supplies `000000000605` at
+the same address.  The build permits only this overwrite.  It reports no
+identical program overlaps.
+
+The `CLEAN` entry at `200140` calls `UNITS` and then `FRESH START`.  The merged
+image uses this address as its start point.  The image contains 12,292 words in
+28 blocks.  Its SHA-256 is:
+
+```text
+18b4a0f69853faf0a60aab0c0c7943d29dcb21c98c2426250e521706953badae
+```
+
+The reconstruction script now builds this image after it builds all eight
+source tapes.  The old checksum gate still rejects the eight individual tapes.
+That result remains expected because their approved hashes predate the latest
+assembler repairs.
+
+Historical significance:
+
+- The surviving listings now produce one explicit loadable system image.
+- The build records the revision choice and the only destructive overlap.
+- The entry point comes from recovered startup control flow.
+- The merge tool prevents an accidental load order from becoming evidence.
+
+## Checkpoint 34: Recovered Sketchpad Draws Through the TX-2 CPU
+
+Date: 2026-09-15
+
+The first combined boot exposed missing or incorrect TX-2 behavior in program
+order.  Each stop supplied a narrow machine-level test.
+
+The first stop was `RFD` at `200152`.  The next stops exposed the full `SKX`
+family, direct `DPX` addressing, negative M4 configuration encoding, and
+`ADX`.  The November 1963 TX-2 Users Handbook supplied the operation rules.
+Simulator commits `a9882dd` and `efe4c73` implement those rules.
+
+One later run repeated sequence 60 at `200206`.  The Handbook states that an
+`RFD` does not dismiss when its flag number equals the current sequence.  The
+implementation had dismissed sequence 60 and restarted it.  A focused test
+now covers the current-sequence rule.
+
+Sketchpad's `UNITS OFF` loop disconnects unit numbers from 77 downward.  A
+missing hardware unit can raise `IOSAL`.  The historical machine could mask
+that alarm.  The command-line runtime now exposes the same alarm mask.  It does
+not change the behavior of a missing unit.
+
+Simulator commit `673b33c` adds a deterministic simulated-time stop and output
+counters.  This command provides the first bounded execution record:
+
+```sh
+RUST_LOG=cli=info,cpu=error target/debug/cli \
+  --speed-multiplier MAX \
+  --mask-alarm IOSAL \
+  --stop-at-simulated-seconds 190 \
+  ../sketchpad-reconstruction/build/sketchpad-combined.tape
+```
+
+The run reaches exactly 190 simulated seconds.  It executes 670,147 ticks.  It
+emits 63,080 unit-60 scope points.  It emits no Lincoln Writer characters.  No
+unmasked alarm stops the run.
+
+Later execution also reaches code for the external input register, shaft
+encoder, and units 54, 55, and 75.  The current simulator does not model all of
+those inputs.  This defines the next device boundary.  It does not block the
+initial display.
+
+Historical significance:
+
+- The recovered machine words now execute beyond the complete startup path.
+- Primary machine documentation resolves each runtime defect.
+- Scope output comes from Sketchpad instructions and TX-2 timing.
+- A bounded command makes the first drawing run repeatable.
+
+## Checkpoint 35: The Browser Shows Recovered Sketchpad Lettering
+
+Date: 2026-09-15
+
+Simulator commit `0514de6` bundles the exact combined tape in
+`sketchpad-web`.  The WASM profile masks `IOSAL` for the historical startup
+loop.  It keeps all other alarms at their normal settings.
+
+The browser now mounts the recovered tape by default.  A Rust batch method runs
+2,000 TX-2 ticks per JavaScript call.  This removes most cross-boundary calls
+and keeps pause and reset controls responsive.
+
+A Chrome verification reaches simulated time `186.214860` seconds.  It
+receives 5,321 unit-60 points.  The scope shows the word `INK` in the recovered
+Sketchpad lettering.  The pause control works after this run.  The release WASM
+build and JavaScript syntax check pass.
+
+This output is not a diagnostic pattern.  It comes from the seven-job
+Sketchpad image with SHA-256
+`18b4a0f69853faf0a60aab0c0c7943d29dcb21c98c2426250e521706953badae`.
+
+Historical significance:
+
+- Recovered Sketchpad now produces recognizable output in a modern browser.
+- The visible lettering comes from the original assembly path.
+- The browser uses the same machine image as the bounded native run.
+- Light-pen and console input can now target a working display loop.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1364,8 +1490,8 @@ The `sk2.tx2as` file contains a continuation and four more assembly jobs.
 All four Part 1 fragments now assemble into deterministic tapes.
 The complete cross-volume `BOO7` job also assembles into deterministic output.
 All eight recovered assembly jobs now have deterministic machine output.
-One reproducible command builds all eight tapes.  The checksum gate currently
-rejects all eight provisional tapes.
+One reproducible command builds all eight tapes and the compatible seven-job
+image.  The checksum gate currently rejects all eight provisional source tapes.
 The `GX7A` RC block now has a printed historical address oracle.
 The forward-macro shortfall and its false automatic symbols are resolved.
 The automatic-symbol order now matches the printed `GX7A` sequence.
@@ -1378,10 +1504,9 @@ oracle.  The first focused uncertainty audit has verified 17 more `2XMX`
 readings.  The broad uncertainty audit has repaired four instruction or data
 words and completed two clipped lines.  It has also settled 49 marked readings
 across both volumes.  One marked held-address glyph remains open in the first
-`2XMX` region.  The simulator now implements TX-2 oscilloscope unit 60.  A
-separate WASM application has run a diagnostic tape through the full browser
-display path.  The next goal is compatible-set loading and the first recovered
-Sketchpad execution attempt.  Light-pen input follows the first stable display
-loop.
-The browser target will run that simulator through WebAssembly.
+`2XMX` region.  The simulator now implements TX-2 oscilloscope unit 60 and the
+index operations that the startup path requires.  A bounded run emits 63,080
+Sketchpad scope points.  The WASM application runs the combined tape and shows
+`INK` in the browser.  The next goal is light-pen, shaft-encoder, and console
+input.
 The readable C translation will remain a separate explanatory artifact.
