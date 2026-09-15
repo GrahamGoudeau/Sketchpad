@@ -12,3 +12,8 @@ printed `GX7A` symbol table.  The order of its rows is address order.
 `2xmx-program-symbols.tsv` records selected program tags from the printed
 `2XMX` symbol table.  These tags span the repaired two-word offset.  The order
 of its rows is address order.
+
+`2xmx-automatic-symbols.tsv` records every marked automatic storage address in
+the printed `2XMX` symbol table.  The order of its rows is address order.  The
+table and the surviving equality sheet disagree about `COPYNUM`.  Keep that
+version difference visible during comparison.

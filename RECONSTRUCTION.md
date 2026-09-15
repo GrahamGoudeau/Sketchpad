@@ -65,7 +65,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R050 and the validator changes let the complete source
+Repairs R001 through R051 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -207,6 +207,7 @@ file marks it clearly and the log records the alternatives.
 | R048 | `sk.tx2as:2110` | verified | Sketchpad part 1, PDF page 47; the printed operation has a clear initial `D`; valid TX-2 opcode spelling | Read `SPX` as `DPX`. |
 | R049 | `sk.tx2as:2475` | verified | Sketchpad part 1, PDF page 53; the printed operation has a clear final `A`; valid TX-2 opcode spelling | Read `LDS` as `LDA`. |
 | R050 | `sk2.tx2as:2393` | verified | Sketchpad part 2, PDF page 58; the printed operation has a clear initial `D`; the two preceding lines also use `DPX` | Read `SPX` as `DPX`. |
+| R051 | `sk.tx2as:910` | verified | Sketchpad part 1, PDF page 25; the printed operand reads `76BUT`; every adjacent selector uses the same word; the 2XMX symbol table has no `74BUT` | Read `74BUT` as `76BUT`. |
 
 ## Publication Gate
 

@@ -1019,6 +1019,71 @@ Historical significance:
 - Each repaired operation now has a direct image witness.
 - The output shrinks by the exact number of false storage symbols.
 
+## Checkpoint 26: The Complete 2XMX Automatic Table Is an Oracle
+
+Date: 2026-09-15
+
+The 600-DPI `2XMX` symbol-table images expose every marked automatic storage
+symbol and address.  The new `evidence/2xmx-automatic-symbols.tsv` file records
+all 21 rows.  The printed addresses run from `011410` through `011451`.
+
+The table immediately verifies another source repair.  It contains `47BUT` and
+`76BUT`.  It does not contain `74BUT`.  Part 1, PDF page 25 clearly prints
+`76BUT` on the one recovered line that said `74BUT`.  Repair R051 restores that
+operand.  It removes exactly one false automatic word.  The `2XMX` output falls
+from 2,835 words to 2,834 words.
+
+The printed set and the recovered set now differ in one important place.  The
+printed table marks `COPYNUM` as automatic storage at `011421`.  The surviving
+equality sheet explicitly defines `COPYNUM=NITOG` and prints its value as
+`377725`.  These two primary witnesses describe different program revisions.
+The canonical source keeps the explicit equality.  The evidence file keeps the
+printed automatic address.  Neither fact is discarded.
+
+The current assembler puts its 20 automatic symbols in one contiguous range
+from `011406` through `011431`.  The printed M4 table places its 21 automatic
+symbols among gaps from `011410` through `011451`.  Some important printed rows
+are:
+
+| Symbol | Printed address | Current address |
+| --- | ---: | ---: |
+| `47BUT` | `011410` | `011406` |
+| `76BUT` | `011417` | `011407` |
+| `76TABLE` | `011420` | `011410` |
+| `COPYNUM` | `011421` | explicit `377725` |
+| `CCENT` | `011423` | `011411` |
+| `MRGRU` | `011427` | `011421` |
+| `PAGE1` | `011436` | `011425` |
+| `ZZLAST` | `011443` | `011431` |
+| `MKCN2B` | `011451` | `011420` |
+
+The gaps show that M4 does not place all automatic zero words after all RC
+words for this job.  The allocation schedule must combine automatic symbols
+with other RC allocations.  The exact schedule remains the next simulator
+research task.  The `GX7A` exact match stays valid and constrains any change.
+
+All eight jobs still assemble:
+
+| Job | Emitted words | Tape SHA-256 |
+| --- | ---: | --- |
+| `2XMX` | 2,834 | `3f023845020d26429e47d930eccaf1be66ec67a3c0788c1ef45e3315e8b76371` |
+| `OPLW` | 269 | `a02a9e2951957e825f8e9b118d19821ea365f017a2486d0e788aa474d1660792` |
+| `GX7A` | 2,043 | `4359c83fb274016b0643f546ce9c85592017d79f64f4b72004fb316d748eddd4` |
+| `BOO7` | 1,033 | `eb165a49557653b607a43be780c9eb969acaa8b17e1ebea6c3fe7ab423acddbd` |
+| `ONLW` | 1,829 | `54d8781f4c6cc1578c1200ec09c688c7e51debbc0bb5d613e333a8b56cac4977` |
+| `APY5` | 1,266 | `9bc8fdbab835c1c795e5dce011b930d8747295d79200b77e8911a8fc36a33b79` |
+| `LYUO` | 1,435 | `e4cd010edf0b932424219cad8e85fb2968081f5681f88909f1ce760153f17f01` |
+| `Y3HT` | 1,852 | `eddf8f009d49d2b20765aec2b29d2c5efe92c85fba4d26ccdeef3f73bd1ae8ef` |
+
+The checksum gate rejects all eight provisional tapes.  This remains expected.
+
+Historical significance:
+
+- The full 2XMX table now exists as machine-readable primary evidence.
+- The table finds a one-character error that valid assembly did not expose.
+- Two surviving artifacts now prove a program revision boundary.
+- The address gaps define the next M4 allocation question precisely.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1034,10 +1099,11 @@ The `GX7A` RC block now has a printed historical address oracle.
 The forward-macro shortfall and its false automatic symbols are resolved.
 The automatic-symbol order now matches the printed `GX7A` sequence.
 All sixteen automatic `GX7A` addresses now match that sequence exactly.
-The `2XMX` symbol audit has repaired seven false names, one duplicated macro
+The `2XMX` symbol audit has repaired eight false names, one duplicated macro
 expansion, and one global tag-offset defect.  Seven selected program tags now
 match the printed table exactly.  The `APY5` audit has repaired one false
-operation name.  The next goal is a wider row-by-row address audit.
+operation name.  The complete printed `2XMX` automatic table is now a direct
+oracle.  The next goal is its mixed RC and automatic allocation schedule.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.
