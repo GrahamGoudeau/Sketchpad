@@ -6042,7 +6042,7 @@ TX2MSW@arr@     SKN @sub_M@@sub_E@@sub_T@@sub_A@#
                 @sup_1@DPX @sub_alpha@ LIST2
                 INX @sub_alpha@ MASTERS-LIST
 LIST2@arr@      SKX @sub_gamma@ #       ** REL RD ADDR
-                @sup_1@@sup_1@RSX @sub_beta@ 45TSD      **END OF RD AREA [subscript illegible, best guess: @sub_beta@]
+                @sup_1@@sup_1@RSX @sub_beta@ 45TSD      **END OF RD AREA
                 DEX @sub_beta@ LIST
 45MCA1@arr@     SKX @sub_S@@sub_pipe@@sub_alpha@ 0
                 @sup_1@@sup_5@AUX @sub_S@@sub_pipe@@sub_alpha@ LIST

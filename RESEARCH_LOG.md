@@ -1115,6 +1115,57 @@ Historical significance:
 - A strange instruction stays intact because the image proves it.
 - One unresolved glyph remains explicit and testable.
 
+## Checkpoint 28: The Part 2 Audit Finds Two Errors and One Missing Word
+
+Date: 2026-09-15
+
+A systematic audit checked the marked Part 2 readings against 400-DPI source
+images.  It used 600-DPI and 800-DPI images for the difficult cases.  The audit
+found two executable transcription errors.
+
+R053 changes the first `JOV SLVAD9` in the APY5 solver to `JOV SLVAD8`.  The
+printed final digit has the `8` form.  The program structure confirms it.
+`SLVAD8` handles overflow while the solver makes terms.  `SLVAD9` handles a
+later overflow while the solver calculates a constant.
+
+R054 changes `SKX 2.8 S1STATE` to `SKN 2.8 S1STATE` in LYUO.  The scan clearly
+prints `SKN`.  This instruction follows another `SKN` status test in the tape
+reader tracking loop.
+
+The audit also resolves one line that the scan cuts at the page boundary.
+Part 2, PDF page 149 ends after the `PLPLRTNE` tag.  Only the top parts of the
+next line survive.  Those parts fit `MKZ PLESW`.  The plot routine then sets
+`PLPSW` and `PLPLBUSY` on PDF page 150.  The punch routine uses the same reset,
+mode-switch, and busy-switch initialization pattern.  R055 adds `MKZ PLESW` as
+an inferred completion.  The source keeps an inline provenance note.
+
+R056 removes stale doubt notes from 19 other readings.  These readings include
+`Q8`, `SLVT5`, `SLVAD8`, `FREESUB8`, `RI=377758`, `TR5`, and several damaged
+superscripts and subscripts.  Their text does not change.
+
+The two verified repairs change one instruction word in APY5 and one in LYUO.
+The inferred completion adds one word to Y3HT.  All eight jobs assemble:
+
+| Job | Emitted words | Tape SHA-256 |
+| --- | ---: | --- |
+| `2XMX` | 2,834 | `3f023845020d26429e47d930eccaf1be66ec67a3c0788c1ef45e3315e8b76371` |
+| `OPLW` | 269 | `a02a9e2951957e825f8e9b118d19821ea365f017a2486d0e788aa474d1660792` |
+| `GX7A` | 2,043 | `4359c83fb274016b0643f546ce9c85592017d79f64f4b72004fb316d748eddd4` |
+| `BOO7` | 1,033 | `eb165a49557653b607a43be780c9eb969acaa8b17e1ebea6c3fe7ab423acddbd` |
+| `ONLW` | 1,829 | `54d8781f4c6cc1578c1200ec09c688c7e51debbc0bb5d613e333a8b56cac4977` |
+| `APY5` | 1,266 | `eb0cf5629454a3687da900d4482530dd259a55e6d94360e7d42059c92599d550` |
+| `LYUO` | 1,435 | `567e2f7fcd419238f22e131141cbb9ec47b6db658111f7d6f66f4769964ecb5f` |
+| `Y3HT` | 1,853 | `7f93bdab66b2aa112e8c2c6f1bbc62d6d345fc93804d38da40b26c42897a0e66` |
+
+The checksum gate rejects all eight provisional tapes.  This remains expected.
+
+Historical significance:
+
+- Valid assembly hid two wrong instruction words.
+- Control-flow names separated two visually similar branch targets.
+- A clipped source line now has an explicit and reproducible completion.
+- The uncertainty record now keeps damaged evidence separate from settled text.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1135,7 +1186,9 @@ expansion, and one global tag-offset defect.  Seven selected program tags now
 match the printed table exactly.  The `APY5` audit has repaired one false
 operation name.  The complete printed `2XMX` automatic table is now a direct
 oracle.  The first focused uncertainty audit has verified 17 more `2XMX`
-readings.  One marked held-address glyph remains open in that region.  The next
+readings.  The Part 2 audit has repaired two instruction words and completed
+one clipped Y3HT line.  It has also verified 19 more marked readings.  One
+marked held-address glyph remains open in the first `2XMX` region.  The next
 goal is the mixed RC and automatic allocation schedule.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.

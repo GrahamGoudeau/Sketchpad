@@ -1156,7 +1156,7 @@ V5@arr@         MASTER@hamb@VARIABLES@arr@(43,47,,24,43)
                 hJMP TRANSFORM  **MOVIT
                 32,14,,0        **SIZE
                 hJMP WHERESUB   **WHERE
-Q8@arr@         DISPLAYK [best guess for label: Q8, should not matter much as these labels do not appear to be referenced anywhere]
+Q8@arr@         DISPLAYK
                 4       **TUPLE
                 TVAL    **VARLOC
  NUMBERS+NLIST-LIST|
@@ -2407,8 +2407,8 @@ STA NORX
 SAB {-35.,}
 @sup_1@@sup_5@DIV @sub_x@@sub_1@        **N
 LDE NORX1
-@sup_1@@sup_8@SED@sub_x@@sub_1@         [best guess: @sup_8@]
-@sup_1@@sup_8@LDA@sub_x@@sub_1@ **M     [best guess: @sup_8@]
+@sup_1@@sup_8@SED@sub_x@@sub_1@
+@sup_1@@sup_8@LDA@sub_x@@sub_1@ **M
 MUL NORX        **NEW MAX
 hMAB {35.,}
 STD NORX
@@ -2823,7 +2823,7 @@ SLVR5@arr@      REX@sub_y@@sub_1@@sub_pipe@@sub_x@@sub_1@
                 @sup_1@ADX@sub_x@@sub_3@SLVTR2
                 @sup_minus@@sup_1@JPX@sub_x@@sub_1@SLVR1
                 LDA {K+1,,(K+1)@times@K}
-                RSX@sub_x@@sub_3@SLVT5-1 [best guess: SLVT5, may also be SLVT6 (pretty smudged)]
+                RSX@sub_x@@sub_3@SLVT5-1
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=67 doc_page=217 type=macros proof=1]
 [Page header: "HHL APY5 020"]
@@ -2889,7 +2889,7 @@ SLVAD2@arr@     LDA@sub_x@@sub_2@@sub_pipe@@sub_x@@sub_3@       **DIAGONAL
                 LDA@sub_x@@sub_1@@sub_S@@sub_pipe@@sub_beta@@sub_x@@sub_3@      **NEXT NON REDUCED TERM
                 MUL@sub_y@@sub_1@K      **FUTURE DIAG IN CONSTANT
                 DIV@sub_x@@sub_2@@sub_pipe@@sub_x@@sub_3@       **DIAGONAL
-                JOV SLVAD9      [best guess: 9]
+                JOV SLVAD8
 SLVAD3@arr@     STA@sub_x@@sub_2@@sub_pipe@@sub_y@@sub_1@       **EQUATION ENTRY MAY BE ZERO
                 DEX@sub_x@@sub_3@K+1
                 @sup_minus@@sup_1@JPX@sub_x@@sub_2@SLVAD2
@@ -2920,7 +2920,7 @@ SLVAD7@arr@     DEX@sub_x@@sub_3@K+1
                 @sup_1@@sup_1@LDA SLVTS
                 @sup_1@@sup_7@STA SLVTS
                 JPQ SLVR1-2
-SLVAD8@arr@     LDB@sub_y@@sub_1@K      **OVERFLOW IN MAKING TERMS      [8 in the label is not particularly legible, guessing based on order]
+SLVAD8@arr@     LDB@sub_y@@sub_1@K      **OVERFLOW IN MAKING TERMS
                 SCB {-2,}
                 STB@sub_y@@sub_1@K
                 JPQ SLVAD1.5    **MAKE TERMS AGAIN
@@ -2934,7 +2934,7 @@ SLVAD9@arr@     SCA {-2,}       **OVERFLOW IN FIGURING CONSTANT
 [meta file_name=102726903-05-02-acc.pdf pdf_page=69 doc_page=219 type=macros proof=1]
 [Page header: "HHL APY5 022"]
 
-                JPQ SLVAD7-2    [best guess: 2, not particularly legible]
+                JPQ SLVAD7-2
 @hand@@hand@EMD
 
 @hand@@hand@DEF SOLVEM1
@@ -3217,8 +3217,8 @@ FREESUB6@arr@
                 JPQ FREESUBFREE
 FREESUB7@arr@
                 RSX @sub_alpha@ FREESUB@alpha@
-                LGORR@hamb@VFLW@times@@alpha@=S@arr@FREESUB8@arr@FREESUBX [best guess: FREESUB8]
-FREESUB8@arr@   [best guess: FREESUB8]
+                LGORR@hamb@VFLW@times@@alpha@=S@arr@FREESUB8@arr@FREESUBX
+FREESUB8@arr@
                 SUBR@hamb@(LTAKE@hamb@CVTS@times@@alpha@)
 FREESUBX@arr@
                 JPQ #
@@ -3291,7 +3291,7 @@ WKR4@arr@       @sup_1@STE WRK4X
                 hJPQ @sub_alpha@ FREEDOM        **@alpha@ FROR DEBUG ONLY [sic]
                 JPQ WORKER+1
 WRK5@arr@       REX @sub_beta@ WORKS-LIST
-                MOVEL@hamb@VORD@times@@alpha@@arr@SPECB@times@@beta@    [best guess:  @beta@]
+                MOVEL@hamb@VORD@times@@alpha@@arr@SPECB@times@@beta@
                 @sup_1@DPX @sub_beta@@sub_pipe@@sub_alpha@ LIST+VORD
 WRK4X@arr@      JPQ #
 WORKEX@arr@     JPQ #
@@ -3386,7 +3386,7 @@ IPCONCOMP1@arr@
                 HDIF,VA+1@sub_beta@
 IPCONEX1@arr@
                 JPQ #
-RI@arr@         JPQ 377758      [best guess: last symbol is 8]
+RI@arr@         JPQ 377758
 CL@arr@         JPQ 200000
 ST@arr@         JPQ 200001
 LAST@arr@       ZZLAST
@@ -3769,7 +3769,7 @@ SKN@sub_4@@sub_dot@@sub_9@D
 
 JPQ #+3
 SCA D
-JPQ #+5 [best guess: 5, as it has to be a small digit, for the jump to remain in the macro.]
+JPQ #+5
 EXA R
 COM D
 SCA D
@@ -3789,7 +3789,7 @@ STB R+1
 
 @hand@@hand@DEF LLCROSS@hamb@P@arr@Q=R@arr@S
 DPX@sub_P@A
-@sup_2@DPX@sub_Q@A      [best guess: @sup_2@, based on the previous def.]
+@sup_2@DPX@sub_Q@A
 hJPQ INTOL
 hJOV S
 STA R
@@ -3948,7 +3948,7 @@ TRACK@arr@      MKN TRBUSY
                 EXAMINE|60@arr@S1STATE
                 SKN @sub_2@@sub_dot@@sub_6@ S1STATE     **CONNECT
                 JPQ TRACK1
-                SKX @sub_2@@sub_dot@@sub_8@ S1STATE     [best guess: @sub_8@]
+                SKN @sub_2@@sub_dot@@sub_8@ S1STATE
                 JPQ TRACK
 TRACK1@arr@     DPX @sub_6@@sub_0@ TR60
                 CSQ@sub_6@@sub_0@
@@ -4028,7 +4028,7 @@ TR3@arr@        MKZ LPLOST
 TR55@arr@       REX @sub_5@@sub_5@ 0    [looks more like @sub_3@@sub_5@, but 55 is the device address for light pen, so 35 is unlikely]
                 SKZ @sub_2@@sub_dot@@sub_6@ LPSTATE
                 @sup_1@IOS @sub_5@@sub_5@ 30000
-TR5@arr@        @sup_1@IOS @sub_6@@sub_0@ 20000 [5 in TR5 is completely smudged, but it checks out according to symex table]
+TR5@arr@        @sup_1@IOS @sub_6@@sub_0@ 20000
                 hLDE S1STATE
                 @sup_3@STE #+2
                 SKZ @sub_2@@sub_dot@@sub_6@ S1STATE
@@ -4521,8 +4521,8 @@ PSATCEN@arr@
                 JNA PSATPEN1
                 RSX @sub_P@@sub_S@@sub_alpha@ PSNPS+3
                 RSX @sub_P@@sub_S@@sub_alpha@@sub_pipe@@sub_P@@sub_S@@sub_alpha@ LIST+CIRCEN
-                NORMALIZE|VA@sub_P@@sub_S@@sub_alpha@@arr@SCCEN/SCSZ@arr@PSATPEN1       [smudged ending, guessing last symex a bit]
-                NORMALIZE|VA+1@sub_P@@sub_S@@sub_alpha@@arr@SCCEN+1/SCSZ@arr@PSATPEN1   [ditto]
+                NORMALIZE|VA@sub_P@@sub_S@@sub_alpha@@arr@SCCEN/SCSZ@arr@PSATPEN1
+                NORMALIZE|VA+1@sub_P@@sub_S@@sub_alpha@@arr@SCCEN+1/SCSZ@arr@PSATPEN1
                 DPX @sub_P@@sub_S@@sub_alpha@ PSTT
                 JPQ PSAP
 PSAL@arr@       LDA PSNPS
@@ -5748,7 +5748,7 @@ CMGNL2A@arr@
                 STA @sub_C@@sub_M@@sub_alpha@ CMEDGES
                 @sup_1@@sup_2@LDA A
                 MUL SCSZ
-                SAB { 18.,}     [best guess: 8]
+                SAB { 18.,}
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=133 doc_page=283 type=code proof=1]
 [Page header: "LMH Y3HT 010"]
@@ -6581,7 +6581,7 @@ PLPLX@arr@      JPQ #
 PLEND@arr@      @sup_1@STE PLLX
                 SZN PLESW
                 JPQ PLLX*
-                LDA {(56.-31.),0,,30000}        [best guess: 3 in 31]
+                LDA {(56.-31.),0,,30000}
                 STA @sub_P@@sub_L@@sub_S@ 1     **IOS
                 LDA { 377770,,} **FINAL TSD
                 STA @sub_P@@sub_L@@sub_S@ 0
@@ -6664,7 +6664,7 @@ PLOTBLOCKS2@arr@
                 **PLOTTER PLOT ROUTINE
                 **SEQUENCE 74
 PLPLRTNE@arr@
-                [Problem: last line on the page clipped, illegible]
+                MKZ PLESW       [inferred completion; the printed line is clipped]
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=150 doc_page=300 type=code proof=1]
 [Page header: "LMH Y3HT 031"]
@@ -6899,7 +6899,7 @@ PLC2@arr@       LDA B
                 ITA { 777,770,,777,770}
                 STA PLWA
                 @sup_1@@sup_5@LDA PLTLYK        **NO OF BLKS
-                @sup_1@@sup_6@SUB {-1,} **ADD 1 [best guess: @sup_6@ in @sup_1@@sup_6@]
+                @sup_1@@sup_6@SUB {-1,} **ADD 1
                 MUL @sub_P@@sub_L@@sub_S@ PBITABLE2-PLLOWFILTER **CIRCLES/BLK
                 [blank line]
                 SAB {-1,}

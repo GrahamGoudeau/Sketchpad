@@ -65,7 +65,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R052 and the validator changes let the complete source
+Repairs R001 through R056 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -209,6 +209,10 @@ file marks it clearly and the log records the alternatives.
 | R050 | `sk2.tx2as:2393` | verified | Sketchpad part 2, PDF page 58; the printed operation has a clear initial `D`; the two preceding lines also use `DPX` | Read `SPX` as `DPX`. |
 | R051 | `sk.tx2as:910` | verified | Sketchpad part 1, PDF page 25; the printed operand reads `76BUT`; every adjacent selector uses the same word; the 2XMX symbol table has no `74BUT` | Read `74BUT` as `76BUT`. |
 | R052 | 17 readings in `sk.tx2as:587-2601` | verified | 500-DPI views of Sketchpad part 1, PDF pages 18, 23, 25-27, 30-35, and 42-56; repeated local glyph forms | Remove stale uncertainty notes from readings that the scans now verify. |
+| R053 | `sk2.tx2as:2892` | verified | Sketchpad part 2, PDF page 68; the final digit has the `8` form; target comment says “overflow in making terms”; `SLVAD9` handles constant overflow | Read `JOV SLVAD9` as `JOV SLVAD8`. |
+| R054 | `sk2.tx2as:3951` | verified | Sketchpad part 2, PDF page 94; the printed operation has a clear final `N`; the preceding status test also uses `SKN` | Read `SKX 2.8 S1STATE` as `SKN 2.8 S1STATE`. |
+| R055 | after `sk2.tx2as:6666` | inferred | Sketchpad part 2, PDF page 149 preserves the tops of the clipped glyphs; the plot routine must clear `PLESW` before it sets `PLPSW` and `PLPLBUSY`; the punch initializer uses the same switch-reset pattern | Complete the clipped line as `MKZ PLESW`. |
+| R056 | 19 readings in `sk.tx2as` and `sk2.tx2as` | verified | 400-600-DPI views of Part 1 page 130 and Part 2 pages 27, 58, 66, 68-69, 75-78, 90, 94, 96, 105, 132, 148, and 154; repeated local forms and symbol sequences | Remove stale uncertainty notes from readings that the scans now verify. |
 
 ## Publication Gate
 
