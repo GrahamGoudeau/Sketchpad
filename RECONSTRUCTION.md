@@ -69,9 +69,9 @@ Repairs R001 through R011 and the validator changes let all 6,728 source lines
 parse and expand.  The file contains four separate historical M4 assembly jobs.
 It is not one assembly job.
 
-Units 3 and 4 emit machine tapes.  Unit 1 reaches default symbol assignment for
-`DUMEX`.  Unit 2 reaches one unsupported `≡` syntax form.  See
-`RESEARCH_LOG.md` for the unit boundaries, evidence, and current diagnostics.
+Units 1, 3, and 4 emit machine tapes.  Unit 2 reaches one unsupported `≡`
+syntax form.  See `RESEARCH_LOG.md` for the unit boundaries, evidence, and
+current diagnostics.
 
 ## Validator Changes
 
@@ -142,6 +142,7 @@ file marks it clearly and the log records the alternatives.
 | R009 | `sk.tx2as:2444` | verified | High-resolution view of Sketchpad part 1, PDF page 53; repeated `META|α LIST` forms at lines 2542, 2557, and 2584; Users Handbook section 6-2.8 | Preserve the printed subscript position of the pipe with `@sub_pipe@`. |
 | R010 | `sk.tx2as:3430` | verified | Printed octal output and explicit expansion on Sketchpad part 1, PDF page 75; the `HEADER` definition at line 3251; ten neighboring `HEADER` calls; no `HEADERS` definition | Correct the printed `HEADERS` typo to `HEADER`. |
 | R011 | `sk.tx2as:3938` and self-modified addresses at former lines 5888-6199 | inferred | Users Handbook section 6-2.3 makes `?` a symex terminator; the equality was an explicit creative addition absent from the scan; equivalent self-modified exit slots use `#` | Remove the invented `?=#` equality and use current-location `#` for standalone question-mark address placeholders. |
+| R012 | `sk.tx2as:1928` | verified | Sketchpad part 1, PDF page 43; the printed macro argument and its target label at line 1982 both read `DUMMEX` | Restore the omitted second `M` in the `LGORR` exit argument. |
 
 ## Publication Gate
 

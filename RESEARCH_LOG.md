@@ -213,11 +213,39 @@ Interpretation:
 - A successful assembly does not yet prove that the binary matches the printed
   octal listing or runs correctly.
 
+## Checkpoint 8: Verified DUMMEX Repair
+
+Date: 2026-09-14
+
+Unit 1 reached an unknown symbol named `DUMEX`.  That spelling occurs only in
+one transcribed macro call.  The surrounding program defines and uses
+`DUMMEX`.
+
+Primary evidence:
+
+- Sketchpad part 1, PDF page 43, prints `DUMMEX` as the final `LGORR` argument.
+- Sketchpad part 1, PDF page 44, prints the `DUMMEX` target label.
+
+Repair R012 restores the missing second `M`.
+
+Validation result:
+
+- Unit 1 completes all assembly passes.
+- Unit 1 emits 3,607 words of binary output before the reader leader.
+- Its temporary tape contains 21,858 bytes.
+- Units 1, 3, and 4 now emit machine output.
+
+Interpretation:
+
+- The prior unknown-symbol error was a transcription defect.
+- The direct scan makes this repair verified rather than inferred.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
 It contains all four assembly jobs in printed-listing order.
 
+Three of four historical units now assemble.
 The near-term goal is four reproducible machine tapes.
 The next goal is a successful load and execution in the TX-2 simulator.
 The browser target will run that simulator through WebAssembly.
