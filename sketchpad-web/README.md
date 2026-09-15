@@ -26,13 +26,17 @@ work budget pause the machine.  These limits keep the main thread and GPU
 responsive.
 
 Each unit-60 event includes its emulated TX-2 time.  The browser accelerates
-the machine until the first scope event.  It then keeps execution 25
-milliseconds or less ahead of the real-time display clock.  The renderer
+the machine until the first scope event.  It then keeps execution aligned with
+the real-time display clock.  The renderer
 intensifies points in event order and applies a 120-millisecond phosphor
 half-life.  A sampled blue-white beam head marks the newest point.  The beam
 stays blank between programmed positions.  This models the TX-2 point-addressed
 scope.  A one-second readout reports the displayed spot rate.  The renderer does
 not add a raster scan or a false line between positions.
+
+The scope maps both coordinate extremes to valid canvas pixels.  It does not
+add a center graticule.  The TX-2 handbook describes four electronic origin
+modes, but it does not show a fixed grid on the display.
 
 The bundled tape is the compatible seven-job Sketchpad reconstruction.  Its
 entry point is octal address `200140`.  Its SHA-256 is
@@ -45,6 +49,13 @@ the unit-55 light pen.  Four sliders control the shaft encoders at address
 at address `377621`.  The application models the 24 manual toggle registers at
 `377700` through `377727`.  The application also accepts a local paper-tape
 file.
+
+The light-pen readout reports pointer state and recent unit-55 detection.  The
+selection readout decodes Sketchpad's own `ATBITS` word at `200044`.  These are
+read-only diagnostics.  They do not change assembly state.  A pickup control
+sets the modeled detector radius.  The original hardware had a manual
+sensitivity dial whose correct setting depended on scope intensity and was set
+by trial and error.  No exact historical dial setting is known.
 
 The desktop interface maps `D` to external button Q1.8 and the recovered
 `STARTDRAW` routine.  It maps `T` to Q2.9 and `TRUEUP`.  It maps `F` to Q3.3

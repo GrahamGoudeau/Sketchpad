@@ -1,4 +1,5 @@
 import init, { SketchpadMachine, sketchpad_tape } from "./pkg/sketchpad_web.js";
+import { displayTime, scopePointPosition } from "./scope-model.js?v=20260915-9";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
@@ -11,7 +12,11 @@ const tapeInput = document.querySelector("#tape");
 const stateNode = document.querySelector("#state");
 const timeNode = document.querySelector("#machine-time");
 const countNode = document.querySelector("#point-count");
+const penStateNode = document.querySelector("#pen-state");
+const selectionNode = document.querySelector("#selection-state");
 const messageNode = document.querySelector("#message");
+const penSensitivityInput = document.querySelector("#pen-sensitivity");
+const penSensitivityOutput = document.querySelector("#pen-sensitivity-output");
 const knobInputs = Array.from(document.querySelectorAll("[data-knob]"));
 const knobMeta = document.querySelector("#knob-meta");
 const externalButtonRows = document.querySelector("#external-buttons");
@@ -110,8 +115,16 @@ const MAX_CANVAS_AXIS = 1024;
 const MIN_FRAME_INTERVAL_MS = 15;
 const MAX_SAFE_FRAME_MS = 20;
 const MAX_OVERLOADED_FRAMES = 3;
-const DISPLAY_LEAD_SECONDS = 0.025;
 const PHOSPHOR_HALF_LIFE_SECONDS = 0.12;
+const LIGHT_PEN_TRACKING_HOLD_MS = 400;
+const ATBITS_ADDRESS = 0o200044;
+const LPLOST_ADDRESS = 0o200042;
+const SELECTION_BITS = [
+  [0o2000000n, "POINT"],
+  [0o4000000n, "LINE"],
+  [0o10000000n, "CIRCLE"],
+  [0o200000000n, "INSTANCE"],
+];
 let lastFrameAt = 0;
 let lastPhosphorAt = 0;
 let overloadedFrames = 0;
@@ -123,7 +136,9 @@ let displayRealEpoch = null;
 let displayStoppedAt = null;
 let beamRateWindowStartedAt = 0;
 let beamRateWindowSpots = 0;
-const lightPen = { active: false, pointerId: null, x: 0.5, y: 0.5, radius: 0.025 };
+let lastLightPenDetectionCount = 0n;
+let lastLightPenDetectionAt = 0;
+const lightPen = { active: false, pointerId: null, x: 0.5, y: 0.5, radius: 40 / 1022 };
 
 function setMessage(message, error = false) {
   messageNode.textContent = message;
@@ -147,20 +162,6 @@ function resizeCanvas() {
     context.fillStyle = "#010503";
     context.fillRect(0, 0, width, height);
   }
-}
-
-function axisPosition(value, movedOrigin, extent) {
-  const normalized = movedOrigin ? value / 511 : (value + 511) / 1022;
-  return Math.max(0, Math.min(extent, normalized * extent));
-}
-
-function scopePointPosition(event) {
-  const leftOrigin = event.origin === "left_center" || event.origin === "lower_left";
-  const bottomOrigin = event.origin === "bottom_center" || event.origin === "lower_left";
-  return {
-    x: axisPosition(event.x, leftOrigin, canvas.width),
-    y: canvas.height - axisPosition(event.y, bottomOrigin, canvas.height),
-  };
 }
 
 function pendingScopePointCount() {
@@ -207,7 +208,7 @@ function queueScopePoint(event, realNowSeconds) {
 }
 
 function drawScopePoint(event) {
-  const { x, y } = scopePointPosition(event);
+  const { x, y } = scopePointPosition(event, canvas.width, canvas.height);
   const strength = [0.28, 0.42, 0.62, 0.84][event.intensity] ?? 0.28;
   const radius = (0.85 + event.intensity * 0.28) * canvasPixelScale;
   context.fillStyle = `rgb(155 255 167 / ${strength})`;
@@ -232,13 +233,13 @@ function renderDueScopePoints(realNowSeconds) {
     return 0;
   }
 
-  const displayTime = displaySourceEpoch + (realNowSeconds - displayRealEpoch);
+  const currentDisplayTime = displayTime(displaySourceEpoch, displayRealEpoch, realNowSeconds);
   let rendered = 0;
   let beamPosition = null;
   context.globalCompositeOperation = "lighter";
   while (scopeQueueHead < scopeQueue.length && rendered < MAX_RENDERED_POINTS_PER_FRAME) {
     const event = scopeQueue[scopeQueueHead];
-    if (event.at_seconds > displayTime) {
+    if (event.at_seconds > currentDisplayTime) {
       break;
     }
     beamPosition = drawScopePoint(event);
@@ -248,8 +249,8 @@ function renderDueScopePoints(realNowSeconds) {
   context.globalCompositeOperation = "source-over";
 
   if (beamPosition) {
-    beamHead.style.left = `${beamPosition.x / canvas.width * 100}%`;
-    beamHead.style.top = `${beamPosition.y / canvas.height * 100}%`;
+    beamHead.style.left = `${beamPosition.x / Math.max(1, canvas.width - 1) * 100}%`;
+    beamHead.style.top = `${beamPosition.y / Math.max(1, canvas.height - 1) * 100}%`;
     beamHead.style.opacity = "1";
   }
   if (scopeQueueHead > 1024 && scopeQueueHead * 2 > scopeQueue.length) {
@@ -283,6 +284,39 @@ function updateReadouts() {
   timeNode.textContent = `${simulatedTime.toFixed(6)} s`;
   countNode.textContent = pointCount.toLocaleString();
   runButton.textContent = running ? "PAUSE" : "RUN";
+
+  if (!machine) {
+    penStateNode.textContent = "UP";
+    selectionNode.textContent = "NONE";
+    return;
+  }
+
+  const detectionCount = machine.light_pen_detection_count;
+  if (detectionCount !== lastLightPenDetectionCount) {
+    lastLightPenDetectionCount = detectionCount;
+    lastLightPenDetectionAt = performance.now();
+  }
+  const lost = machine.memory_word(LPLOST_ADDRESS, simulatedTime).meta;
+  const recentlyDetected = performance.now() - lastLightPenDetectionAt
+    <= LIGHT_PEN_TRACKING_HOLD_MS;
+  penStateNode.textContent = !lightPen.active
+    ? "UP"
+    : recentlyDetected && !lost
+      ? "TRACKING"
+      : "SEEKING";
+
+  const atBits = machine.memory_word(ATBITS_ADDRESS, simulatedTime).value;
+  const selections = SELECTION_BITS
+    .filter(([mask]) => (BigInt(atBits) & mask) !== 0n)
+    .map(([, label]) => label);
+  selectionNode.textContent = selections.join(" + ") || "NONE";
+}
+
+function applyPenSensitivity() {
+  const scopeUnits = Number(penSensitivityInput.value);
+  penSensitivityOutput.value = `${scopeUnits} UNITS`;
+  lightPen.radius = scopeUnits / 1022;
+  machine?.set_light_pen(lightPen.x, lightPen.y, lightPen.radius, lightPen.active);
 }
 
 function applyKnobRegister() {
@@ -382,9 +416,11 @@ function frame(now = performance.now()) {
       && pendingScopePointCount() < MAX_PENDING_SCOPE_POINTS
       && (
         displaySourceEpoch === null
-        || machine.simulated_time < displaySourceEpoch
-          + (realNowSeconds - displayRealEpoch)
-          + DISPLAY_LEAD_SECONDS
+        || machine.simulated_time < displayTime(
+          displaySourceEpoch,
+          displayRealEpoch,
+          realNowSeconds,
+        )
       )
     ) {
       const tickCount = Math.min(TICKS_PER_SLICE, MAX_TICKS_PER_FRAME - executedTicks);
@@ -452,6 +488,8 @@ function loadMachine(tape) {
   activeTape = tape;
   lightPen.active = false;
   lightPen.pointerId = null;
+  lastLightPenDetectionCount = 0n;
+  lastLightPenDetectionAt = 0;
   pointCount = 0;
   lastFrameAt = 0;
   overloadedFrames = 0;
@@ -504,7 +542,6 @@ function updateLightPen(event) {
   const box = lightPenSurface.getBoundingClientRect();
   lightPen.x = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
   lightPen.y = Math.max(0, Math.min(1, (event.clientY - box.top) / box.height));
-  lightPen.radius = 18 / Math.max(1, Math.min(box.width, box.height));
   machine?.set_light_pen(lightPen.x, lightPen.y, lightPen.radius, lightPen.active);
 }
 
@@ -526,6 +563,14 @@ lightPenSurface.addEventListener("pointermove", (event) => {
   }
 });
 
+if ("onpointerrawupdate" in window) {
+  lightPenSurface.addEventListener("pointerrawupdate", (event) => {
+    if (lightPen.active && event.pointerId === lightPen.pointerId) {
+      updateLightPen(event);
+    }
+  });
+}
+
 for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
   lightPenSurface.addEventListener(eventName, (event) => {
     event.preventDefault();
@@ -545,6 +590,8 @@ for (const eventName of ["selectstart", "contextmenu", "dragstart"]) {
 for (const input of [...knobInputs, knobMeta]) {
   input.addEventListener("input", applyKnobRegister);
 }
+
+penSensitivityInput.addEventListener("input", applyPenSensitivity);
 
 for (const input of [
   drawCycleToggle,
@@ -610,6 +657,7 @@ window.addEventListener("resize", resizeCanvas);
 
 try {
   await init();
+  applyPenSensitivity();
   loadMachine(sketchpad_tape());
   runButton.disabled = false;
   resetButton.disabled = false;
