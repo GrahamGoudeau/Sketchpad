@@ -941,6 +941,13 @@ fn test_multi_syllable_tag() {
 }
 
 #[test]
+fn test_question_mark_terminates_named_symbols() {
+    let got = parse_tagged_instruction("45RW?->JPQ 45RW?");
+    assert_eq!(got.tags.len(), 1);
+    assert_eq!(got.tags[0].name, SymbolName::from("45RW"));
+}
+
+#[test]
 fn test_infix_minus_interpreted_as_subtraction() {
     let head = SignedAtom::from(Atom::from(LiteralValue::from((
         span(0..1),
@@ -2948,12 +2955,12 @@ mod macro_tests {
 
     #[test]
     fn test_macro_parameter_in_pipe_index() {
-        let got = parse_successfully_with(
+        let mut got = parse_successfully_with(
             concat!(
                 "☛☛DEF INDEX|P\n",
                 "REX@sub_P@@sub_pipe@@sub_2@0\n",
                 "☛☛EMD\n",
-                "INDEX|@sub_1@\n",
+                "INDEX|X\n",
             ),
             source_file(),
             no_state_setup,
@@ -2962,6 +2969,12 @@ mod macro_tests {
         assert_eq!(got.blocks.len(), 1);
         assert_eq!(got.blocks[0].sequences.len(), 1);
         assert_eq!(got.blocks[0].sequences[0].instructions.len(), 1);
+        got.build_local_symbol_tables().unwrap();
+        let (_, _, context) = got
+            .global_symbol_references()
+            .find_map(Result::ok)
+            .expect("the expanded macro should refer to X");
+        assert!(!context.is_address());
     }
 
     #[test]

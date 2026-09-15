@@ -227,6 +227,13 @@ impl From<Atom> for SignedAtom {
 }
 
 impl SignedAtom {
+    fn with_script(&self, script: Script) -> SignedAtom {
+        SignedAtom {
+            magnitude: self.magnitude.with_script(script),
+            ..self.clone()
+        }
+    }
+
     fn symbol_uses(
         &self,
         block_id: BlockIdentifier,
@@ -331,6 +338,17 @@ impl Spanned for ArithmeticExpression {
 }
 
 impl ArithmeticExpression {
+    fn with_script(&self, script: Script) -> ArithmeticExpression {
+        ArithmeticExpression {
+            first: self.first.with_script(script),
+            tail: self
+                .tail
+                .iter()
+                .map(|(operator, atom)| (*operator, atom.with_script(script)))
+                .collect(),
+        }
+    }
+
     pub(super) fn with_tail(
         first: SignedAtom,
         tail: Vec<(Operator, SignedAtom)>,
@@ -826,6 +844,16 @@ impl From<SymbolOrLiteral> for Atom {
 }
 
 impl Atom {
+    fn with_script(&self, script: Script) -> Atom {
+        match self {
+            Atom::SymbolOrLiteral(value) => Atom::SymbolOrLiteral(value.with_script(script)),
+            Atom::Parens(span, _, expression) => {
+                Atom::Parens(*span, script, Box::new(expression.with_script(script)))
+            }
+            Atom::AssembledWord(_, _) | Atom::RcRef(_, _) => self.clone(),
+        }
+    }
+
     fn symbol_uses(
         &self,
         block_id: BlockIdentifier,
@@ -986,22 +1014,38 @@ pub(crate) enum SymbolOrLiteral {
 }
 
 impl SymbolOrLiteral {
+    fn with_script(&self, script: Script) -> SymbolOrLiteral {
+        match self {
+            SymbolOrLiteral::Symbol(_, name, span) => {
+                SymbolOrLiteral::Symbol(script, name.clone(), *span)
+            }
+            SymbolOrLiteral::Literal(value) => {
+                SymbolOrLiteral::Literal(LiteralValue::from((value.span, script, value.value)))
+            }
+            SymbolOrLiteral::Here(_, span) => SymbolOrLiteral::Here(script, *span),
+        }
+    }
+
     fn substitute_macro_parameters(
         &self,
         param_values: &MacroParameterBindings,
         on_missing: OnUnboundMacroParameter,
     ) -> SymbolSubstitution<SymbolOrLiteral> {
         match self {
-            SymbolOrLiteral::Symbol(_script, symbol_name, _span) => {
+            SymbolOrLiteral::Symbol(script, symbol_name, _span) => {
                 match param_values.get(symbol_name) {
                     Some((
                         span,
-                        Some(MacroParameterValue::Value(script, arithmetic_expression)),
+                        Some(MacroParameterValue::Value(_argument_script, arithmetic_expression)),
                     )) => {
                         // symbol_name was a parameter name, and the
                         // macro invocation specified it, so
                         // substitute it.
-                        SymbolSubstitution::Hit(*span, *script, arithmetic_expression.clone())
+                        SymbolSubstitution::Hit(
+                            *span,
+                            *script,
+                            arithmetic_expression.with_script(*script),
+                        )
                     }
                     Some((_, Some(MacroParameterValue::Expansion(_)))) => {
                         unreachable!("macro expansions require a standalone parameter line")
@@ -1173,7 +1217,10 @@ impl InstructionFragment {
                     match r {
                         Ok((name, span, mut symbol_use)) => {
                             if let SymbolUse::Reference(context) = &mut symbol_use {
-                                assert!(!context.is_address());
+                                assert!(
+                                    !context.is_address(),
+                                    "pipe index {name} at {span:?} has address context {context:?}"
+                                );
                                 if let Err(e) = context.also_set_index(&name, span) {
                                     uses.push(Err(e));
                                 } else {
