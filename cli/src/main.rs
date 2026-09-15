@@ -18,8 +18,8 @@ use tracing_subscriber::prelude::*;
 use base::prelude::*;
 use clock::{BasicClock, Clock};
 use cpu::{
-    self, Alarm, AlarmDetails, MemoryConfiguration, OutputEvent, ResetMode, RunMode, Tx2,
-    UnmaskedAlarm,
+    self, Alarm, AlarmDetails, AlarmKind, MemoryConfiguration, OutputEvent, ResetMode, RunMode,
+    Tx2, UnmaskedAlarm,
 };
 
 // Thanks to Google for allowing this code to be open-sourced.  I
@@ -31,6 +31,7 @@ fn run(
     tx2: &mut Tx2,
     clk: &mut BasicClock,
     sleep_multiplier: Option<f64>,
+    stop_at_simulated_time: Option<Duration>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let Err(e) = tx2.codabo(&clk.make_fresh_context(), &ResetMode::ResetTSP) {
         event!(Level::ERROR, "CODABO failed: {}", e);
@@ -47,12 +48,14 @@ fn run(
     }
     tx2.set_run_mode(RunMode::Running);
 
-    match run_until_alarm(tx2, clk, sleep_multiplier) {
-        UnmaskedAlarm {
+    let (stop_reason, statistics) =
+        run_until_stop(tx2, clk, sleep_multiplier, stop_at_simulated_time);
+    match stop_reason {
+        StopReason::Alarm(UnmaskedAlarm {
             alarm,
             address: Some(addr),
             when: _,
-        } => {
+        }) => {
             event!(
                 Level::ERROR,
                 "Execution stopped at address  {:o}: {}",
@@ -60,14 +63,29 @@ fn run(
                 alarm
             );
         }
-        UnmaskedAlarm {
+        StopReason::Alarm(UnmaskedAlarm {
             alarm,
             address: None,
             when: _,
-        } => {
+        }) => {
             event!(Level::ERROR, "Execution stopped: {}", alarm);
         }
+        StopReason::SimulationLimit(when) => {
+            event!(
+                Level::INFO,
+                "Execution reached the simulated-time limit at {:.9} s",
+                when.as_secs_f64(),
+            );
+        }
     };
+    event!(
+        Level::INFO,
+        ticks = statistics.ticks,
+        scope_points = statistics.scope_points,
+        lincoln_writer_characters = statistics.lincoln_writer_characters,
+        simulated_seconds = clk.now().as_secs_f64(),
+        "Simulation summary",
+    );
     if let Err(e) = tx2.disconnect_all_devices(&clk.make_fresh_context()) {
         event!(Level::ERROR, "Failed in device shutdown: {}", e);
         return Err(Box::new(e));
@@ -75,18 +93,39 @@ fn run(
     Ok(())
 }
 
-fn run_until_alarm(
+#[derive(Debug)]
+enum StopReason {
+    Alarm(UnmaskedAlarm),
+    SimulationLimit(Duration),
+}
+
+#[derive(Debug, Default)]
+struct RunStatistics {
+    ticks: u64,
+    scope_points: u64,
+    lincoln_writer_characters: u64,
+}
+
+fn run_until_stop(
     tx2: &mut Tx2,
     clk: &mut BasicClock,
     sleep_multiplier: Option<f64>,
-) -> UnmaskedAlarm {
+    stop_at_simulated_time: Option<Duration>,
+) -> (StopReason, RunStatistics) {
     let mut sleeper = sleep::MinimalSleeper::new(Duration::from_millis(2));
     let mut lw66 = lw::LincolnStreamWriter::new();
+    let mut statistics = RunStatistics::default();
 
-    let result: UnmaskedAlarm = loop {
+    let stop_reason = loop {
         {
             let now = clk.now();
             let next = tx2.next_tick();
+            if let Some(limit) = stop_at_simulated_time
+                && next > limit
+            {
+                clk.advance_to_simulated_time(limit);
+                break StopReason::SimulationLimit(limit);
+            }
             if now < next {
                 let interval = next - now;
                 sleep::time_passes(clk, &mut sleeper, &interval, sleep_multiplier);
@@ -94,18 +133,20 @@ fn run_until_alarm(
             clk.advance_to_simulated_time(next);
         }
         let tick_context = clk.make_fresh_context();
+        statistics.ticks += 1;
         match tx2.tick(&tick_context) {
             Ok(maybe_output) => {
                 match maybe_output {
                     None => (),
                     Some(OutputEvent::LincolnWriterPrint { unit, ch }) => {
+                        statistics.lincoln_writer_characters += 1;
                         if unit == u6!(0o66) {
                             if let Err(e) = lw66.write(ch) {
                                 event!(Level::ERROR, "output error: {}", e);
                                 // TODO: change state of the output unit to
                                 // indicate that there has been a failure,
                                 // instead of just terminating the simulation.
-                                break UnmaskedAlarm {
+                                break StopReason::Alarm(UnmaskedAlarm {
                                     alarm: Alarm {
                                         sequence: None,
                                         details: AlarmDetails::MISAL {
@@ -114,7 +155,7 @@ fn run_until_alarm(
                                     },
                                     address: None,
                                     when: tick_context.simulated_time,
-                                };
+                                });
                             }
                         } else {
                             event!(
@@ -124,11 +165,13 @@ fn run_until_alarm(
                             );
                         }
                     }
-                    Some(OutputEvent::ScopePoint { .. }) => (),
+                    Some(OutputEvent::ScopePoint { .. }) => {
+                        statistics.scope_points += 1;
+                    }
                 }
             }
             Err(unmasked_alarm) => {
-                break unmasked_alarm;
+                break StopReason::Alarm(unmasked_alarm);
             }
         }
         let next_tick = tx2.next_tick();
@@ -142,7 +185,15 @@ fn run_until_alarm(
         }
     };
     lw66.disconnect();
-    result
+    (stop_reason, statistics)
+}
+
+fn parse_simulated_time(value: &str) -> Result<Duration, String> {
+    let seconds = value
+        .parse::<f64>()
+        .map_err(|error| format!("invalid simulated time '{value}': {error}"))?;
+    Duration::try_from_secs_f64(seconds)
+        .map_err(|error| format!("invalid simulated time '{value}': {error}"))
 }
 
 /// Whether to panic when there was an unmasked alarm.
@@ -188,6 +239,17 @@ struct Cli {
     /// File containing paper tape data
     #[arg(action = Set)]
     tape: Option<OsString>,
+
+    /// Suppress a named maskable TX-2 alarm.
+    #[arg(long = "mask-alarm")]
+    mask_alarms: Vec<String>,
+
+    /// Stop before the first event after this absolute simulated time.
+    #[arg(
+        long = "stop-at-simulated-seconds",
+        value_parser = parse_simulated_time
+    )]
+    stop_at_simulated_time: Option<Duration>,
 }
 
 #[derive(Debug)]
@@ -313,12 +375,22 @@ fn run_simulator() -> Result<(), Box<dyn std::error::Error>> {
     };
     let initial_context = clk.make_fresh_context();
     let mut tx2 = Tx2::new(&initial_context, panic_on_unmasked_alarm, &mem_config);
+    for alarm_name in &cli.mask_alarms {
+        let kind = AlarmKind::try_from(alarm_name.as_str())?;
+        tx2.set_alarm_masked(kind, true)?;
+        event!(Level::INFO, "masked alarm {kind}");
+    }
     if let Some(tape) = tape_data
         && let Err(e) = tx2.mount_paper_tape(&initial_context, tape)
     {
         return Err(Box::new(e));
     }
-    run(&mut tx2, &mut clk, sleep_multiplier)
+    run(
+        &mut tx2,
+        &mut clk,
+        sleep_multiplier,
+        cli.stop_at_simulated_time,
+    )
 }
 
 fn main() {
