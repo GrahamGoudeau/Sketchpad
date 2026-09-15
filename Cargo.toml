@@ -19,6 +19,9 @@ members = [
 
         # Web-based simulator.
         "tx2-web",
+
+        # Sketchpad-focused WebAssembly runtime and browser surface.
+        "sketchpad-web",
 ]
 resolver = "2"
 

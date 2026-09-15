@@ -122,3 +122,9 @@ fn golden_output_assembling_echo_program() {
     assembler_golden_output_test("examples/echo.tx2as", "../examples/echo.tape")
         .expect("actual and golden outputs should have been identical for 'echo'");
 }
+
+#[test]
+fn golden_output_assembling_scope_program() {
+    assembler_golden_output_test("examples/scope.tx2as", "../examples/scope.tape")
+        .expect("actual and golden outputs should have been identical for 'scope'");
+}

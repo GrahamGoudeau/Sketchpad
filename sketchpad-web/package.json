@@ -1,0 +1,10 @@
+{
+  "name": "sketchpad-web",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir web/pkg --release",
+    "dev": "python3 -m http.server 8082 --directory web"
+  }
+}
+

@@ -1,0 +1,199 @@
+#![deny(unsafe_code)]
+#![deny(unreachable_pub)]
+#![deny(unused_crate_dependencies)]
+
+use std::time::Duration;
+
+use base::charset::LincolnChar;
+use cpu::{
+    Context, InputFlagRaised, MemoryConfiguration, OutputEvent, PanicOnUnmaskedAlarm, ResetMode,
+    RunMode, ScopeOrigin, Tx2,
+};
+use serde::Serialize;
+use wasm_bindgen::prelude::*;
+
+const SCOPE_DEMO: &[u8] = include_bytes!("../../../examples/scope.tape");
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum BrowserOutput {
+    ScopePoint {
+        unit: u8,
+        x: i16,
+        y: i16,
+        intensity: u8,
+        origin: &'static str,
+    },
+    LincolnWriter {
+        unit: u8,
+        text: Option<String>,
+        advance: bool,
+    },
+}
+
+fn scope_origin_name(origin: ScopeOrigin) -> &'static str {
+    match origin {
+        ScopeOrigin::Center => "center",
+        ScopeOrigin::BottomCenter => "bottom_center",
+        ScopeOrigin::LeftCenter => "left_center",
+        ScopeOrigin::LowerLeft => "lower_left",
+    }
+}
+
+impl From<OutputEvent> for BrowserOutput {
+    fn from(event: OutputEvent) -> Self {
+        match event {
+            OutputEvent::ScopePoint {
+                unit,
+                x,
+                y,
+                intensity,
+                origin,
+            } => BrowserOutput::ScopePoint {
+                unit: unit.into(),
+                x,
+                y,
+                intensity,
+                origin: scope_origin_name(origin),
+            },
+            OutputEvent::LincolnWriterPrint { unit, ch } => {
+                let text = ch.unicode_representation.or_else(|| match ch.base_char {
+                    LincolnChar::UnicodeBaseChar(c) => Some(c),
+                    LincolnChar::Unprintable(_) => None,
+                });
+                BrowserOutput::LincolnWriter {
+                    unit: unit.into(),
+                    text: text.map(|c| c.to_string()),
+                    advance: ch.advance,
+                }
+            }
+        }
+    }
+}
+
+fn context(simulated_time: Duration, real_elapsed_seconds: f64) -> Context {
+    Context::new(
+        simulated_time,
+        Duration::from_secs_f64(real_elapsed_seconds.max(0.0)),
+    )
+}
+
+#[wasm_bindgen]
+pub struct SketchpadMachine {
+    tx2: Tx2,
+    simulated_time: Duration,
+    last_alarm: Option<String>,
+}
+
+#[wasm_bindgen]
+impl SketchpadMachine {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        console_error_panic_hook::set_once();
+        let simulated_time = Duration::ZERO;
+        let ctx = context(simulated_time, 0.0);
+        let memory = MemoryConfiguration {
+            with_u_memory: false,
+        };
+        Self {
+            tx2: Tx2::new(&ctx, PanicOnUnmaskedAlarm::No, &memory),
+            simulated_time,
+            last_alarm: None,
+        }
+    }
+
+    pub fn mount_tape(&mut self, bytes: &[u8], real_elapsed_seconds: f64) -> Result<bool, JsValue> {
+        let ctx = context(self.simulated_time, real_elapsed_seconds);
+        self.tx2
+            .mount_paper_tape(&ctx, bytes.to_vec())
+            .map(|raised| raised == InputFlagRaised::Yes)
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    pub fn codabo(&mut self, real_elapsed_seconds: f64) -> Result<(), JsValue> {
+        let ctx = context(self.simulated_time, real_elapsed_seconds);
+        self.last_alarm = None;
+        self.tx2
+            .codabo(&ctx, &ResetMode::ResetTSP)
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        self.tx2
+            .set_next_execution_due(self.simulated_time, Some(self.simulated_time));
+        self.tx2.set_run_mode(RunMode::Running);
+        Ok(())
+    }
+
+    pub fn step(&mut self, real_elapsed_seconds: f64) -> Result<JsValue, JsValue> {
+        self.simulated_time = self.tx2.next_tick();
+        let ctx = context(self.simulated_time, real_elapsed_seconds);
+        match self.tx2.tick(&ctx) {
+            Ok(Some(output)) => serde_wasm_bindgen::to_value(&BrowserOutput::from(output))
+                .map_err(|error| JsValue::from_str(&error.to_string())),
+            Ok(None) => Ok(JsValue::NULL),
+            Err(error) => {
+                let message = error.to_string();
+                self.last_alarm = Some(message.clone());
+                Err(JsValue::from_str(&message))
+            }
+        }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn simulated_time(&self) -> f64 {
+        self.simulated_time.as_secs_f64()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn alarm_active(&self) -> bool {
+        self.tx2.unmasked_alarm_active()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn last_alarm(&self) -> Option<String> {
+        self.last_alarm.clone()
+    }
+}
+
+impl Default for SketchpadMachine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[wasm_bindgen]
+pub fn scope_demo_tape() -> Vec<u8> {
+    SCOPE_DEMO.to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base::u6;
+
+    #[test]
+    fn converts_scope_event_for_the_browser() {
+        let event = BrowserOutput::from(OutputEvent::ScopePoint {
+            unit: u6!(0o60),
+            x: -12,
+            y: 34,
+            intensity: 3,
+            origin: ScopeOrigin::LowerLeft,
+        });
+        let BrowserOutput::ScopePoint {
+            unit,
+            x,
+            y,
+            intensity,
+            origin,
+        } = event
+        else {
+            panic!("expected a scope point")
+        };
+        assert_eq!((unit, x, y, intensity), (0o60, -12, 34, 3));
+        assert_eq!(origin, "lower_left");
+    }
+
+    #[test]
+    fn bundled_scope_tape_is_present() {
+        assert!(SCOPE_DEMO.len() > 700);
+    }
+}
