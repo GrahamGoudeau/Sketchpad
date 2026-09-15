@@ -902,6 +902,75 @@ Historical significance:
 - The next address comparisons can now measure the reconstruction instead of a
   stale assembler offset model.
 
+## Checkpoint 24: Seven 2XMX Program Tags Match the Printed Table
+
+Date: 2026-09-15
+
+The printed listing puts two assembly products on adjacent lines after the
+`MOVE|NAFFB→AFFB` call.  The recovered text treated those products as two more
+source instructions:
+
+```text
+MOVE|NAFFB→AFFB
+hLDE NAFFB
+STE AFFB
+```
+
+The `MOVE|A→B` macro already emits `hLDE A` and `STE B`.  The last two lines
+are therefore the printed expansion of the call.  They are not more source.
+Repair R045 removes the duplicated expansion.
+
+The repair moves `STARTS` from modern address `004011` to printed address
+`004007`.  It also removes the same two-word offset from later tags.  Seven
+modern program tags now equal the printed `2XMX` table:
+
+| Symbol | Printed address | Modern address |
+| --- | ---: | ---: |
+| `STARTS` | `004007` | `004007` |
+| `47START` | `004024` | `004024` |
+| `47BOTH` | `004114` | `004114` |
+| `MERGEIFP` | `006020` | `006020` |
+| `MERGEIFPX` | `006037` | `006037` |
+| `STOPMOVEP2J` | `006160` | `006160` |
+| `STOPM4` | `006312` | `006312` |
+
+The new `evidence/2xmx-program-symbols.tsv` file stores these tags as a direct
+test oracle.
+
+This checkpoint also narrows the RC reuse rule from Checkpoint 22.  Broad
+syntax-tree normalization made `2XMX` emit 2,832 words.  No normalization made
+it emit 2,850 words.  The broad rule merged parentheses that the source stated
+explicitly.  It therefore made more claims than the evidence supported.
+
+Simulator commit `96fe05f` uses a narrow rule.  It removes parentheses only
+when a single-atom macro substitution creates them.  It preserves explicit
+source parentheses.  The rule makes `2XMX` emit 2,839 words.  It keeps the exact
+sixteen-address `GX7A` match.  A nested-macro regression test covers the rule.
+The assembler passes 324 unit tests and 2 golden tests.
+
+All eight jobs assemble under the narrowed rule and R045:
+
+| Job | Emitted words | Tape SHA-256 |
+| --- | ---: | --- |
+| `2XMX` | 2,839 | `5343c485f067e58daadbbe901ed3772e7bef76c41381d44124200241b957265b` |
+| `OPLW` | 269 | `a02a9e2951957e825f8e9b118d19821ea365f017a2486d0e788aa474d1660792` |
+| `GX7A` | 2,043 | `4359c83fb274016b0643f546ce9c85592017d79f64f4b72004fb316d748eddd4` |
+| `BOO7` | 1,033 | `eb165a49557653b607a43be780c9eb969acaa8b17e1ebea6c3fe7ab423acddbd` |
+| `ONLW` | 1,829 | `54d8781f4c6cc1578c1200ec09c688c7e51debbc0bb5d613e333a8b56cac4977` |
+| `APY5` | 1,267 | `3671bd1454fec23969b10b23e0275cffc691fad3f39405e9a93e07b7b10d9b9d` |
+| `LYUO` | 1,435 | `e4cd010edf0b932424219cad8e85fb2968081f5681f88909f1ce760153f17f01` |
+| `Y3HT` | 1,852 | `eddf8f009d49d2b20765aec2b29d2c5efe92c85fba4d26ccdeef3f73bd1ae8ef` |
+
+The checksum gate rejects all eight provisional tapes.  This is expected.
+The approved hashes still describe an earlier allocator model.
+
+Historical significance:
+
+- The listing distinguishes macro source from printed macro expansion.
+- Seven independent program addresses now validate one source repair.
+- The project now has exact address oracles for both code and storage.
+- The narrow RC rule preserves evidence instead of erasing source distinctions.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -917,8 +986,10 @@ The `GX7A` RC block now has a printed historical address oracle.
 The forward-macro shortfall and its false automatic symbols are resolved.
 The automatic-symbol order now matches the printed `GX7A` sequence.
 All sixteen automatic `GX7A` addresses now match that sequence exactly.
-The `2XMX` symbol audit has started.  It has repaired three false names and one
-global tag-offset defect.  The next goal is a wider row-by-row address audit.
+The `2XMX` symbol audit has repaired three false names, one duplicated macro
+expansion, and one global tag-offset defect.  Seven selected program tags now
+match the printed table exactly.  The next goal is a wider row-by-row address
+audit.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.

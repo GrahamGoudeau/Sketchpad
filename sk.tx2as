@@ -778,8 +778,6 @@ I52@arr@        hJMP BLOCKMAKER
 FRESH START@arr@
                 CSQ@sub_4@@sub_0@ [CSQ is a symex defined in the equalities table]
                 MOVE|NAFFB@arr@AFFB
-                hLDE NAFFB
-                STE AFFB
                 RSX @sub_alpha@ AFFB
                 LDA @sub_alpha@ NLIST
                 STA @sub_alpha@ LIST
