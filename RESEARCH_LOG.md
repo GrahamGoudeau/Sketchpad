@@ -847,6 +847,61 @@ Historical significance:
 - The repair follows a semantic rule that applies across all eight jobs.
 - The project now has a direct address oracle for future assembler changes.
 
+## Checkpoint 23: The 2XMX Table Finds Lost Names and Stale Branches
+
+Date: 2026-09-15
+
+The printed `2XMX` symbol table exposed three false names in the recovered
+source:
+
+- The source called `STOPMOVEP2J` but defined `STOMOVEP2J`.
+- The source stored an exit in `MERGEIPFX` but defined `MERGEIFPX`.
+- One `LTAKE` call used `VORDE`, while the printed operand and equality read
+  `VORD`.
+
+Repairs R042 through R044 restore the printed names.  Each repair also removes
+false automatic storage from the RC block.  The `2XMX` output falls from 2,839
+words at Checkpoint 22 to 2,834 words.
+
+This audit also found a simulator defect that affected nearly every forward
+reference after a macro call.  A macro expansion creates a new instruction
+sequence.  The assembler calculated tag offsets from zero inside every
+sequence.  It did not add the sizes of earlier sequences in the same block.
+The final symbol table used the correct emitted addresses, but assembled branch
+words used stale pre-expansion addresses.
+
+A reduced program proved the defect.  It branches over a two-word macro to a
+tag.  Before the repair, the tag table reported `000103` while the branch used
+`000100`.  Simulator commit `37a4c5e` carries the cumulative block offset into
+global and macro-local symbol definitions.  The branch now uses `000103`.
+The assembler passes 324 unit tests and 2 golden tests.
+
+The corrected source and tag model still assemble all eight jobs:
+
+| Job | Emitted words | Tape SHA-256 |
+| --- | ---: | --- |
+| `2XMX` | 2,834 | `04d0e20716d80a06dee02c9ade3717493734d456329b9077e2f1204d4d5db970` |
+| `OPLW` | 269 | `a02a9e2951957e825f8e9b118d19821ea365f017a2486d0e788aa474d1660792` |
+| `GX7A` | 2,043 | `4359c83fb274016b0643f546ce9c85592017d79f64f4b72004fb316d748eddd4` |
+| `BOO7` | 1,033 | `eb165a49557653b607a43be780c9eb969acaa8b17e1ebea6c3fe7ab423acddbd` |
+| `ONLW` | 1,826 | `11e90c57b92425bf66f17fd33eb64c901c9ab41f37e5aa225be73646da82e7d3` |
+| `APY5` | 1,267 | `3671bd1454fec23969b10b23e0275cffc691fad3f39405e9a93e07b7b10d9b9d` |
+| `LYUO` | 1,435 | `e4cd010edf0b932424219cad8e85fb2968081f5681f88909f1ce760153f17f01` |
+| `Y3HT` | 1,852 | `eddf8f009d49d2b20765aec2b29d2c5efe92c85fba4d26ccdeef3f73bd1ae8ef` |
+
+The word counts stay fixed outside `2XMX`.  Every tape hash changes because
+the repair changes forward-reference operands after macro expansions.  The
+checksum gate rejects all eight provisional tapes.
+
+Historical significance:
+
+- The printed symbol table detects source damage that successful assembly
+  hides.
+- Final symbol addresses and encoded branch operands now agree.
+- The correction repairs program control flow without adding inferred source.
+- The next address comparisons can now measure the reconstruction instead of a
+  stale assembler offset model.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -862,8 +917,8 @@ The `GX7A` RC block now has a printed historical address oracle.
 The forward-macro shortfall and its false automatic symbols are resolved.
 The automatic-symbol order now matches the printed `GX7A` sequence.
 All sixteen automatic `GX7A` addresses now match that sequence exactly.
-The next goal is to transcribe wider symbol tables and repair missing tags in
-the other jobs.
+The `2XMX` symbol audit has started.  It has repaired three false names and one
+global tag-offset defect.  The next goal is a wider row-by-row address audit.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.

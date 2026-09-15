@@ -65,7 +65,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R041 and the validator changes let the complete source
+Repairs R001 through R044 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -117,7 +117,10 @@ golden tests.
 Commit `a0ce838` removes redundant parentheses from RC-word identity keys and
 ignores unrelated macro-local definitions in those keys.  It makes all sixteen
 automatic `GX7A` addresses match the printed M4 table.  The assembler package
-passes 323 unit tests and 2 golden tests.
+passes 323 unit tests and 2 golden tests.  Commit `37a4c5e` keeps cumulative
+block offsets when macro expansions split a block into instruction sequences.
+Forward references now use the expanded tag addresses shown in the final symbol
+table.  The assembler package passes 324 unit tests and 2 golden tests.
 
 ## Evidence Order
 
@@ -192,6 +195,9 @@ file marks it clearly and the log records the alternatives.
 | R039 | `sk.tx2as:4793` | verified | High-resolution view of Sketchpad part 1, PDF page 106; adjacent decimal offsets use the same suffix | Restore the faint decimal point after `8`. |
 | R040 | `sk.tx2as:5518` | verified | High-resolution view of Sketchpad part 1, PDF page 121; the two marks match the comma-built coordinate words around them | Read the two faint marks as commas. |
 | R041 | `sk.tx2as:5520` | verified | High-resolution view of Sketchpad part 1, PDF page 121; repeated coordinate words on the same page | Read the two faint marks as commas. |
+| R042 | `sk.tx2as:1674` | verified | Sketchpad part 1, PDF page 39; the preceding `JPQ STOPMOVEP2J`; printed 2XMX symbol table address `006160` | Restore the missing `P` in tag `STOPMOVEP2J`. |
+| R043 | `sk.tx2as:1597` | verified | Sketchpad part 1, PDF page 37; the printed operand and target tag both read `MERGEIFPX`; the 2XMX symbol table has no `MERGEIPFX` | Read the transposed operand as `MERGEIFPX`. |
+| R044 | `sk.tx2as:2206` | verified | Sketchpad part 1, PDF page 48; the printed `LTAKE` operand; the 2XMX symbol table contains `VORD` and no `VORDE` | Remove the extra `E` from the `VORD` macro argument. |
 
 ## Publication Gate
 

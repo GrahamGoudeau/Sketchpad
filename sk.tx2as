@@ -1594,7 +1594,7 @@ MOVE@alpha@MVG@arr@
 MOVE@alpha@MVGX@arr@
                 JPQ #
 MERGEIFP@arr@
-                @sup_1@STE MERGEIPFX
+                @sup_1@STE MERGEIFPX
                 RSX @sub_S@@sub_pipe@@sub_alpha@ LIST+TYPE
                 RSX @sub_T@@sub_pipe@@sub_beta@ LIST+TYPE
                 SXD @sub_S@@sub_pipe@@sub_T@
@@ -1671,7 +1671,7 @@ STOPMOVEP2@arr@
                 SXD @sub_S@ DISPLAYK
                 JPQ STOPMOVEP2D
                 ERROR@hamb@S@arr@STOPMOVEP2X
-STOMOVEP2J@arr@
+STOPMOVEP2J@arr@
                 MOVEL@hamb@BWHOS@times@@alpha@@arr@PICBLKS@times@@beta@
                 JPQ STOPMOVEP2X
 STOPMOVEP2D@arr@
@@ -2203,7 +2203,7 @@ COPYMOVE2@arr@
                 LGORR@hamb@SPECB@times@@beta@=S@arr@COPYMOVE2A@arr@COPYX
 COPYMOVE2A@arr@
                 @sup_1@STE COPYMOVE2AX
-                LTAKE@hamb@VORDE@times@@beta@
+                LTAKE@hamb@VORD@times@@beta@
 
 [meta file_name=102726903-05-01-acc.pdf pdf_page=49 doc_page=47 type=code proof=1]
 [Page header: "IES 2XMX 033"]
