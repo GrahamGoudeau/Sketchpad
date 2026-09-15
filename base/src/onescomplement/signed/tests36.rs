@@ -155,6 +155,18 @@ fn test_signed36_division() {
 }
 
 #[test]
+fn test_signed36_multiplication() {
+    let minus_one = Signed36Bit::from(-1_i8);
+    let two = Signed36Bit::from(2_i8);
+    let six = Signed36Bit::from(6_i8);
+
+    assert_eq!(minus_one.checked_mul(two), Some(Signed36Bit::from(-2_i8)));
+    assert_eq!(two.checked_mul(two), Some(Signed36Bit::from(4_i8)));
+    assert_eq!(two.checked_mul(Signed36Bit::MAX), None);
+    assert_eq!(six.checked_mul(Signed36Bit::MINUS_ZERO), Some(Signed36Bit::ZERO));
+}
+
+#[test]
 fn test_signed36_is_zero() {
     assert!(Signed36Bit::ZERO.is_zero());
     assert!(Signed36Bit::ZERO.is_positive_zero());

@@ -399,10 +399,15 @@ impl ArithmeticExpression {
                     )
                 }
             },
-            Operator::Multiply => match left.checked_mul(right) {
-                Some(result) => result,
+            Operator::Multiply => match left
+                .reinterpret_as_signed()
+                .checked_mul(right.reinterpret_as_signed())
+            {
+                Some(result) => result.reinterpret_as_unsigned(),
                 None => {
-                    todo!("multiplication overflow occurred but this is not implemented")
+                    todo!(
+                        "{left:>012o}×{right:>012o} overflowed; multiplication overflow is not implemented"
+                    )
                 }
             },
             Operator::Divide => {

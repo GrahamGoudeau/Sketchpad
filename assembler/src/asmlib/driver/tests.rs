@@ -406,6 +406,17 @@ fn test_multiplication_on_constants() {
 }
 
 #[test]
+fn test_multiplication_on_negative_constants() {
+    let program = assemble_source(
+        concat!("MINUSONE = 777777777776\n", "100| MINUSONE @times@ 2\n"),
+        Default::default(),
+    )
+    .expect("program is valid");
+
+    assert_eq!(program.chunks[0].words[0], u36!(0o777_777_777_775));
+}
+
+#[test]
 fn test_division_on_positive_constants() {
     // Positive division truncates towards zero.
     let program = assemble_source("100| 6 / 2\n", Default::default()).expect("program is valid");

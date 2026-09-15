@@ -184,6 +184,15 @@ macro_rules! signed_ones_complement_impl {
                 }
             }
 
+            pub fn checked_mul(self, rhs: $SelfT) -> Option<$SelfT> {
+                let left = <$SignedInnerT>::from(self);
+                let right = <$SignedInnerT>::from(rhs);
+                match left.checked_mul(right) {
+                    Some(result) => Self::try_from(result).ok(),
+                    None => None,
+                }
+            }
+
             #[must_use]
             pub fn wrapping_add(self, rhs: $SelfT) -> $SelfT {
                 const MODULUS: $SignedInnerT = 1 << ($BITS - 1);
