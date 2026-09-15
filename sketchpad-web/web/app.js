@@ -62,6 +62,13 @@ const MACHINE_BUDGET_MS = 2.5;
 const TICKS_PER_SLICE = 32;
 const MAX_TICKS_PER_FRAME = 2048;
 const MAX_RENDERED_POINTS_PER_FRAME = 768;
+const MAX_CANVAS_AXIS = 1024;
+const MIN_FRAME_INTERVAL_MS = 15;
+const MAX_SAFE_FRAME_MS = 20;
+const MAX_OVERLOADED_FRAMES = 3;
+let lastFrameAt = 0;
+let overloadedFrames = 0;
+let canvasPixelScale = 1;
 const lightPen = { active: false, pointerId: null, x: 0, y: 0 };
 
 function setMessage(message, error = false) {
@@ -75,7 +82,13 @@ function setMessage(message, error = false) {
 
 function resizeCanvas() {
   const box = canvas.getBoundingClientRect();
-  const scale = window.devicePixelRatio || 1;
+  const requestedScale = window.devicePixelRatio || 1;
+  const scale = Math.min(
+    requestedScale,
+    MAX_CANVAS_AXIS / Math.max(1, box.width),
+    MAX_CANVAS_AXIS / Math.max(1, box.height),
+  );
+  canvasPixelScale = scale;
   const width = Math.max(1, Math.round(box.width * scale));
   const height = Math.max(1, Math.round(box.height * scale));
   if (canvas.width !== width || canvas.height !== height) {
@@ -135,11 +148,11 @@ function renderBridgeInk() {
   inkContext.save();
   inkContext.strokeStyle = "#baffca";
   inkContext.fillStyle = "#baffca";
-  inkContext.lineWidth = 2.4 * (window.devicePixelRatio || 1);
+  inkContext.lineWidth = 2.4 * canvasPixelScale;
   inkContext.lineCap = "round";
   inkContext.lineJoin = "round";
   inkContext.shadowColor = "#62ff99";
-  inkContext.shadowBlur = 5 * (window.devicePixelRatio || 1);
+  inkContext.shadowBlur = 5 * canvasPixelScale;
   for (const shape of bridgeShapes) {
     drawBridgeShape(shape);
   }
@@ -220,13 +233,13 @@ function processScopePoint(event, realElapsed, draw) {
   const y = canvas.height - axisPosition(event.y, bottomOrigin, canvas.height);
   if (draw) {
     const strength = [0.42, 0.58, 0.76, 0.96][event.intensity] ?? 0.42;
-    const radius = (0.8 + event.intensity * 0.32) * (window.devicePixelRatio || 1);
+    const radius = (0.8 + event.intensity * 0.32) * canvasPixelScale;
     context.fillStyle = `rgb(105 255 151 / ${strength})`;
     context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
   }
   pointCount += 1;
 
-  const detectionRadius = 18 * (window.devicePixelRatio || 1);
+  const detectionRadius = 18 * canvasPixelScale;
   const dx = x - lightPen.x;
   const dy = y - lightPen.y;
   if (lightPen.active && dx * dx + dy * dy <= detectionRadius * detectionRadius) {
@@ -300,17 +313,22 @@ function stopWithError(error) {
   updateReadouts();
 }
 
-function frame() {
+function frame(now = performance.now()) {
   if (!running) {
     return;
   }
+  if (now - lastFrameAt < MIN_FRAME_INTERVAL_MS) {
+    frameRequest = requestAnimationFrame(frame);
+    return;
+  }
+  lastFrameAt = now;
   if (document.visibilityState === "hidden") {
     frameRequest = requestAnimationFrame(frame);
     return;
   }
+  const frameStart = performance.now();
   resizeCanvas();
   fadePhosphor();
-  const frameStart = performance.now();
   const realElapsed = (frameStart - startedAt) / 1000;
   const scopeEvents = [];
   let executedTicks = 0;
@@ -347,6 +365,17 @@ function frame() {
   document.documentElement.dataset.scopeEvents = String(scopeEvents.length);
 
   updateReadouts();
+  const frameDuration = performance.now() - frameStart;
+  document.documentElement.dataset.frameWorkMs = frameDuration.toFixed(2);
+  overloadedFrames = frameDuration > MAX_SAFE_FRAME_MS
+    ? overloadedFrames + 1
+    : Math.max(0, overloadedFrames - 1);
+  if (overloadedFrames >= MAX_OVERLOADED_FRAMES) {
+    running = false;
+    setMessage("The TX-2 paused because the browser frame budget was exceeded.", true);
+    updateReadouts();
+    return;
+  }
   frameRequest = requestAnimationFrame(frame);
 }
 
@@ -355,6 +384,8 @@ function start() {
     return;
   }
   running = true;
+  lastFrameAt = 0;
+  overloadedFrames = 0;
   startedAt = performance.now() - machine.simulated_time * 1000;
   setMessage("The TX-2 is executing the mounted paper tape.");
   updateReadouts();
@@ -378,6 +409,8 @@ function loadMachine(tape) {
   activeBridgeShape = null;
   bridgeShapes.length = 0;
   pointCount = 0;
+  lastFrameAt = 0;
+  overloadedFrames = 0;
   startedAt = performance.now();
   resizeCanvas();
   context.fillStyle = "#010503";

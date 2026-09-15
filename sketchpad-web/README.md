@@ -20,7 +20,10 @@ Open `http://localhost:8082`.
 The machine starts automatically.  Each animation frame gives the simulator at
 most 2.5 milliseconds of CPU time.  Each WASM call executes at most 32 ticks.
 The canvas draws at most 768 scope spots per frame.  Hidden tabs stop executing
-the machine.  These limits keep the main thread and GPU responsive.
+the machine.  The display runs at no more than 60 frames per second.  Each
+canvas axis uses at most 1,024 pixels.  Three frames above the 20-millisecond
+work budget pause the machine.  These limits keep the main thread and GPU
+responsive.
 
 The bundled tape is the compatible seven-job Sketchpad reconstruction.  Its
 entry point is octal address `200140`.  Its SHA-256 is
