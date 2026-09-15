@@ -44,14 +44,10 @@ the unit-55 light pen.  Four sliders control the shaft encoders at address
 `377620`.  Thirty-seven momentary buttons control the External Input Register
 at address `377621`.  The application also accepts a local paper-tape file.
 
-On a narrow screen, the scope and a five-tool HUD fill the viewport.  The PEN,
-LINE, CIRCLE, and RECT tools draw persistent compatibility ink above the
-recovered scope output.  ERASE removes a touched compatibility shape.  The
-same gesture also drives the modeled light pen and holds the closest historical
-External Input Register bit.  This gives a phone an immediate drawing surface
-while the original input path keeps running below it.  The `MACHINE` drawer
-keeps all original shaft and button inputs available.  Selection, callout,
-page dragging, and scrolling gestures are disabled on the scope.
+The browser does not create geometry.  Every visible scope point comes from a
+unit-60 event emitted by the emulated TX-2.  Pointer input drives only the
+modeled unit-55 light pen.  The shaft encoders and External Input Register are
+the program's other interactive inputs.
 
 Deploy the current release:
 

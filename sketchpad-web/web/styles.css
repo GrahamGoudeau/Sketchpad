@@ -113,6 +113,7 @@ h1 {
 }
 
 canvas,
+.light-pen-surface,
 .graticule {
   position: absolute;
   inset: 0;
@@ -120,7 +121,8 @@ canvas,
   height: 100%;
 }
 
-canvas {
+canvas,
+.light-pen-surface {
   cursor: crosshair;
   touch-action: none;
   -webkit-touch-callout: none;
@@ -151,7 +153,7 @@ canvas {
   will-change: left, top, opacity;
 }
 
-.bridge-ink {
+.light-pen-surface {
   z-index: 3;
 }
 

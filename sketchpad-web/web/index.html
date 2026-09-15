@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Sketchpad on TX-2</title>
-    <link rel="stylesheet" href="./styles.css?v=20260915-3">
+    <link rel="stylesheet" href="./styles.css?v=20260915-4">
   </head>
   <body>
     <main>
@@ -20,17 +20,10 @@
 
       <section class="machine" aria-label="TX-2 oscilloscope simulator">
         <div class="scope-frame">
-          <div class="scope-topbar mobile-only">
-            <div class="mobile-brand">
-              <span>SKETCHPAD</span>
-              <span id="mobile-state" class="mobile-state">INITIALIZING</span>
-            </div>
-            <button id="mobile-run" class="compact-button" type="button" disabled>RUN</button>
-          </div>
           <div class="scope-glass">
             <canvas id="scope" aria-label="TX-2 oscilloscope display"></canvas>
             <div id="beam-head" class="beam-head" aria-hidden="true"></div>
-            <canvas id="bridge-ink" class="bridge-ink" aria-label="Mobile Sketchpad drawing surface"></canvas>
+            <div id="light-pen-surface" class="light-pen-surface" aria-label="TX-2 light pen surface"></div>
             <div class="graticule" aria-hidden="true"></div>
           </div>
           <div class="scope-label">
@@ -52,44 +45,6 @@
             <span class="readout-label">POINTS</span>
             <strong id="point-count">0</strong>
           </div>
-
-          <nav class="tool-hud mobile-only" aria-label="Sketchpad tools">
-            <button class="tool-button active" data-mobile-tool data-tool="pen" data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="true">
-              <span class="tool-mark">⌁</span>
-              <span>PEN</span>
-            </button>
-            <button class="tool-button" data-mobile-tool data-tool="line" data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="false">
-              <span class="tool-mark">╱</span>
-              <span>LINE</span>
-            </button>
-            <button class="tool-button" data-mobile-tool data-tool="circle" data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="false">
-              <span class="tool-mark">○</span>
-              <span>CIRCLE</span>
-            </button>
-            <button class="tool-button" data-mobile-tool data-tool="rectangle" data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="false">
-              <span class="tool-mark">□</span>
-              <span>RECT</span>
-            </button>
-            <button class="tool-button" data-mobile-tool data-tool="erase" data-switch-quarter="1" data-switch-bit="3" type="button" aria-pressed="false">
-              <span class="tool-mark">×</span>
-              <span>ERASE</span>
-            </button>
-          </nav>
-
-          <div class="mobile-actions mobile-only">
-            <p id="mobile-message">Choose a tool. Then drag anywhere.</p>
-            <button id="mobile-undo" class="compact-button" type="button" disabled>UNDO</button>
-            <button id="mobile-controls" class="compact-button" type="button" aria-expanded="false" aria-controls="advanced-panel">MACHINE</button>
-          </div>
-
-          <div id="advanced-panel" class="advanced-panel">
-            <div class="sheet-heading mobile-only">
-              <div>
-                <strong>TX-2 CONTROL PANEL</strong>
-                <span>Original input registers</span>
-              </div>
-              <button id="close-controls" class="compact-button" type="button">CLOSE</button>
-            </div>
 
             <fieldset class="knobs">
               <legend>SHAFT ENCODERS</legend>
@@ -144,16 +99,15 @@
             <p id="message" class="message" role="status">
               Loading the WebAssembly machine.
             </p>
-            <p class="message">Touch and hold visible scope ink to use the light pen.</p>
-          </div>
+            <p class="message">Move the mouse over the scope. Hold the mouse button to engage the TX-2 light pen.</p>
         </aside>
       </section>
 
       <footer>
-        <p>This build runs the compatible seven-job reconstruction of Sketchpad.</p>
+        <p>This build executes the recovered Sketchpad assembly.</p>
         <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260915-5"></script>
+    <script type="module" src="./app.js?v=20260915-6"></script>
   </body>
 </html>
