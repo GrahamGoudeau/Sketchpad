@@ -187,7 +187,15 @@ impl<'a> LowerLexer<'a> {
                     if self.state.in_comment {
                         continue;
                     }
-                    return Lexeme::Text(self.inner.slice());
+                    let text = self.inner.slice();
+                    if let Some(comment_start) = text.find("**") {
+                        self.state.in_comment = true;
+                        if comment_start == 0 {
+                            continue;
+                        }
+                        return Lexeme::Text(&text[..comment_start]);
+                    }
+                    return Lexeme::Text(text);
                 }
             }
         }
@@ -199,6 +207,14 @@ fn test_annotations_are_ignored() {
     let input = "->[THIS IS AN ANNOTATION]";
     let mut lex = LowerLexer::new(input);
     assert_eq!(lex.next(), Lexeme::Text("->"));
+    assert_eq!(lex.next(), Lexeme::EndOfInput);
+}
+
+#[test]
+fn test_comment_marker_can_follow_text_without_space() {
+    let mut lex = LowerLexer::new("#**@sup_1@@sup_?@STB\n");
+    assert_eq!(lex.next(), Lexeme::Text("#"));
+    assert_eq!(lex.next(), Lexeme::Tok(super::Token::Newline));
     assert_eq!(lex.next(), Lexeme::EndOfInput);
 }
 
