@@ -1,4 +1,4 @@
-import init, { SketchpadMachine, scope_demo_tape } from "./pkg/sketchpad_web.js";
+import init, { SketchpadMachine, sketchpad_tape } from "./pkg/sketchpad_web.js";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
@@ -93,8 +93,8 @@ function frame() {
   const realElapsed = (frameStart - startedAt) / 1000;
 
   try {
-    for (let step = 0; step < 100 && performance.now() - frameStart < 4; step += 1) {
-      const event = machine.step(realElapsed);
+    const events = machine.step_batch(realElapsed, 2000);
+    for (const event of events) {
       if (event?.kind === "scope_point") {
         drawScopePoint(event);
       }
@@ -137,7 +137,7 @@ function loadMachine(tape) {
   context.fillRect(0, 0, canvas.width, canvas.height);
   machine.mount_tape(activeTape, 0);
   machine.codabo(0);
-  setMessage("The scope-check tape is mounted. The TX-2 is ready.");
+  setMessage("The reconstructed Sketchpad tape is mounted. The TX-2 is ready.");
   updateReadouts();
 }
 
@@ -150,7 +150,7 @@ runButton.addEventListener("click", () => {
 });
 
 resetButton.addEventListener("click", () => {
-  loadMachine(activeTape ?? scope_demo_tape());
+  loadMachine(activeTape ?? sketchpad_tape());
   start();
 });
 
@@ -172,7 +172,7 @@ window.addEventListener("resize", resizeCanvas);
 
 try {
   await init();
-  loadMachine(scope_demo_tape());
+  loadMachine(sketchpad_tape());
   runButton.disabled = false;
   resetButton.disabled = false;
 } catch (error) {

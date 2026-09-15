@@ -6,13 +6,14 @@ use std::time::Duration;
 
 use base::charset::LincolnChar;
 use cpu::{
-    Context, InputFlagRaised, MemoryConfiguration, OutputEvent, PanicOnUnmaskedAlarm, ResetMode,
-    RunMode, ScopeOrigin, Tx2,
+    AlarmKind, Context, InputFlagRaised, MemoryConfiguration, OutputEvent, PanicOnUnmaskedAlarm,
+    ResetMode, RunMode, ScopeOrigin, Tx2,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 const SCOPE_DEMO: &[u8] = include_bytes!("../../../examples/scope.tape");
+const SKETCHPAD: &[u8] = include_bytes!("../assets/sketchpad-combined.tape");
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -95,8 +96,11 @@ impl SketchpadMachine {
         let memory = MemoryConfiguration {
             with_u_memory: false,
         };
+        let mut tx2 = Tx2::new(&ctx, PanicOnUnmaskedAlarm::No, &memory);
+        tx2.set_alarm_masked(AlarmKind::IOSAL, true)
+            .expect("IOSAL is a maskable TX-2 alarm");
         Self {
-            tx2: Tx2::new(&ctx, PanicOnUnmaskedAlarm::No, &memory),
+            tx2,
             simulated_time,
             last_alarm: None,
         }
@@ -137,6 +141,29 @@ impl SketchpadMachine {
         }
     }
 
+    pub fn step_batch(
+        &mut self,
+        real_elapsed_seconds: f64,
+        maximum_ticks: u32,
+    ) -> Result<JsValue, JsValue> {
+        let mut outputs = Vec::new();
+        for _ in 0..maximum_ticks {
+            self.simulated_time = self.tx2.next_tick();
+            let ctx = context(self.simulated_time, real_elapsed_seconds);
+            match self.tx2.tick(&ctx) {
+                Ok(Some(output)) => outputs.push(BrowserOutput::from(output)),
+                Ok(None) => (),
+                Err(error) => {
+                    let message = error.to_string();
+                    self.last_alarm = Some(message.clone());
+                    return Err(JsValue::from_str(&message));
+                }
+            }
+        }
+        serde_wasm_bindgen::to_value(&outputs)
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
     #[wasm_bindgen(getter)]
     pub fn simulated_time(&self) -> f64 {
         self.simulated_time.as_secs_f64()
@@ -162,6 +189,11 @@ impl Default for SketchpadMachine {
 #[wasm_bindgen]
 pub fn scope_demo_tape() -> Vec<u8> {
     SCOPE_DEMO.to_vec()
+}
+
+#[wasm_bindgen]
+pub fn sketchpad_tape() -> Vec<u8> {
+    SKETCHPAD.to_vec()
 }
 
 #[cfg(test)]
@@ -195,5 +227,10 @@ mod tests {
     #[test]
     fn bundled_scope_tape_is_present() {
         assert!(SCOPE_DEMO.len() > 700);
+    }
+
+    #[test]
+    fn bundled_sketchpad_tape_is_present() {
+        assert_eq!(SKETCHPAD.len(), 74_232);
     }
 }
