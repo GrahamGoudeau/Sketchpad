@@ -2509,3 +2509,11 @@ constraint, enters `RELAX`, changes an endpoint, and reduces the residual.  A
 second regression still enters `FIXIT`, links the selected line into `FIXEDS`,
 enters `UNFIX`, and restores every changed list word.  No Rust CPU or assembly
 source changed in this checkpoint.
+
+Simulator commits `811187c` and `f8de9e4` were pushed.  The first deployment
+check caught a missing `scope-model.js` file in the release archive before
+handoff.  The deployment script was repaired and pushed.  Static release
+`20260915T232652Z` then became current.  Caddy validated before reload.  Public
+checks returned HTTP 200 for the new scope-clock module and the 593,792-byte
+WebAssembly file.  The former `scratchpad.acyclic.sh` name still redirects to
+the canonical `sketchpad.acyclic.sh` host.  No graphical browser was opened.
