@@ -3129,10 +3129,7 @@ STA P
 STB P+1
 @hand@@hand@EMD
 
-@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
-hJPQ {ERROR1@hamb@@alpha@@arr@P}
-@hand@@hand@EMD
-
+[reconstruction: ERROR1 moved before ERROR because the validator resolves nested macro names in one pass]
 @hand@@hand@DEF ERROR1@hamb@@alpha@@arr@P
 @sup_1@STE #+2
 SKZ ERRORSTOP
@@ -3142,6 +3139,10 @@ SKZ ERRORSTOP
 
 @sup_1@#@sub_alpha@
 JPQ P
+@hand@@hand@EMD
+
+@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
+hJPQ {ERROR1@hamb@@alpha@@arr@P}
 @hand@@hand@EMD
 
 @hand@@hand@DEF PUTNAME@hamb@@alpha@@arr@LMNAME

@@ -143,6 +143,7 @@ file marks it clearly and the log records the alternatives.
 | R010 | `sk.tx2as:3430` | verified | Printed octal output and explicit expansion on Sketchpad part 1, PDF page 75; the `HEADER` definition at line 3251; ten neighboring `HEADER` calls; no `HEADERS` definition | Correct the printed `HEADERS` typo to `HEADER`. |
 | R011 | `sk.tx2as:3938` and self-modified addresses at former lines 5888-6199 | inferred | Users Handbook section 6-2.3 makes `?` a symex terminator; the equality was an explicit creative addition absent from the scan; equivalent self-modified exit slots use `#` | Remove the invented `?=#` equality and use current-location `#` for standalone question-mark address placeholders. |
 | R012 | `sk.tx2as:1928` | verified | Sketchpad part 1, PDF page 43; the printed macro argument and its target label at line 1982 both read `DUMMEX` | Restore the omitted second `M` in the `LGORR` exit argument. |
+| R013 | `sk.tx2as:3132-3145` | mechanical | The printed Unit 2 order matches the original Unit 1 order; `ERROR` expands `ERROR1` inside an RC word; the validator resolves nested macro names in one pass | Move `ERROR1` before `ERROR` and preserve both macro bodies. |
 
 ## Publication Gate
 
