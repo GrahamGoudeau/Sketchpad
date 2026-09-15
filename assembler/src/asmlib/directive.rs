@@ -71,8 +71,8 @@ impl Directive {
     pub(super) fn position_rc_block(&mut self) -> Address {
         self.blocks
             .values()
+            .next_back()
             .map(LocatedBlock::following_addr)
-            .max()
             .unwrap_or_else(Origin::default_address)
     }
 

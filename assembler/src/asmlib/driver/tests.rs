@@ -631,6 +631,34 @@ fn test_undefined_address_only_symbols_get_rc_block_allocation() {
 }
 
 #[test]
+fn test_rc_block_follows_last_manuscript_block() {
+    // The Users Handbook, section 6-2.6, places the RC block at the
+    // end of the last program block.  Blocks keep manuscript order.
+    // A high-address block earlier in the manuscript must not move
+    // the RC block away from the final block.
+    let input = "1000|0\n100|{1}\n";
+
+    let program = assemble_source(input, Default::default()).expect("program is valid");
+
+    assert_eq!(program.chunks.len(), 3);
+    assert_eq!(program.chunks[0].address, Address::from(u18!(0o1000)));
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o100)));
+    assert_eq!(program.chunks[2].address, Address::from(u18!(0o101)));
+    assert_eq!(program.chunks[2].words, vec![u36!(1)]);
+}
+
+#[test]
+fn test_identical_rc_words_share_one_address() {
+    let program = assemble_source("100|{42}\n{42}\n", Default::default())
+        .expect("identical RC words are valid");
+
+    assert_eq!(program.chunks.len(), 2);
+    assert_eq!(program.chunks[0].words, vec![u36!(0o102), u36!(0o102)]);
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o102)));
+    assert_eq!(program.chunks[1].words, vec![u36!(0o42)]);
+}
+
+#[test]
 fn test_200_200_200_200_with_no_commas() {
     // This example is from section 6-2.4 "NUMERICAL FORMAT - USE OF
     // COMMAS" in the Users Handbook.
@@ -880,6 +908,64 @@ fn macro_expansion_inside_rc_word() {
 }
 
 #[test]
+fn forward_macro_expansion_inside_rc_word() {
+    let input = concat!(
+        "☛☛DEF OUTER\n",
+        "{INNER}\n",
+        "☛☛EMD\n",
+        "☛☛DEF INNER\n",
+        "4\n",
+        "5\n",
+        "☛☛EMD\n",
+        "100|\n",
+        "OUTER\n",
+    );
+
+    let program = assemble_source(input, Default::default())
+        .expect("a forward macro name inside an RC word is valid");
+
+    assert_eq!(program.chunks.len(), 2);
+    assert_eq!(program.chunks[0].words, vec![u36!(0o101)]);
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o101)));
+    assert_eq!(program.chunks[1].words, vec![u36!(4), u36!(5)]);
+}
+
+#[test]
+fn multiword_rc_macro_stays_contiguous_around_nested_rc_words() {
+    let input = concat!(
+        "☛☛DEF OUTER\n",
+        "0\n",
+        "LDA {7}\n",
+        "0\n",
+        "☛☛EMD\n",
+        "100|{OUTER}\n",
+    );
+
+    let program = assemble_source(input, Default::default())
+        .expect("a multiword RC macro with a nested RC word is valid");
+
+    assert_eq!(program.chunks.len(), 2);
+    assert_eq!(program.chunks[0].words, vec![u36!(0o101)]);
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o101)));
+    assert_eq!(
+        program.chunks[1].words,
+        vec![
+            u36!(0),
+            Instruction::from(&SymbolicInstruction {
+                held: false,
+                configuration: Unsigned5Bit::ZERO,
+                opcode: Opcode::Lda,
+                index: Unsigned6Bit::ZERO,
+                operand_address: OperandAddress::direct(Address::from(u18!(0o104))),
+            })
+            .bits(),
+            u36!(0),
+            u36!(7),
+        ]
+    );
+}
+
+#[test]
 fn macro_expansion_inside_rc_word_uses_local_tags() {
     let input = concat!(
         "☛☛DEF INNER≡P\n",
@@ -1074,6 +1160,21 @@ fn default_assigned_rc_word() {
 }
 
 #[test]
+fn ae_register_names_have_standard_addresses() {
+    assemble_check_symbols(
+        "0\n",
+        Address::from(u18!(0)),
+        &[
+            ("A", u36!(0o377604)),
+            ("B", u36!(0o377605)),
+            ("C", u36!(0o377606)),
+            ("D", u36!(0o377607)),
+            ("E", u36!(0o377610)),
+        ],
+    );
+}
+
+#[test]
 fn default_assigned_index_register_easy_case() {
     // See section 6-2.2 of the User Handbook for a description of how
     // this is supposed to work.
@@ -1199,31 +1300,29 @@ fn test_kleinrock_200016() {
 
 #[test]
 fn test_undefined_symbol_in_calculation() {
-    // Given a program which defines a symbol (A) in terms of a symbol
-    // (B) which needs to be given a default definition.
+    // Given a program which defines G in terms of F, where F
+    // needs a default definition.
     let input = concat!(
-        "A = B + 2\n",
-        // B is used in normal script in the equality and in an index
+        "G = F + 2\n",
+        // F is used in normal script in the equality and in an index
         // context here.  Its normal use requires an RC word.
-        "DPX @sub_B@ 4\n",
-        // When we evaluate A, it should use the address of that RC
+        "DPX @sub_F@ 4\n",
+        // When we evaluate G, it should use the address of that RC
         // word plus 2.
-        "A\n",
+        "G\n",
     );
 
     // When we assemble the program
     let program = assemble_source(input, Default::default()).expect("program is valid");
-    dbg!(&program);
-
-    // Then the symbol B is assigned the correct default address and
-    // the value of A is consistent with that definition.
+    // Then F is assigned the correct default address and the value
+    // of G is consistent with that definition.
     assert_eq!(program.chunks.len(), 2, "an RC block should be allocated");
     assert_eq!(program.chunks[0].words.len(), 2); // program length
     assert_eq!(program.chunks[1].address, Address::from(u18!(0o200_002)));
     assert_eq!(program.chunks[1].words, vec![u36!(0)]);
 
     // The potential bug we care about here is the situation in which
-    // evaluation of A fails (e.g. because it depends on a value which
+    // evaluation of G fails (e.g. because it depends on a value which
     // needs to be default-assigned) and itself gets default-assigned
     // (which would be incorrect, since it has a definition).
     assert_eq!(program.chunks[0].words[1], u36!(0o200_004));

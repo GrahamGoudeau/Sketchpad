@@ -862,10 +862,19 @@ pub(crate) fn manuscript_lines_to_source_file<'a>(
         return Err(bad_tag_pos(t));
     }
 
-    Ok(SourceFile {
+    let mut source_file = SourceFile {
         punch: maybe_punch,
         blocks,
         global_equalities: equalities,
         macros,
-    })
+    };
+    for block in &mut source_file.blocks {
+        for sequence in &mut block.sequences {
+            sequence.resolve_rc_word_macros(&source_file.macros);
+        }
+    }
+    for equality in &mut source_file.global_equalities {
+        equality.value.resolve_rc_word_macros(&source_file.macros);
+    }
+    Ok(source_file)
 }

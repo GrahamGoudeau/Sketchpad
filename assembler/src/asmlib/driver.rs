@@ -18,7 +18,7 @@ use super::ast::{
     ArithmeticExpression, Atom, CommaDelimitedFragment, HoldBit, InstructionFragment,
     InstructionSequence, LiteralValue, TaggedProgramInstruction, UntaggedProgramInstruction,
 };
-use super::ast::{Origin, RcUpdater};
+use super::ast::{EqualityValue, Origin, RcUpdater};
 use super::collections::OneOrMore;
 use super::directive::Directive;
 use super::eval::Evaluate;
@@ -44,18 +44,16 @@ use super::span::{Span, Spanned};
 use super::state::{NumeralMode, State};
 use super::symbol::SymbolName;
 use super::symtab::{
-    ExplicitSymbolTable, FinalSymbolDefinition, FinalSymbolTable, FinalSymbolType,
-    ImplicitSymbolTable, IndexRegisterAssigner, assign_default_rc_word_tags,
+    ExplicitDefinition, ExplicitSymbolTable, FinalSymbolDefinition, FinalSymbolTable,
+    FinalSymbolType, ImplicitSymbolTable, IndexRegisterAssigner, assign_default_rc_word_tags,
 };
 use super::types::{AssemblerFailure, IoAction, IoFailed, IoTarget, ProgramError};
-use base::prelude::{Address, IndexBy, Unsigned18Bit, Unsigned36Bit};
+use base::prelude::{Address, IndexBy, Unsigned18Bit, Unsigned36Bit, u36};
 use base::subword;
 pub use output::write_user_program;
 
 #[cfg(test)]
 use base::charset::Script;
-#[cfg(test)]
-use base::u36;
 
 /// Represents the meta commands which are still relevant in the
 /// directive.  Excludes things like the PUNCH meta command.
@@ -303,6 +301,20 @@ fn initial_symbol_table<'a>(
     let mut errors = Vec::new();
     // TODO: split these out into separate functions.
     let mut explicit_symbols = ExplicitSymbolTable::new();
+    for (name, address) in [
+        ("A", u36!(0o377604)),
+        ("B", u36!(0o377605)),
+        ("C", u36!(0o377606)),
+        ("D", u36!(0o377607)),
+        ("E", u36!(0o377610)),
+    ] {
+        explicit_symbols
+            .define(
+                SymbolName::from(name),
+                ExplicitDefinition::Equality(EqualityValue::constant(address)),
+            )
+            .expect("standard AE register names are unique");
+    }
     // All explicit definitions in the program take effect either
     // locally (for the bodies of macro expansions) or globally (for
     // everything else).  So, before we can enumerate all global
@@ -487,6 +499,7 @@ fn assemble_pass3(
     let mut rcblock = RcBlock {
         address: directive.position_rc_block(),
         words: Vec::new(),
+        reusable_groups: Default::default(),
     };
 
     let Directive {

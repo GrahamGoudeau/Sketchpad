@@ -4,7 +4,7 @@
 //! abstract syntax tree, including assignment of default values.
 //! Some of the evaluation of individual parts of the abstract
 //! representation is performed in [`super::ast`].
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Shl;
 
@@ -512,6 +512,9 @@ pub(crate) struct RcBlock {
     /// The contents of the RC-block, along with information about why
     /// each of the RC-words was allocated.
     pub(crate) words: Vec<(RcWordSource, Unsigned36Bit)>,
+    /// Bracketed words share one address when their symbolic content
+    /// is the same.  Default-assigned storage does not use this map.
+    pub(crate) reusable_groups: HashMap<String, (Address, usize)>,
 }
 
 impl RcBlock {
@@ -538,6 +541,53 @@ impl RcAllocator for RcBlock {
                 rc_block_len: self.words.len(),
             })
         }
+    }
+
+    fn allocate_reusable(
+        &mut self,
+        source: RcWordSource,
+        value: Unsigned36Bit,
+        key: String,
+    ) -> Result<Address, RcWordAllocationFailure> {
+        self.allocate_reusable_group(source, value, key, 1)
+            .map(|addresses| addresses[0])
+    }
+
+    fn allocate_reusable_group(
+        &mut self,
+        source: RcWordSource,
+        value: Unsigned36Bit,
+        key: String,
+        count: usize,
+    ) -> Result<Vec<Address>, RcWordAllocationFailure> {
+        let addresses_from = |start: Address| {
+            (0..count)
+                .map(|index| {
+                    start.index_by(
+                        Unsigned18Bit::try_from(index)
+                            .expect("an RC group cannot exceed physical memory"),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        if let Some((address, prior_count)) = self.reusable_groups.get(&key) {
+            assert_eq!(
+                count, *prior_count,
+                "identical RC groups must contain the same number of words"
+            );
+            return Ok(addresses_from(*address));
+        }
+        let start = self
+            .end()
+            .ok_or_else(|| RcWordAllocationFailure::RcBlockTooBig {
+                source: source.clone(),
+                rc_block_len: self.words.len(),
+            })?;
+        for _ in 0..count {
+            self.allocate(source.clone(), value)?;
+        }
+        self.reusable_groups.insert(key, (start, count));
+        Ok(addresses_from(start))
     }
 }
 
@@ -576,6 +626,7 @@ pub(crate) fn make_empty_rc_block_for_test(location: Address) -> RcBlock {
     RcBlock {
         address: location,
         words: Vec::new(),
+        reusable_groups: HashMap::new(),
     }
 }
 

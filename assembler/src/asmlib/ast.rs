@@ -32,7 +32,10 @@ use super::eval::{
 };
 use super::glyph;
 use super::listing::{Listing, ListingLine};
-use super::manuscript::{MacroDefinition, MacroParameterBindings, MacroParameterValue};
+use super::manuscript::{
+    MacroDefinition, MacroDummyParameters, MacroInvocation, MacroParameterBindings,
+    MacroParameterValue,
+};
 use super::memorymap::MemoryMap;
 use super::memorymap::RcAllocator;
 use super::memorymap::RcWordAllocationFailure;
@@ -227,6 +230,10 @@ impl From<Atom> for SignedAtom {
 }
 
 impl SignedAtom {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        self.magnitude.resolve_rc_word_macros(macros);
+    }
+
     fn with_script(&self, script: Script) -> SignedAtom {
         SignedAtom {
             magnitude: self.magnitude.with_script(script),
@@ -338,6 +345,13 @@ impl Spanned for ArithmeticExpression {
 }
 
 impl ArithmeticExpression {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        self.first.resolve_rc_word_macros(macros);
+        for (_, atom) in &mut self.tail {
+            atom.resolve_rc_word_macros(macros);
+        }
+    }
+
     fn with_script(&self, script: Script) -> ArithmeticExpression {
         ArithmeticExpression {
             first: self.first.with_script(script),
@@ -600,6 +614,38 @@ impl RegistersContaining {
         self.words.iter()
     }
 
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        let forward_macro = if self.local_symbols.is_none() && self.words.len() == 1 {
+            let candidate = self.words.first().instruction().standalone_symbol();
+            candidate
+                .and_then(|name| macros.get(name))
+                .filter(|definition| matches!(definition.params, MacroDummyParameters::Bare))
+                .cloned()
+        } else {
+            None
+        };
+
+        if let Some(macro_def) = forward_macro {
+            let invocation = MacroInvocation {
+                macro_def,
+                param_values: MacroParameterBindings::default(),
+            };
+            let expansion = invocation.substitute_macro_parameters(macros);
+            let words = OneOrMore::try_from_iter(
+                expansion
+                    .instructions
+                    .into_iter()
+                    .map(RegisterContaining::from),
+            )
+            .expect("a macro used as an RC word must emit at least one word");
+            *self = RegistersContaining::from_macro_expansion(expansion.local_symbols, words);
+        }
+
+        for word in self.words.iter_mut() {
+            word.instruction_mut().resolve_rc_word_macros(macros);
+        }
+    }
+
     fn symbol_uses(
         &self,
         block_id: BlockIdentifier,
@@ -676,9 +722,16 @@ impl RegistersContaining {
             span,
             kind: RcWordKind::Braces,
         };
-        for rc in self.words.iter_mut() {
-            *rc = rc.clone().assign_rc_word(
-                source.clone(),
+        let group_key = rc_word_reuse_key(&self.words, self.local_symbols.as_ref());
+        let addresses = rc_allocator.allocate_reusable_group(
+            source,
+            Unsigned36Bit::ZERO,
+            group_key,
+            self.words.len(),
+        )?;
+        for (rc, address) in self.words.iter_mut().zip(addresses) {
+            *rc = rc.clone().assign_rc_word_at(
+                address,
                 explicit_symtab,
                 &mut self.local_symbols,
                 implicit_symtab,
@@ -733,6 +786,12 @@ impl Spanned for RegisterContaining {
 
 impl RegisterContaining {
     fn instruction(&self) -> &TaggedProgramInstruction {
+        match self {
+            RegisterContaining::Unallocated(tpi) | RegisterContaining::Allocated(_, tpi) => tpi,
+        }
+    }
+
+    fn instruction_mut(&mut self) -> &mut TaggedProgramInstruction {
         match self {
             RegisterContaining::Unallocated(tpi) | RegisterContaining::Allocated(_, tpi) => tpi,
         }
@@ -812,17 +871,8 @@ impl RegisterContaining {
                     })
             }
             RegisterContaining::Allocated(_address, _tagged_program_instruction) => {
-                // One reason we don't support this is because if we
-                // twice instantiate a macro which contains {...} or a
-                // pipe construct, then both of those RC-words would
-                // have the same address, and this is likely not
-                // intended.  It's certainly user-surprising.
-                //
-                // The second reason we don't support this (and the
-                // reason why we don't need to issue an error message
-                // for the user) is that the assembler implementation
-                // does in fact perform macro-expansion before
-                // RC-words are allocated.
+                // The assembler performs macro expansion before it
+                // allocates RC words.
                 unreachable!(
                     "macro expansion must be completed before any RC-block addresses are allocated"
                 )
@@ -833,6 +883,25 @@ impl RegisterContaining {
     fn assign_rc_word<R: RcAllocator>(
         self,
         source: RcWordSource,
+        reuse_key: String,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        local_symbols: &mut Option<ExplicitSymbolTable>,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<RegisterContaining, RcWordAllocationFailure> {
+        let address = rc_allocator.allocate_reusable(source, Unsigned36Bit::ZERO, reuse_key)?;
+        self.assign_rc_word_at(
+            address,
+            explicit_symtab,
+            local_symbols,
+            implicit_symtab,
+            rc_allocator,
+        )
+    }
+
+    fn assign_rc_word_at<R: RcAllocator>(
+        self,
+        address: Address,
         explicit_symtab: &mut ExplicitSymbolTable,
         local_symbols: &mut Option<ExplicitSymbolTable>,
         implicit_symtab: &mut ImplicitSymbolTable,
@@ -840,7 +909,6 @@ impl RegisterContaining {
     ) -> Result<RegisterContaining, RcWordAllocationFailure> {
         match self {
             RegisterContaining::Unallocated(mut tpibox) => {
-                let address: Address = rc_allocator.allocate(source, Unsigned36Bit::ZERO)?;
                 for tag in &tpibox.tags {
                     implicit_symtab.remove(&tag.name);
                     let new_tag_definition = TagDefinition::Resolved {
@@ -878,6 +946,47 @@ impl RegisterContaining {
     }
 }
 
+fn rc_word_reuse_key<T: fmt::Debug>(
+    value: &T,
+    local_symbols: Option<&ExplicitSymbolTable>,
+) -> String {
+    fn omit_spans(input: &str) -> String {
+        let bytes = input.as_bytes();
+        let mut result = String::with_capacity(input.len());
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i].is_ascii_digit() {
+                let start = i;
+                while i < bytes.len() && bytes[i].is_ascii_digit() {
+                    i += 1;
+                }
+                if bytes.get(i..i + 2) == Some(b"..") {
+                    let mut end = i + 2;
+                    while end < bytes.len() && bytes[end].is_ascii_digit() {
+                        end += 1;
+                    }
+                    if end > i + 2 {
+                        result.push_str("<span>");
+                        i = end;
+                        continue;
+                    }
+                }
+                result.push_str(&input[start..i]);
+                continue;
+            }
+            let ch = input[i..]
+                .chars()
+                .next()
+                .expect("the byte index is within the string");
+            result.push(ch);
+            i += ch.len_utf8();
+        }
+        result
+    }
+
+    omit_spans(&format!("{value:?}|{local_symbols:?}"))
+}
+
 /// A component of an arithmetic expression.
 ///
 /// A symbol, numeric literal, address of an RC-word, or a
@@ -903,6 +1012,15 @@ impl From<SymbolOrLiteral> for Atom {
 }
 
 impl Atom {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        match self {
+            Atom::SymbolOrLiteral(_) => {}
+            Atom::Parens(_, _, expression) => expression.resolve_rc_word_macros(macros),
+            Atom::AssembledWord(_, instruction) => instruction.resolve_rc_word_macros(macros),
+            Atom::RcRef(_, words) => words.resolve_rc_word_macros(macros),
+        }
+    }
+
     fn with_script(&self, script: Script) -> Atom {
         match self {
             Atom::SymbolOrLiteral(value) => Atom::SymbolOrLiteral(value.with_script(script)),
@@ -1292,6 +1410,26 @@ impl Spanned for InstructionFragment {
 }
 
 impl InstructionFragment {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        match self {
+            InstructionFragment::Arithmetic(expression) => {
+                expression.resolve_rc_word_macros(macros);
+            }
+            InstructionFragment::Config(config) => config.expr.resolve_rc_word_macros(macros),
+            InstructionFragment::PipeConstruct {
+                index,
+                rc_word_value,
+                ..
+            } => {
+                index.item.resolve_rc_word_macros(macros);
+                rc_word_value
+                    .instruction_mut()
+                    .resolve_rc_word_macros(macros);
+            }
+            InstructionFragment::DeferredAddressing(_) | InstructionFragment::Null(_) => {}
+        }
+    }
+
     fn symbol_uses(
         &self,
         block_id: BlockIdentifier,
@@ -1401,12 +1539,14 @@ impl InstructionFragment {
             } => {
                 let span: Span = *rc_word_span;
                 let w = rc_word_value.clone();
+                let reuse_key = rc_word_reuse_key(&w, None);
                 let mut local_symbols = None;
                 *rc_word_value = w.assign_rc_word(
                     RcWordSource {
                         span,
                         kind: RcWordKind::PipeConstruct,
                     },
+                    reuse_key,
                     explicit_symtab,
                     &mut local_symbols,
                     implicit_symtab,
@@ -1605,6 +1745,10 @@ pub(super) struct CommaDelimitedFragment {
 }
 
 impl CommaDelimitedFragment {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        self.fragment.resolve_rc_word_macros(macros);
+    }
+
     pub(super) fn new(
         leading_commas: Option<Commas>,
         instruction: FragmentWithHold,
@@ -1698,6 +1842,12 @@ impl From<OneOrMore<CommaDelimitedFragment>> for UntaggedProgramInstruction {
 }
 
 impl UntaggedProgramInstruction {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        for fragment in self.fragments.iter_mut() {
+            fragment.resolve_rc_word_macros(macros);
+        }
+    }
+
     fn symbol_uses(
         &self,
         block_id: BlockIdentifier,
@@ -1824,6 +1974,30 @@ impl From<(Span, UntaggedProgramInstruction)> for EqualityValue {
 }
 
 impl EqualityValue {
+    pub(crate) fn constant(value: Unsigned36Bit) -> EqualityValue {
+        let source_span = Span::from(0..0);
+        let fragment = CommaDelimitedFragment::new(
+            None,
+            FragmentWithHold {
+                span: source_span,
+                holdbit: HoldBit::Unspecified,
+                fragment: InstructionFragment::from((source_span, Script::Normal, value)),
+            },
+            None,
+        );
+        EqualityValue {
+            span: source_span,
+            inner: UntaggedProgramInstruction::from(OneOrMore::new(fragment)),
+        }
+    }
+
+    pub(crate) fn resolve_rc_word_macros(
+        &mut self,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) {
+        self.inner.resolve_rc_word_macros(macros);
+    }
+
     pub(crate) fn allocate_rc_words<R: RcAllocator>(
         &mut self,
         explicit_symtab: &mut ExplicitSymbolTable,
@@ -1924,6 +2098,10 @@ pub(crate) struct TaggedProgramInstruction {
 }
 
 impl TaggedProgramInstruction {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        self.instruction.resolve_rc_word_macros(macros);
+    }
+
     pub(super) fn standalone_symbol(&self) -> Option<&SymbolName> {
         if !self.tags.is_empty() || self.instruction.fragments.len() != 1 {
             return None;
@@ -2126,6 +2304,15 @@ impl Error for LocalSymbolTableBuildFailure {}
 impl InstructionSequence {
     pub(super) fn iter(&self) -> impl Iterator<Item = &TaggedProgramInstruction> {
         self.instructions.iter()
+    }
+
+    pub(crate) fn resolve_rc_word_macros(
+        &mut self,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) {
+        for instruction in &mut self.instructions {
+            instruction.resolve_rc_word_macros(macros);
+        }
     }
 
     pub(super) fn first(&self) -> Option<&TaggedProgramInstruction> {

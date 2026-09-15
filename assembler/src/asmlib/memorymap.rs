@@ -244,4 +244,25 @@ pub(crate) trait RcAllocator {
         source: RcWordSource,
         value: Unsigned36Bit,
     ) -> Result<Address, RcWordAllocationFailure>;
+
+    fn allocate_reusable(
+        &mut self,
+        source: RcWordSource,
+        value: Unsigned36Bit,
+        _key: String,
+    ) -> Result<Address, RcWordAllocationFailure> {
+        self.allocate(source, value)
+    }
+
+    fn allocate_reusable_group(
+        &mut self,
+        source: RcWordSource,
+        value: Unsigned36Bit,
+        key: String,
+        count: usize,
+    ) -> Result<Vec<Address>, RcWordAllocationFailure> {
+        (0..count)
+            .map(|index| self.allocate_reusable(source.clone(), value, format!("{key}#{index}")))
+            .collect()
+    }
 }
