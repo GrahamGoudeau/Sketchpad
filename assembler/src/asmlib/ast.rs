@@ -356,6 +356,33 @@ impl ArithmeticExpression {
         ArithmeticExpression { first, tail }
     }
 
+    pub(super) fn structured_substitution(
+        &self,
+        param_values: &MacroParameterBindings,
+    ) -> Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)> {
+        let Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(script, name, _)) = &self.first.magnitude
+        else {
+            return None;
+        };
+        if self.first.negated {
+            return None;
+        }
+        let (holdbit, defer_span, mut fragments) = match param_values.get(name) {
+            Some((
+                _,
+                Some(MacroParameterValue::Fragments {
+                    holdbit,
+                    defer_span,
+                    fragments,
+                }),
+            )) => (*holdbit, *defer_span, fragments.clone()),
+            _ => return None,
+        };
+        let (_, expression) = fragments.iter_mut().find(|(got, _)| got == script)?;
+        expression.tail.extend(self.tail.clone());
+        Some((holdbit, defer_span, fragments))
+    }
+
     fn symbol_uses(
         &self,
         block_id: BlockIdentifier,
@@ -1551,31 +1578,10 @@ impl CommaDelimitedFragment {
         &self,
         param_values: &MacroParameterBindings,
     ) -> Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)> {
-        let InstructionFragment::Arithmetic(ArithmeticExpression { first, tail }) = &self.fragment
-        else {
+        let InstructionFragment::Arithmetic(expression) = &self.fragment else {
             return None;
         };
-        let Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(script, name, _)) = &first.magnitude
-        else {
-            return None;
-        };
-        if first.negated {
-            return None;
-        }
-        let (holdbit, defer_span, mut fragments) = match param_values.get(name) {
-            Some((
-                _,
-                Some(MacroParameterValue::Fragments {
-                    holdbit,
-                    defer_span,
-                    fragments,
-                }),
-            )) => (*holdbit, *defer_span, fragments.clone()),
-            _ => return None,
-        };
-        let (_, expression) = fragments.iter_mut().find(|(got, _)| got == script)?;
-        expression.tail.extend(tail.clone());
-        Some((holdbit, defer_span, fragments))
+        expression.structured_substitution(param_values)
     }
 
     fn substitute_macro_parameters(

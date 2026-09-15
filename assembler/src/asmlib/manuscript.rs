@@ -654,13 +654,25 @@ impl MacroParameterValue {
         macros: &BTreeMap<SymbolName, MacroDefinition>,
     ) -> Option<MacroParameterValue> {
         match self {
-            MacroParameterValue::Value(script, expression) => expression
-                .substitute_macro_parameters(
-                    outer_bindings,
-                    OnUnboundMacroParameter::ElideReference,
-                    macros,
-                )
-                .map(|expression| MacroParameterValue::Value(*script, expression)),
+            MacroParameterValue::Value(script, expression) => {
+                if let Some((holdbit, defer_span, fragments)) =
+                    expression.structured_substitution(outer_bindings)
+                {
+                    Some(MacroParameterValue::Fragments {
+                        holdbit,
+                        defer_span,
+                        fragments,
+                    })
+                } else {
+                    expression
+                        .substitute_macro_parameters(
+                            outer_bindings,
+                            OnUnboundMacroParameter::ElideReference,
+                            macros,
+                        )
+                        .map(|expression| MacroParameterValue::Value(*script, expression))
+                }
+            }
             MacroParameterValue::Fragments {
                 holdbit,
                 defer_span,
