@@ -2338,3 +2338,19 @@ The regression test now requires all of these facts:
 The browser and test supply only console-switch and light-pen state.  Rust
 models the documented toggle hardware.  Rust and JavaScript do not create the
 constraint, choose a point, change a coordinate, or solve the constraint.
+
+## Checkpoint 57: `FIX` Must Stay Off During Tape Boot
+
+Date: 2026-09-15
+
+A deployment-condition test set the metabit of toggle register `377720` before
+`CODABO`.  This is the physical switch that Sketchpad names `FIX`.  The
+original main loop entered `RELAX` before the model was ready.  Sequence 76 then
+raised an unmasked `OCSAL` after it fetched invalid instruction
+`000000000040` at address `004147`.
+
+The same run succeeds when `FIX` is clear during boot and set after the HOV
+constraint exists.  The desktop interface therefore starts the machine with
+`FIX` off.  The operator turns it on after creating a constraint.  This is an
+observed assembly behavior.  It is not a browser performance rule or a host
+safety condition.
