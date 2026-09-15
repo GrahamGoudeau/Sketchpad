@@ -40,9 +40,30 @@ awk -v output_dir="$work_dir" '
   }
 ' "$repo_dir/sk.tx2as"
 
+awk -v output_dir="$work_dir" '
+  BEGIN {
+    unit = "boo7"
+  }
+  /pdf_page=8 .*type=symex/ {
+    unit = "onlw"
+  }
+  /pdf_page=52 .*type=symex/ {
+    unit = "apy5"
+  }
+  /pdf_page=79 .*type=symex/ {
+    unit = "lyuo"
+  }
+  /pdf_page=113 .*type=symex/ {
+    unit = "y3ht"
+  }
+  {
+    print >> (output_dir "/" unit ".tx2as")
+  }
+' "$repo_dir/sk2.tx2as"
+
 mkdir -p "$output_dir"
 
-units=(2xmx oplw gx7a boo7)
+units=(2xmx oplw gx7a boo7 onlw apy5 lyuo y3ht)
 for unit in "${units[@]}"; do
   output="$output_dir/sketchpad-$unit.tape"
   "$assembler" --output "$output" "$work_dir/$unit.tx2as"
@@ -53,7 +74,8 @@ done
 (
   cd "$output_dir"
   shasum -a 256 sketchpad-2xmx.tape sketchpad-oplw.tape \
-    sketchpad-gx7a.tape sketchpad-boo7.tape > SHA256SUMS
+    sketchpad-gx7a.tape sketchpad-boo7.tape sketchpad-onlw.tape \
+    sketchpad-apy5.tape sketchpad-lyuo.tape sketchpad-y3ht.tape > SHA256SUMS
   shasum -a 256 -c "$repo_dir/TAPE_SHA256SUMS"
 )
 

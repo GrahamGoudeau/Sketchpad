@@ -65,13 +65,14 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R014 and the validator changes let the complete source
-parse, expand, and assemble.  The file contains four separate historical M4
-assembly jobs.  It is not one assembly job.
+Repairs R001 through R031 and the validator changes let the complete source
+parse, expand, and assemble.  The two files contain eight separate historical
+M4 assembly jobs.  They are not one assembly job.
 
-All four units emit deterministic machine tapes.  The build checks their SHA-256
+All eight jobs emit deterministic machine tapes.  The build checks their SHA-256
 values against `TAPE_SHA256SUMS`.  The next phase compares emitted words with
-the printed octal output and loads the complete program into the simulator.
+the printed octal output.  It then identifies compatible jobs and loads them
+into the simulator.
 
 ## Validator Changes
 
@@ -100,8 +101,12 @@ tags in their expansion scope.  Commit `8a0a2e0` evaluates M4 multiplication as
 signed 36-bit one's-complement arithmetic.  Commit `5c5b46f` records undefined
 symbols that occur inside equality values.  Commit `b7f2c33` lets nonempty tapes
 continue from the loader block to their program blocks.  Commit `a26313e` makes
-the disassembler read complete six-byte words.  The assembler package passes
-310 unit tests and 2 golden tests.
+the disassembler read complete six-byte words.  Commits `34da3ba`, `bf9918e`,
+and `4ef49ad` preserve structured nested macro values and complete hold-word
+parsing.  Commit `af58fbb` evaluates M4 addition and subtraction as signed
+one's-complement arithmetic.  Commit `7b54dce` keeps tags on macro invocations
+in global scope.  Commit `1551fbf` supports local symbols in RC-word macro
+expansions.  The assembler package passes 316 unit tests and 2 golden tests.
 
 ## Evidence Order
 
@@ -165,6 +170,7 @@ file marks it clearly and the log records the alternatives.
 | R028 | `sk2.tx2as:5425` | mechanical | The printed logical-disjunction glyph and other recovered M4 XOR glyphs have the same word-combination role | Normalize the four logical-disjunction glyphs to `@xor@`. |
 | R029 | `sk2.tx2as:5997`, `6349` | mechanical | The assembler glyph table names the superscript plus glyph `add` | Normalize the two ad hoc `@sup_+@` spellings to `@sup_add@`. |
 | R030 | `sk2.tx2as:6719` | verified | Sketchpad part 2, PDF page 150; the adjacent held `TSD` spelling | Read the transcribed barred `h` as the M4 hold indicator `h`. |
+| R031 | `sk2.tx2as:939` | verified | The duplicate Part 1 line; ten adjacent `HEADER` calls; the printed expansion below H3 | Restore the omitted `@hamb@` separator before the `HOLDERS` argument. |
 
 ## Publication Gate
 

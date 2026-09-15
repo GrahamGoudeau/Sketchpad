@@ -472,6 +472,124 @@ Interpretation:
   semantics.
 - `ONLW` and `APY5` remain at modern assembler semantic boundaries.
 
+## Checkpoint 15: ONLW Produces a Complete Tape
+
+Date: 2026-09-14
+
+The `IES ONLW` job now assembles completely.  The structural disassembler also
+accepts the generated tape.
+
+Observed result:
+
+- Assembly pass two generates 3,252 instructions.
+- Assembly pass three generates 1,992 output words.
+- The tape contains 12,276 bytes.
+- Its SHA-256 is
+  `bd934363e546693d185309687bffc7e4ff9083e249138f8c3e2ed408094d07e0`.
+- The source has no `PUNCH` start address.
+
+Two defects blocked this result:
+
+- The copied H3 `HEADER` call lacked one macro-argument separator.
+- The modern assembler treated a tag on a macro invocation as local to that
+  macro expansion.
+
+Simulator commit `7b54dce` records invocation tags as global tags.  It excludes
+those tags from the expansion's local symbol table.  A regression test covers
+a macro-local equality that refers to the invocation tag.  All 315 assembler
+library tests pass.
+
+Interpretation:
+
+- Three of the four later Part 2 jobs now produce deterministic machine output.
+- The `ONLW` failure exposed a real scope distinction in historical M4.
+- `APY5` is the only job that does not yet assemble.
+
+## Checkpoint 16: Every Recovered Job Produces Machine Output
+
+Date: 2026-09-14
+
+The `HHL APY5` job now assembles completely.  The structural disassembler also
+accepts the generated tape.  This result completes the first assembly pass over
+all eight recovered jobs.
+
+Observed `APY5` result:
+
+- Assembly pass two generates 1,310 instructions.
+- Assembly pass three generates 2,184 output words.
+- The tape contains 13,308 bytes.
+- Its SHA-256 is
+  `6f66aefc77f946786527ca128c8164844ff35c9029fd004816309be107dcac1b`.
+- The source has no `PUNCH` start address.
+
+Simulator commit `1551fbf` implements macro-local symbols inside RC-word macro
+expansions.  The RC-word group now carries its local equality table.  Allocation
+resolves local tag addresses.  Evaluation combines the local and global symbol
+tables.  A regression test proves that two emitted RC words can define and use
+a macro-local tag.  All 316 assembler library tests pass.
+
+Historical significance:
+
+- Every assembly job preserved in the two transcriptions now reaches modern
+  machine output.
+- The recovered source contains working examples of historical M4 scope rules
+  that the modern assembler did not previously implement.
+- The project now moves from syntax and semantic recovery to reproducible
+  artifact production and printed-output comparison.
+
+## Checkpoint 17: One Reproducible Build Produces Eight Tapes
+
+Date: 2026-09-14
+
+The repository now splits both transcriptions at their printed job boundaries.
+One command assembles all eight jobs, disassembles every tape, validates every
+reader-leader block checksum, and checks every SHA-256 value.
+
+Run:
+
+```sh
+./scripts/assemble.sh
+```
+
+Current reproducible artifacts:
+
+| Job | Output words | Tape bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| `2XMX` | 3,588 | 21,744 | `147141436974f1586c31ff36772c5abf0db94c049bc1642452bac819f669c446` |
+| `OPLW` | 269 | 1,926 | `9b0f6256493967790274bba47d4b33d8206be42f419ac23d11889cc1e1c2cc03` |
+| `GX7A` | 10,550 | 63,504 | `2c7ceeced60833c1afd71c906e9e999b4c5d14881f1e33d455b838946d8b5180` |
+| `BOO7` | 1,122 | 6,936 | `d4f28f28b5f9738a89dbd6329240497a8603e88a44ea896983873a03400a452e` |
+| `ONLW` | 1,992 | 12,276 | `bd934363e546693d185309687bffc7e4ff9083e249138f8c3e2ed408094d07e0` |
+| `APY5` | 2,184 | 13,308 | `6f66aefc77f946786527ca128c8164844ff35c9029fd004816309be107dcac1b` |
+| `LYUO` | 1,507 | 9,258 | `e1d14430630c2b8eda40ebf79cbbf8db4ba3e0ca2a02c22275fd70b1c04f83cd` |
+| `Y3HT` | 1,941 | 11,910 | `2af307f72536cf43549dc98b50f9eae6766a0bb91ceac7e59bbfbf76991d08f5` |
+
+The final RC-word scope repair changes five preliminary hashes recorded in
+earlier checkpoints.  The earlier values remain useful records of intermediate
+assembler semantics.  They are not the current expected artifacts.
+
+The `GX7A` change is especially large.  A controlled build with simulator
+commit `a26313e` emits 1,998 words.  Simulator commit `1551fbf` emits 10,550
+words from the same repaired source.  Pass two reports 2,714 instructions in
+both cases.
+
+The cause is now explicit.  The older parser rejected a macro expansion inside
+an RC word when that expansion had local symbols.  Parser backtracking then
+treated the text as an ordinary RC-word symbol.  The repaired parser keeps the
+macro expansion and allocates all words that it emits.  Repeated source spans in
+the allocation trace confirm that macros such as `ERRLOOPβ` now instantiate at
+their use sites.
+
+Interpretation:
+
+- The current hashes prove deterministic output under the documented modern
+  assembler semantics.
+- They do not yet prove historical word accuracy.
+- The printed `GX7A` symex pages preserve historical addresses for direct
+  comparison with both allocation models.
+- Printed symex comparison is now the next decision point for RC placement and
+  macro expansion semantics.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -480,9 +598,9 @@ The `sk2.tx2as` file contains a continuation and four more assembly jobs.
 
 All four Part 1 fragments now assemble into deterministic tapes.
 The complete cross-volume `BOO7` job also assembles into deterministic output.
-The next goal is to assemble `ONLW` and `APY5`.
-The later Part 2 jobs `LYUO` and `Y3HT` now have deterministic machine output.
-Printed-output comparison follows successful assembly of each job.
+All eight recovered assembly jobs now have deterministic machine output.
+One reproducible command builds and validates all eight tapes.
+The next goal is printed-output and symex-address comparison.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.
