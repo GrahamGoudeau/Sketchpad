@@ -353,6 +353,7 @@ where
     I: Input<'a, Token = Tok, Span = Span> + ValueInput<'a>,
 {
     symex::parse_symex(rule, script_required)
+        .then_ignore(just(Tok::Query(Script::Normal)).or_not().ignored())
 }
 
 pub(super) fn operator<'a, I>(
