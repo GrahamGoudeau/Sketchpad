@@ -278,16 +278,37 @@ impl Tx2 {
     }
 
     /// Inspect the current control state without changing the emulated machine.
-    pub fn inspect_control_state(&self) -> (Option<u8>, u32, String) {
+    pub fn inspect_control_state(&self) -> (Option<u8>, u32, u32, String) {
         let registers = self.control.inspect_registers();
+        let diagnostics = self.control.diagnostics();
         (
             registers.k.map(Into::into),
             Unsigned18Bit::from(registers.p).into(),
+            Unsigned18Bit::from(diagnostics.instruction_address).into(),
             registers.n_sym.as_ref().map_or_else(
                 || format!("{:012o}", registers.n.bits()),
                 ToString::to_string,
             ),
         )
+    }
+
+    /// Inspect the current F-memory address and resolved configuration.
+    #[must_use]
+    pub fn inspect_current_configuration(&self) -> (u8, u16) {
+        self.control.inspect_current_configuration()
+    }
+
+    /// Inspect one index register without changing the emulated machine.
+    #[must_use]
+    pub fn inspect_index_register(&self, register: Unsigned6Bit) -> i32 {
+        let registers = self.control.inspect_registers();
+        registers.index_regs[usize::from(register)].into()
+    }
+
+    /// Inspect one sequence flag without changing the emulated machine.
+    #[must_use]
+    pub fn inspect_sequence_flag(&self, sequence: Unsigned6Bit) -> bool {
+        self.control.current_flag_state(&sequence)
     }
 
     /// Emulate the effect of the user pressing a key on one of the

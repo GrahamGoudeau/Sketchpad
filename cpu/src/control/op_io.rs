@@ -100,19 +100,22 @@ impl ControlUnit {
         } else {
             // This opcode is either IOS (00) or AOP (01).
             if b7 {
-                // It's AOP.  AOP isn't implemented because we have
-                // not found any information about what its opcodes
-                // are, or what they do.
-                let trailing_digit: char = if b7 { '1' } else { '0' };
-                Err(self.alarm_unit.always_fire(Alarm {
-                    sequence: self.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: format!(
-                            "The AOP instruction (opcode 04 with subcode 0{trailing_digit}) is not yet implemented.",
-                        ),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/148",
-                    },
-                }, &self.regs.diagnostic_only))
+                let operation = ((u64::from(self.regs.n.bits()) >> 9) & 0o77) as u8;
+                match self.op_arithmetic_on_d(operation, mem) {
+                    Some(result) => Ok(result),
+                    None => Err(self.alarm_unit.always_fire(
+                        Alarm {
+                            sequence: self.regs.k,
+                            details: AlarmDetails::ROUNDTUITAL {
+                                explanation: format!(
+                                    "The AOP arithmetic operation {operation:02o} is not yet implemented."
+                                ),
+                                bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/148",
+                            },
+                        },
+                        &self.regs.diagnostic_only,
+                    )),
+                }
             } else {
                 self.op_ios(ctx, mem, devices)
             }

@@ -57,7 +57,10 @@ struct BrowserMemoryWord {
 struct BrowserControlState {
     sequence: Option<u8>,
     program_counter: u32,
+    instruction_address: u32,
     instruction: String,
+    configuration_address: u8,
+    system_configuration: u16,
 }
 
 fn scope_origin_name(origin: ScopeOrigin) -> &'static str {
@@ -312,13 +315,33 @@ impl SketchpadMachine {
 
     /// Inspect the current control state for an emulator acceptance test.
     pub fn control_state(&self) -> Result<JsValue, JsValue> {
-        let (sequence, program_counter, instruction) = self.tx2.inspect_control_state();
+        let (sequence, program_counter, instruction_address, instruction) =
+            self.tx2.inspect_control_state();
+        let (configuration_address, system_configuration) =
+            self.tx2.inspect_current_configuration();
         serde_wasm_bindgen::to_value(&BrowserControlState {
             sequence,
             program_counter,
+            instruction_address,
             instruction,
+            configuration_address,
+            system_configuration,
         })
         .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    /// Inspect one index register for an emulator acceptance test.
+    pub fn index_register(&self, register: u8) -> Result<i32, JsValue> {
+        let register = Unsigned6Bit::try_from(register)
+            .map_err(|_| JsValue::from_str("an index register must be between 0 and 63"))?;
+        Ok(self.tx2.inspect_index_register(register))
+    }
+
+    /// Inspect one sequence flag for an emulator acceptance test.
+    pub fn sequence_flag(&self, sequence: u8) -> Result<bool, JsValue> {
+        let sequence = Unsigned6Bit::try_from(sequence)
+            .map_err(|_| JsValue::from_str("a sequence must be between 0 and 63"))?;
+        Ok(self.tx2.inspect_sequence_flag(sequence))
     }
 
     #[wasm_bindgen(getter)]
@@ -398,7 +421,7 @@ mod tests {
 
     #[test]
     fn bundled_sketchpad_tape_is_present() {
-        assert_eq!(SKETCHPAD.len(), 74_232);
+        assert_eq!(SKETCHPAD.len(), 76_602);
     }
 
     #[test]

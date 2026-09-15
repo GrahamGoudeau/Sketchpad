@@ -451,6 +451,14 @@ impl ArithmeticExpression {
             Operator::Divide => {
                 let sleft: Signed36Bit = left.reinterpret_as_signed();
                 let sright: Signed36Bit = right.reinterpret_as_signed();
+                // M4 evaluates address expressions with "normal integer
+                // arithmetic" (Users Handbook section 6-2.7), not with the
+                // arithmetic element's DIV instruction.  Sketchpad's LGORR
+                // family depends on X/X being zero when an omitted macro
+                // parameter makes X zero.
+                if sleft.is_zero() && sright.is_zero() {
+                    return Unsigned36Bit::ZERO;
+                }
                 match sleft.checked_div(sright) {
                     Some(result) => result.reinterpret_as_unsigned(),
                     None => {

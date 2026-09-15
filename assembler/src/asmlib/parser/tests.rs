@@ -2687,6 +2687,7 @@ fn test_opcode_to_literal() {
         opcode_to_literal(
             u6!(0o17), // SKM
             u5!(0o12), // as if the mnemonic were SUZ
+            0,
             span(0..3)
         ),
         LiteralValue::from((span(0..3), Script::Normal, u36!(0o121_700_000_000)))

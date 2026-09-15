@@ -569,6 +569,30 @@ fn test_division_overflow_on_constants() {
 }
 
 #[test]
+fn test_zero_divided_by_zero_supports_optional_macro_parameter_selector() {
+    // Sketchpad's LGORR macro keeps this line when EXIT is omitted by
+    // assigning EXIT zero.  Its X/X XOR 1 selector must then select NEXT.
+    let input = "
+        ☛☛DEF TEST☛EXIT
+        SELECT=EXIT
+        JPQ SELECT+(SELECT/SELECT⊻1×NEXT)
+        ☛☛EMD
+        100|
+        TEST☛
+        NEXT→ JPQ NEXT
+    ";
+    let program = assemble_source(input, Default::default()).expect("program is valid");
+    assert_eq!(program.chunks[0].words[0], u36!(0o140_500_000_101));
+}
+
+#[test]
+fn test_aop_encodes_the_arithmetic_opcode_in_quarter_two() {
+    let program =
+        assemble_source("100| AOP 66000\n", Default::default()).expect("AOP NAB is valid M4 input");
+    assert_eq!(program.chunks[0].words[0], u36!(0o000_400_166_000));
+}
+
+#[test]
 fn test_double_pipe_config_literal_correctly_shifted() {
     // The 6 here is not superscript but it should be shifted into the
     // configuration part of the assembled word, because the '‖'

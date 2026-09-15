@@ -425,7 +425,7 @@ impl ControlRegisters {
     fn get_f_mem(&self, n: Unsigned5Bit) -> SystemConfiguration {
         // Use u8::from in order to be able to compare an Unsigned5Bit.
         #![allow(clippy::cmp_owned)]
-        assert!(u8::from(n) < 0o37_u8);
+        assert!(u8::from(n) < 0o40_u8);
         assert_eq!(self.f_memory[0], SystemConfiguration::zero());
         let pos: usize = n.into();
         self.f_memory[pos]
@@ -955,7 +955,7 @@ impl ControlUnit {
 
     /// Consider whether a change of sequence is needed.  If yes,
     /// perform the change.
-    fn select_sequence(&mut self, mem: &mut MemoryUnit) -> RunMode {
+    fn select_sequence(&mut self, mem: &mut MemoryUnit, consume_hold: bool) -> RunMode {
         if self.regs.previous_instruction_hold() {
             event!(
                 Level::DEBUG,
@@ -964,6 +964,9 @@ impl ControlUnit {
                     "so we will not consider a sequence change"
                 )
             );
+            if consume_hold {
+                self.regs.prev_hold = false;
+            }
             RunMode::Running
         } else {
             // Handle any possible change of sequence.
@@ -992,8 +995,8 @@ impl ControlUnit {
                 }
                 Some(seq) => {
                     event!(Level::TRACE, "Highest-priority sequence is {}", seq);
-                    if Some(seq) > self.regs.k
-                        || (!self.regs.current_sequence_is_runnable && Some(seq) < self.regs.k)
+                    if Some(seq) < self.regs.k
+                        || (!self.regs.current_sequence_is_runnable && Some(seq) > self.regs.k)
                     {
                         self.change_sequence(mem, self.regs.k, seq);
                         RunMode::Running
@@ -1272,16 +1275,9 @@ impl ControlUnit {
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/14",
                     },
                 }),
-                opcode @ (Opcode::Ita | Opcode::Una | Opcode::Dsa) => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: format!(
-                            "The emulator does not yet implement opcode {opcode:?}"
-                        ),
-                        // Note: this bug report covers several opcodes.
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/25",
-                    },
-                }),
+                opcode @ (Opcode::Ita | Opcode::Una | Opcode::Dsa) => {
+                    control.op_accumulator_logic(ctx, mem, *opcode)
+                }
                 Opcode::Jov => control.op_conditional_accumulator_jump(
                     ctx,
                     mem,
@@ -1298,53 +1294,17 @@ impl ControlUnit {
                     op_jump::AccumulatorJumpCondition::Negative,
                 ),
                 Opcode::Exa => control.op_exa(ctx, mem),
-                Opcode::Ins => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode INS".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/26",
-                    },
-                }),
+                Opcode::Ins => control.op_insert(ctx, mem),
                 Opcode::Com => control.op_com(ctx, mem),
-                opcode @ (Opcode::Cya | Opcode::Cyb | Opcode::Cab) => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: format!(
-                            "The emulator does not yet implement opcode {opcode:?}"
-                        ),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/24",
-                    },
-                }),
-                Opcode::Noa => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode NOA".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/22",
-                    },
-                }),
-                Opcode::Nab => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode NAB".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/23",
-                    },
-                }),
+                opcode @ (Opcode::Cya | Opcode::Cyb | Opcode::Cab) => {
+                    control.op_cycle(ctx, mem, *opcode)
+                }
+                Opcode::Noa => control.op_normalize_a(ctx, mem),
+                Opcode::Nab => control.op_normalize_ab(ctx, mem),
                 Opcode::Add => control.op_add_or_subtract(ctx, mem, false),
                 Opcode::Sca => control.op_sca(ctx, mem),
-                Opcode::Scb => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode SCB".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/20",
-                    },
-                }),
-                Opcode::Sab => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode SAB".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/21",
-                    },
-                }),
+                Opcode::Scb => control.op_scb(ctx, mem),
+                Opcode::Sab => control.op_sab(ctx, mem),
                 Opcode::Tly => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
@@ -1352,25 +1312,13 @@ impl ControlUnit {
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/32",
                     },
                 }),
-                Opcode::Div => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode DIV".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/31",
-                    },
-                }),
-                Opcode::Mul => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode MUL".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/30",
-                    },
-                }),
+                Opcode::Div => control.op_divide(ctx, mem),
+                Opcode::Mul => control.op_multiply(ctx, mem),
                 Opcode::Sub => control.op_add_or_subtract(ctx, mem, true),
             }
         }
 
-        if self.select_sequence(mem) == RunMode::InLimbo {
+        if self.select_sequence(mem, true) == RunMode::InLimbo {
             return Ok((0, RunMode::InLimbo, None));
         }
 
@@ -1395,6 +1343,8 @@ impl ControlUnit {
         self.set_program_counter(ProgramCounterChange::CounterUpdate);
 
         let elapsed_time = self.estimate_execute_time_ns(&self.regs.n);
+        let instruction_was_held = self.regs.n.is_held();
+        let mut dismiss_and_wait = false;
 
         let result: Result<Option<OutputEvent>, (Alarm, Address)> =
             if let Some(sym) = self.regs.n_sym.as_ref() {
@@ -1408,6 +1358,10 @@ impl ControlUnit {
                 event!(Level::TRACE, "executing instruction {}", &sym);
                 match execute(ctx, p, &sym.opcode(), self, devices, mem) {
                     Ok(opcode_result) => {
+                        dismiss_and_wait = matches!(
+                            opcode_result.program_counter_change,
+                            Some(ProgramCounterChange::DismissAndWait(_))
+                        );
                         event!(
                             Level::TRACE,
                             "opcode_result.poll_order_change={:?}",
@@ -1485,7 +1439,29 @@ impl ControlUnit {
         // instruction should be followed by a change of sequence.
         match result {
             Ok(maybe_output) => {
-                let new_mode: RunMode = self.select_sequence(mem);
+                // A hold bit prevents one change-of-sequence decision
+                // after this instruction.  A TSD which cannot transfer
+                // dismisses and waits before the hold can take effect.
+                self.regs.prev_hold = instruction_was_held && !dismiss_and_wait;
+                // An output event can synchronously raise an input flag.  The
+                // scope and light pen are the historical example: a scope
+                // flash transfers control directly from the display sequence
+                // to the light-pen sequence.  Tx2 observes the returned output
+                // before the next fetch.  Defer sequence selection until that
+                // fetch so it sees the new flag and preserves the output
+                // sequence as the interrupted sequence in E.
+                //
+                // No instruction executes between this return and that fetch.
+                // For instructions without output, keep the existing eager
+                // selection so LIMBO and hardware scheduling remain unchanged.
+                let new_mode: RunMode = if maybe_output.is_some() {
+                    RunMode::Running
+                } else {
+                    // This call does not consume the hold.  The call before
+                    // the next fetch consumes it after it protects that
+                    // boundary.
+                    self.select_sequence(mem, false)
+                };
                 Ok((elapsed_time, new_mode, maybe_output))
             }
             Err((alarm, address)) => Err((alarm, address)),
@@ -1951,6 +1927,14 @@ impl ControlUnit {
     pub fn inspect_registers(&self) -> &ControlRegisters {
         &self.regs
     }
+
+    /// Inspect the current F-memory address and its system configuration.
+    #[must_use]
+    pub fn inspect_current_configuration(&self) -> (u8, u16) {
+        let address = self.regs.n.configuration();
+        let value: Unsigned9Bit = self.regs.get_f_mem(address).into();
+        (address.into(), value.into())
+    }
 }
 
 impl Default for ControlUnit {
@@ -1974,5 +1958,98 @@ impl Alarmer for ControlUnit {
 
     fn always_fire<F: DiagnosticFetcher>(&mut self, alarm_instance: Alarm, get_diags: F) -> Alarm {
         self.alarm_unit.always_fire(alarm_instance, get_diags)
+    }
+}
+
+#[cfg(test)]
+mod sequence_selection_tests {
+    use super::*;
+
+    fn setup_selection_test(
+        current: SequenceNumber,
+        candidate: SequenceNumber,
+        current_is_runnable: bool,
+    ) -> (ControlUnit, MemoryUnit) {
+        let ctx = Context::new(Duration::ZERO, Duration::ZERO);
+        let mut control = ControlUnit::new(
+            PanicOnUnmaskedAlarm::Yes,
+            ConfigurationMemorySetup::StandardForTestingOnly,
+        );
+        let memory = MemoryUnit::new(
+            &ctx,
+            &MemoryConfiguration {
+                with_u_memory: false,
+            },
+        );
+        control.regs.k = Some(current);
+        control.regs.p = Address::from(u18!(0o100));
+        control.regs.flags.lower_all();
+        control.regs.flags.raise(&candidate);
+        control.regs.current_sequence_is_runnable = current_is_runnable;
+        control
+            .regs
+            .set_index_register_from_address(candidate, &Address::from(u18!(0o200)));
+        (control, memory)
+    }
+
+    #[test]
+    fn higher_priority_sequence_preempts_a_runnable_sequence() {
+        let (mut control, mut memory) = setup_selection_test(u6!(0o60), u6!(0o55), true);
+
+        assert_eq!(control.select_sequence(&mut memory, true), RunMode::Running);
+        assert_eq!(control.regs.k, Some(u6!(0o55)));
+        assert_eq!(control.regs.p, Address::from(u18!(0o200)));
+        assert_eq!(
+            control.regs.get_index_register_as_address(u6!(0o60)),
+            Address::from(u18!(0o100))
+        );
+    }
+
+    #[test]
+    fn lower_priority_sequence_does_not_preempt_a_runnable_sequence() {
+        let (mut control, mut memory) = setup_selection_test(u6!(0o60), u6!(0o76), true);
+
+        assert_eq!(control.select_sequence(&mut memory, true), RunMode::Running);
+        assert_eq!(control.regs.k, Some(u6!(0o60)));
+        assert_eq!(control.regs.p, Address::from(u18!(0o100)));
+    }
+
+    #[test]
+    fn lower_priority_sequence_runs_after_current_sequence_drops_out() {
+        let (mut control, mut memory) = setup_selection_test(u6!(0o60), u6!(0o76), false);
+
+        assert_eq!(control.select_sequence(&mut memory, true), RunMode::Running);
+        assert_eq!(control.regs.k, Some(u6!(0o76)));
+        assert_eq!(control.regs.p, Address::from(u18!(0o200)));
+    }
+
+    #[test]
+    fn hold_blocks_one_instruction_boundary() {
+        let (mut control, mut memory) = setup_selection_test(u6!(0o60), u6!(0o55), true);
+        control.regs.prev_hold = true;
+
+        assert_eq!(
+            control.select_sequence(&mut memory, false),
+            RunMode::Running
+        );
+        assert_eq!(control.regs.k, Some(u6!(0o60)));
+        assert!(control.regs.prev_hold);
+
+        assert_eq!(control.select_sequence(&mut memory, true), RunMode::Running);
+        assert_eq!(control.regs.k, Some(u6!(0o60)));
+        assert!(!control.regs.prev_hold);
+
+        assert_eq!(control.select_sequence(&mut memory, true), RunMode::Running);
+        assert_eq!(control.regs.k, Some(u6!(0o55)));
+    }
+
+    #[test]
+    fn configuration_address_37_is_valid() {
+        let control = ControlUnit::new(
+            PanicOnUnmaskedAlarm::Yes,
+            ConfigurationMemorySetup::StandardForTestingOnly,
+        );
+
+        let _ = control.regs.get_f_mem(u5!(0o37));
     }
 }

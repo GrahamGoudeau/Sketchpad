@@ -605,6 +605,11 @@ fn skm_bitop_get<R: MemoryRead>(target_word: &R, op: &WordChange) -> Option<bool
     }
 }
 
+fn cycle_memory_right(word: Unsigned36Bit) -> Unsigned36Bit {
+    let sign = word & u36!(0o400_000_000_000);
+    (word >> 1) | sign
+}
+
 fn skm_bitop_write(mut target: MemoryWriteRef<'_>, op: &WordChange) -> Option<bool> {
     let maybe_bit: Option<bool> = skm_bitop_get(&target, op);
 
@@ -645,9 +650,25 @@ fn skm_bitop_write(mut target: MemoryWriteRef<'_>, op: &WordChange) -> Option<bo
         }
     }
     if op.cycle {
-        target.set_value(target.get_value() >> 1);
+        // The Exchange Element cycles E into M one bit to the right.  The
+        // left sign bit remains set.  Sketchpad's 1960 square-root routine
+        // uses this property to halve a signed exponent.  See Technical
+        // Manual Volume 2, section 13-2.2.2 and Figure 13-5.
+        target.set_value(cycle_memory_right(target.get_value()));
     }
     maybe_bit
+}
+
+#[test]
+fn skm_cycle_shifts_memory_right_with_sign_extension() {
+    assert_eq!(
+        cycle_memory_right(u36!(0o001_002_004_400)),
+        u36!(0o000_401_002_200),
+    );
+    assert_eq!(
+        cycle_memory_right(u36!(0o777_000_000_000)),
+        u36!(0o777_400_000_000),
+    );
 }
 
 impl MemoryMapped for MemoryUnit {

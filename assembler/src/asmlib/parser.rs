@@ -208,6 +208,7 @@ where
 
 fn opcode_code(s: &str) -> Option<(Unsigned5Bit, Unsigned6Bit)> {
     match s {
+        "AOP" => Some((u5!(0o00), u6!(0o04))),
         "IOS" => Some((u5!(0o00), u6!(0o04))),
         "JMP" => Some((u5!(0o00), u6!(0o05))),
         "BRC" => Some((u5!(0o01), u6!(0o05))),
@@ -321,10 +322,16 @@ where
     })
 }
 
-fn opcode_to_literal(code: Unsigned6Bit, cfgbits: Unsigned5Bit, span: Span) -> LiteralValue {
+fn opcode_to_literal(
+    code: Unsigned6Bit,
+    cfgbits: Unsigned5Bit,
+    operand_prefix: u64,
+    span: Span,
+) -> LiteralValue {
     let bits = Unsigned36Bit::ZERO
         .bitor(u64::from(code).shl(24))
         .bitor(u64::from(cfgbits).shl(30))
+        .bitor(operand_prefix)
         .bitor(helpers::opcode_auto_hold_bit(code));
     LiteralValue::from((span, Script::Normal, bits))
 }
@@ -336,7 +343,12 @@ where
     symex::symex_syllable(Script::Normal)
         .filter(|mnemonic| opcode_code(mnemonic).is_some())
         .try_map_with(|mnemonic, extra| match opcode_code(mnemonic.as_str()) {
-            Some((cfgbits, code)) => Ok(opcode_to_literal(code, cfgbits, extra.span())),
+            Some((cfgbits, code)) => Ok(opcode_to_literal(
+                code,
+                cfgbits,
+                if mnemonic == "AOP" { 0o100_000 } else { 0 },
+                extra.span(),
+            )),
             None => Err(Rich::custom(
                 extra.span(),
                 format!("'{mnemonic}' is not an opcode mnemonic"),
