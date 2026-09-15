@@ -1789,6 +1789,91 @@ Historical significance:
 - Display load can now reduce refresh and expose natural flicker.
 - The browser preserves blank beam movement between programmed positions.
 
+## Checkpoint 43: Retraction and the Hardware-Only Interaction Boundary
+
+Date: 2026-09-15
+
+Checkpoint 40 did not prove that Sketchpad drew shapes.  It proved that a
+browser overlay drew shapes while the reconstructed program ran below it.  The
+phrases "A Phone Can Draw Visible Shapes" and "Real interaction exposed and
+removed the next CPU instruction boundary" overstated that result.  They are
+retracted as evidence of Sketchpad interaction.  Simulator commit `b2618dc`
+removed all synthetic geometry.  No line, circle, rectangle, or constraint is
+currently accepted as working unless the executing TX-2 assembly emits the
+corresponding unit-60 points.
+
+The project now uses this boundary:
+
+- Rust models TX-2 hardware.
+- The browser supplies physical light-pen position and console state.
+- Unit 60 emits only points produced by executed TX-2 instructions.
+- Unit 55 raises its flag only when the modeled photocell sees an intensified
+  unit-60 point under the active pen.
+- The reconstructed Sketchpad assembly must track the pen, create objects,
+  perform program-level hit detection, solve constraints, and draw results.
+- Tests can inspect machine state, but test code cannot create geometry.
+
+The TX-2 Users Handbook supports the current physical input model.  External
+Input Register `377621` is a bank of 37 held pushbuttons.  Multiple buttons can
+remain down together.  The register does not have its own interrupt.  Light-pen
+unit 55 raises flag 55 when it sees light during the intensification period of
+scope 60.  The physical sensitivity was manually adjustable.  The handbook
+does not give a photocell aperture size.
+
+Primary pages inspected for this checkpoint are the November 1963 TX-2 Users
+Handbook PDF pages 20 (`EXX`, printed 3-18), 40-41 (`SCA`, printed 3-38 to
+3-39), 89 (`TSD`, section 4-3.7), 107-108 (interval timer 54), 109 (light pen
+55), 110-111 (scope 60), and 145 (External Input Register `377621`).  The
+Sketchpad Part 2 listing PDF pages 95-97 contain the `TRACK`, `TR55`, and
+`TRSAV` routines used for the execution trace.
+
+The first tracker run exposed missing general TX-2 hardware behavior:
+
+1. Sketchpad programs interval timer 54 with 10,000 counts and mode `30300`.
+   Its source labels this interval as 10 milliseconds.  The new timer model
+   therefore uses the handbook's 1 MHz oscillator setting.  It repeatedly
+   raises flag 54.  The model does not yet expose the TX-2's other selectable
+   oscillator rates.
+2. Timer 54 starts the original `TRACK` routine.  This routine uses deferred
+   `JMP`.  The emulator previously rejected that documented address form.
+   Deferred `JMP` now uses the normal TX-2 deferred-address resolver.
+3. A real unit-60 point at `(105, -102)` illuminated a modeled pen at the same
+   physical location.  Unit 55 raised its flag at the same simulated machine
+   time.  Sketchpad copied the exact scope word `064570714667` into `PREDIC`.
+   Decoding that word produces `(105, -102)`.  This is direct evidence that the
+   assembly received a real optical event.
+4. The tracker then left `TRBUSY` set.  Sequence 76 remained pending while
+   scope sequence 60 consumed the CPU.  The handbook states that every
+   successful unheld `TSD` dismisses its current sequence.  The emulator had
+   omitted this built-in dismiss.  Tests now prove that an unheld successful
+   `TSD` dismisses and a held successful `TSD` continues.
+5. After the `TSD` repair, sequence 76 ran and exposed missing standard
+   instructions.  `EXX` now exchanges an index register with configured memory
+   subwords.  `EXA` now exchanges the accumulator with configured memory
+   subwords.  Both preserve the original memory word in E.  Handbook-based
+   tests cover each operation.
+6. `SCA` now performs one's-complement scale operations for full words, halves,
+   27-and-9-bit words, and quarters.  It loads D through the configured exchange
+   path.  It uses each active subword's sign quarter as the scale count.  It
+   leaves each used count at minus zero.  Tests cover independent quarter
+   counts and negative sign fill.  Initial-overflow recovery is not implemented
+   because the emulator does not yet model the Y and Z arithmetic registers.
+
+The complete CPU and WASM test set passes after these changes.  The current
+uncommitted machine reaches `SUB` at address `001372` in sequence 76.  `SUB` is
+the next missing general TX-2 instruction.  The project has not yet proved an
+assembly-created shape or a solved constraint.
+
+Historical significance:
+
+- A false browser-level success claim now has an explicit durable retraction.
+- The acceptance boundary can distinguish machine execution from presentation
+  code.
+- The first physical light-pen event has a reproducible machine-time trace and
+  an exact assembly state result.
+- The tracker has exposed four independent emulator defects through original
+  program execution.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1812,14 +1897,14 @@ oracle.  The first focused uncertainty audit has verified 17 more `2XMX`
 readings.  The broad uncertainty audit has repaired four instruction or data
 words and completed two clipped lines.  It has also settled 49 marked readings
 across both volumes.  One marked held-address glyph remains open in the first
-`2XMX` region.  The simulator now implements TX-2 oscilloscope unit 60 and the
-index operations that the startup path requires.  A bounded run emits 63,080
-Sketchpad scope points.  The WASM application runs the combined tape and shows
-`INK` in the browser.  Unit 55 now carries browser light-pen detections into
-the recovered program.  Address `377620` now carries four browser shaft
-encoders and their metabit into the recovered program.  Address `377621` now
-carries 37 momentary browser buttons into the recovered program.  The mobile
-HUD sends drawing gestures through both reconstructed input paths.  It also
-draws visible compatibility ink while the recovered program runs below it.
-The live browser application runs at `https://sketchpad.acyclic.sh/`.
-The readable C translation will remain a separate explanatory artifact.
+`2XMX` region.  The simulator executes the combined tape and produces the
+original `INK` display through unit 60.  It now models scope 60, light pen 55,
+interval timer 54, the shaft register at `377620`, and the external pushbutton
+register at `377621`.  The first original `TRACK` run accepts a physical
+light-pen event and stores its exact illuminated point.  General CPU repairs
+now include deferred `JMP`, successful-`TSD` dismissal, `EXX`, `EXA`, and a
+partial `SCA` without initial-overflow recovery.  Execution currently stops at
+the unimplemented `SUB` instruction in sequence 76.  No assembly-created shape
+or solved constraint has passed acceptance.  The public site still runs the
+prior safe release at `https://sketchpad.acyclic.sh/`.  The readable C
+translation remains a separate explanatory artifact.
