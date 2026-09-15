@@ -401,25 +401,22 @@ impl ArithmeticExpression {
 
     fn eval_binop(left: Unsigned36Bit, binop: Operator, right: Unsigned36Bit) -> Unsigned36Bit {
         match binop {
-            Operator::Add => match left.checked_add(right) {
-                Some(result) => result,
+            Operator::Add => match left
+                .reinterpret_as_signed()
+                .checked_add(right.reinterpret_as_signed())
+            {
+                Some(result) => result.reinterpret_as_unsigned(),
                 None => {
-                    // TODO: checked_add doesn't currently match the
-                    // operation of the TX-2 ADD instruction with
-                    // respect to (for example) overflow.  See
-                    // examples 4 and 5 for the ADD instruciton in the
-                    // Users Handbook, for instance.
-                    //
-                    // We also come here for cases like 4 + -2,
-                    // because (in the context of this function) -2
-                    // appears to be a large unsigned number.
                     todo!(
                         "{left:>012o}+{right:>012o} overflowed; please fix https://github.com/TX-2/TX-2-simulator/issues/146"
                     )
                 }
             },
-            Operator::Subtract => match left.checked_sub(right) {
-                Some(result) => result,
+            Operator::Subtract => match left
+                .reinterpret_as_signed()
+                .checked_sub(right.reinterpret_as_signed())
+            {
+                Some(result) => result.reinterpret_as_unsigned(),
                 None => {
                     todo!(
                         "{left:>012o}-{right:>012o} overflowed; please fix https://github.com/TX-2/TX-2-simulator/issues/146"

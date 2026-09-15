@@ -396,12 +396,30 @@ fn test_addition_on_constants() {
 }
 
 #[test]
+fn test_addition_on_negative_constants() {
+    let program = assemble_source(
+        concat!("MINUSTWO = 777777777775\n", "100| 4 + MINUSTWO\n"),
+        Default::default(),
+    )
+    .expect("program is valid");
+
+    assert_eq!(program.chunks[0].words[0], u36!(0o2));
+}
+
+#[test]
 fn test_subtraction_on_constants() {
     // Given a program which contains the constant 6-2, when we assemble it
     let program1 = assemble_source("100| 6 - 2\n", Default::default()).expect("program is valid");
 
     // Then we should obtain the result 4
     assert_eq!(program1.chunks[0].words[0], u36!(0o4));
+}
+
+#[test]
+fn test_subtraction_with_negative_result() {
+    let program = assemble_source("100| 1 - 4\n", Default::default()).expect("program is valid");
+
+    assert_eq!(program.chunks[0].words[0], u36!(0o777_777_777_774));
 }
 
 #[test]
