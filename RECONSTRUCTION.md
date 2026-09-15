@@ -96,7 +96,10 @@ Simulator commit `d4fdfb8` adds visible compatibility ink, shape tools, and
 cache-resistant production delivery.  A live mobile-size browser test draws a
 freehand stroke, a line, a circle, and a rectangle with real pointer gestures.
 The recovered program continues to draw `INK` below this explicit compatibility
-layer at `https://scratchpad.acyclic.sh/`.
+layer.  Simulator commits `381843c` and `d259d5a` bound browser CPU, WASM,
+rendering, frame rate, canvas size, and overload behavior while keeping
+auto-start.  The canonical application runs at
+`https://sketchpad.acyclic.sh/`.
 
 ## Validator Changes
 

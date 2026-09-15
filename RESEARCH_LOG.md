@@ -1696,6 +1696,46 @@ Historical significance:
 - The interface distinguishes recovered machine output from compatibility ink.
 - Real interaction exposed and removed the next CPU instruction boundary.
 
+## Checkpoint 41: Desktop Overload and the Bounded Auto-Start Runtime
+
+Date: 2026-09-15
+
+A real Chrome load exposed a critical acceptance failure.  The page could
+freeze Chrome and contribute to a complete host stall.  The first emergency
+release stopped automatic execution.  This made the page safe to load, but it
+removed the intended immediate machine experience.
+
+The investigation found an unbounded browser workload.  The earlier loop could
+spend about 10 milliseconds in WASM on every animation frame.  It could reach
+8,000 TX-2 ticks per frame.  The scope renderer also used a shadow blur and a
+canvas state save and restore for each point.  High-refresh displays increased
+the total work rate.  Large high-density displays increased the canvas cost.
+
+Simulator commit `381843c` restores auto-start with fixed workload limits.
+Each browser frame gives the machine at most 2.5 milliseconds.  Each WASM call
+executes at most 32 ticks.  One frame executes at most 2,048 ticks and draws at
+most 768 scope points.  Hidden tabs do not execute the machine.  The renderer
+uses direct pixel rectangles instead of per-point blur.
+
+Simulator commit `d259d5a` adds a second safety boundary.  It limits the display
+to 60 frames per second and 1,024 pixels on either canvas axis.  It measures the
+complete frame cost.  Three frames above 20 milliseconds pause the TX-2 and
+show an overload message.  Auto-start remains active.
+
+Release `20260915T133326Z` deploys these limits at
+`https://sketchpad.acyclic.sh/`.  The former `scratchpad.acyclic.sh` name now
+redirects to the correct Sketchpad name.  Static HTTP checks confirm the exact
+deployed constants, no-store cache policy, canonical redirect, active Caddy
+service, and valid Caddy configuration.  No browser automation was used after
+the host incident.
+
+Historical significance:
+
+- The public machine keeps immediate auto-start behavior.
+- The runtime now has explicit CPU, WASM, display, and overload boundaries.
+- The 1,024-pixel canvas limit matches the TX-2 scope coordinate precision.
+- A real host failure now defines a required desktop acceptance boundary.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1728,5 +1768,5 @@ encoders and their metabit into the recovered program.  Address `377621` now
 carries 37 momentary browser buttons into the recovered program.  The mobile
 HUD sends drawing gestures through both reconstructed input paths.  It also
 draws visible compatibility ink while the recovered program runs below it.
-The live mobile browser application runs at `https://scratchpad.acyclic.sh/`.
+The live browser application runs at `https://sketchpad.acyclic.sh/`.
 The readable C translation will remain a separate explanatory artifact.
