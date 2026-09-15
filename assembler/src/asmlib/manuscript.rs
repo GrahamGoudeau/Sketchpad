@@ -221,6 +221,7 @@ impl SourceFile {
 
 fn build_local_symbol_table<'a, I>(
     block_identifier: BlockIdentifier,
+    start_offset: Unsigned18Bit,
     instructions: I,
     global_tags: &BTreeSet<SymbolName>,
 ) -> Result<ExplicitSymbolTable, OneOrMore<LocalSymbolTableBuildFailure>>
@@ -230,6 +231,9 @@ where
     let mut errors: Vec<LocalSymbolTableBuildFailure> = Default::default();
     let mut local_symbols = ExplicitSymbolTable::default();
     for (offset, instruction) in block_items_with_offset(instructions) {
+        let offset = start_offset
+            .checked_add(offset)
+            .expect("block should not be larger than the TX-2's memory");
         for r in instruction
             .symbol_uses(block_identifier, offset)
             .filter_map(definitions_only)
@@ -305,7 +309,12 @@ fn test_build_local_symbol_table_happy_case() {
         )
         .expect("symbol definition should be OK since there is no other defintion for that symbol");
     assert_eq!(
-        build_local_symbol_table(BlockIdentifier::from(0), seq.iter(), &seq.global_tags),
+        build_local_symbol_table(
+            BlockIdentifier::from(0),
+            Unsigned18Bit::ZERO,
+            seq.iter(),
+            &seq.global_tags,
+        ),
         Ok(expected)
     );
 }
@@ -341,7 +350,12 @@ fn test_build_local_symbol_table_detects_tag_conflict() {
     };
 
     assert_eq!(
-        build_local_symbol_table(BlockIdentifier::from(0), seq.iter(), &seq.global_tags),
+        build_local_symbol_table(
+            BlockIdentifier::from(0),
+            Unsigned18Bit::ZERO,
+            seq.iter(),
+            &seq.global_tags,
+        ),
         Err(OneOrMore::new(LocalSymbolTableBuildFailure::BadDefinition(
             BadSymbolDefinition {
                 symbol_name: SymbolName::from("T"),
@@ -382,11 +396,13 @@ impl ManuscriptBlock {
         if let Some(origin) = self.origin.as_ref() {
             result.extend(origin.symbol_uses(block_id));
         }
-        result.extend(
-            self.sequences
-                .iter()
-                .flat_map(|seq| seq.symbol_uses(block_id)),
-        );
+        let mut start_offset = Unsigned18Bit::ZERO;
+        for sequence in &self.sequences {
+            result.extend(sequence.symbol_uses(block_id, start_offset));
+            start_offset = start_offset
+                .checked_add(sequence.emitted_word_count())
+                .expect("block should not be larger than the TX-2's memory");
+        }
         result.into_iter()
     }
 
@@ -395,10 +411,12 @@ impl ManuscriptBlock {
         block_identifier: BlockIdentifier,
     ) -> Result<(), OneOrMore<LocalSymbolTableBuildFailure>> {
         let mut errors: Vec<LocalSymbolTableBuildFailure> = Vec::new();
+        let mut start_offset = Unsigned18Bit::ZERO;
         for seq in &mut self.sequences {
             if let Some(local_symbols) = seq.local_symbols.as_mut() {
                 match build_local_symbol_table(
                     block_identifier,
+                    start_offset,
                     seq.instructions.iter(),
                     &seq.global_tags,
                 ) {
@@ -416,6 +434,9 @@ impl ManuscriptBlock {
                     }
                 }
             }
+            start_offset = start_offset
+                .checked_add(seq.emitted_word_count())
+                .expect("block should not be larger than the TX-2's memory");
         }
         match OneOrMore::try_from_vec(errors) {
             Ok(errors) => Err(errors),

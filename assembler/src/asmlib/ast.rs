@@ -2425,6 +2425,7 @@ impl InstructionSequence {
     pub(crate) fn symbol_uses(
         &self,
         block_id: BlockIdentifier,
+        start_offset: Unsigned18Bit,
     ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
     {
         let no_symbols = ExplicitSymbolTable::default();
@@ -2432,6 +2433,9 @@ impl InstructionSequence {
         let mut result: Vec<Result<_, _>> = Vec::new();
 
         for (off, statement) in block_items_with_offset(self.instructions.iter()) {
+            let off = start_offset
+                .checked_add(off)
+                .expect("block should not be larger than the TX-2's memory");
             result.extend(statement.symbol_uses(block_id, off).filter(|r| match r {
                 Ok((symbol, _, _)) => !local_scope.is_defined(symbol),
                 Err(_) => true,

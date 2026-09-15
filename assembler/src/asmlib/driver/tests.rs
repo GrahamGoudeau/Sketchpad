@@ -270,6 +270,25 @@ fn test_macro_expansion_uses_local_tags() {
 }
 
 #[test]
+fn test_global_tag_after_macro_expansion_has_expanded_offset() {
+    let program = assemble_source(
+        concat!(
+            "☛☛DEF TWO\n",
+            "1\n",
+            "2\n",
+            "☛☛EMD\n",
+            "100|JPQ AFTER\n",
+            "TWO\n",
+            "AFTER→0\n",
+        ),
+        Default::default(),
+    )
+    .expect("a global tag after a macro expansion is valid");
+
+    assert_eq!(program.chunks[0].words[0], u36!(0o140500_000103));
+}
+
+#[test]
 fn test_tagged_macro_local_equality_can_reference_invocation_tag() {
     let program = assemble_source(
         concat!(
