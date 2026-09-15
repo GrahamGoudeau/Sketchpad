@@ -72,8 +72,9 @@ M4 assembly jobs.  They are not one assembly job.
 All eight jobs emit deterministic machine tapes.  The build checks their SHA-256
 values against `TAPE_SHA256SUMS`.  The checksum gate currently rejects all
 eight tapes because the approved hashes predate the historical allocation
-repairs.  The next phase compares emitted words and symbols with the printed
-output.  It then identifies compatible jobs and loads them into the simulator.
+repairs.  The next phase identifies compatible jobs and loads them into the
+simulator.  The simulator now has the first output device that this execution
+requires.
 
 ## Validator Changes
 
@@ -124,6 +125,12 @@ table.  Commit `96fe05f` replaces the broad normalization with one narrow rule.
 It removes parentheses that single-atom macro substitution creates.  It keeps
 parentheses that the source states explicitly.  The exact `GX7A` match remains.
 The assembler package passes 324 unit tests and 2 golden tests.
+
+Commit `9de7162` adds the first Sketchpad runtime peripheral.  The simulator now
+attaches TX-2 oscilloscope unit 60.  It emits typed point events from the two
+10-bit signed one's-complement coordinates.  It also models the four origin
+modes, four intensity levels, 10-80 microsecond buffer time, and ready flag.
+The complete simulator workspace passes its tests after this change.
 
 The printed `2XMX` automatic table belongs to a different visible revision.
 Its automatic `COPYNUM` conflicts with the surviving explicit

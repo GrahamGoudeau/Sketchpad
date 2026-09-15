@@ -1267,6 +1267,47 @@ Historical significance:
 - The revision conflict prevents false precision in the reconstructed tape.
 - The executable project can proceed without erasing either primary witness.
 
+## Checkpoint 31: The Simulator Emits TX-2 Scope Points
+
+Date: 2026-09-15
+
+Simulator commit `9de7162` implements the TX-2 oscilloscope display as unit 60.
+This is the first new runtime device for reconstructed Sketchpad.
+
+The implementation follows the November 1963 TX-2 Users Handbook.  A TSD
+copies one display word into the device.  Bits 4.9 through 3.9 form the signed
+10-bit one's-complement x coordinate.  Bits 2.9 through 1.9 form the matching
+y coordinate.  The device emits a typed `ScopePoint` event with normalized
+coordinates, intensity, and origin.
+
+The implementation supports the four documented origin modes.  It supports
+the four documented intensity levels.  Each intensity keeps the buffer busy
+for 10, 20, 40, or 80 microseconds.  Unit 60 raises its flag when the buffer is
+ready for another point.
+
+Three focused tests check coordinate decoding, mode decoding, event output,
+buffer timing, and the ready flag.  The complete simulator workspace passes:
+
+- 324 assembler unit tests.
+- 2 assembler golden tests.
+- 150 base tests.
+- 74 CPU tests.
+- 6 existing browser bridge tests.
+- 1 disassembler test.
+
+The old browser demo ignores the new event for now.  The new Sketchpad browser
+surface will consume it directly.  The next runtime task is an event-returning
+WASM bridge and a persistent vector display.  Light-pen input follows that
+visible output path.
+
+Historical significance:
+
+- Recovered Sketchpad can now address a simulated form of its original display.
+- The runtime preserves TX-2 coordinates and timing instead of drawing from a
+  translated graphics model.
+- The first visible browser output can now come from machine events that the
+  recovered assembly generates.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1290,8 +1331,8 @@ oracle.  The first focused uncertainty audit has verified 17 more `2XMX`
 readings.  The broad uncertainty audit has repaired four instruction or data
 words and completed two clipped lines.  It has also settled 49 marked readings
 across both volumes.  One marked held-address glyph remains open in the first
-`2XMX` region.  The next goal is compatible-set loading and executable
-simulator integration.
-Successful simulator loading follows compatible-set identification.
+`2XMX` region.  The simulator now implements TX-2 oscilloscope unit 60 and
+emits typed point events.  The next goal is an event-returning WASM bridge, a
+persistent browser display, and compatible-set loading.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.
