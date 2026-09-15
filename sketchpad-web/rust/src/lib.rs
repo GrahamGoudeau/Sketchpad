@@ -164,6 +164,14 @@ impl SketchpadMachine {
             .map_err(|error| JsValue::from_str(&error.to_string()))
     }
 
+    pub fn light_pen_detected(&mut self, real_elapsed_seconds: f64) -> Result<bool, JsValue> {
+        let ctx = context(self.simulated_time, real_elapsed_seconds);
+        self.tx2
+            .light_pen_detected(&ctx)
+            .map(|raised| raised == InputFlagRaised::Yes)
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
     #[wasm_bindgen(getter)]
     pub fn simulated_time(&self) -> f64 {
         self.simulated_time.as_secs_f64()
@@ -232,5 +240,11 @@ mod tests {
     #[test]
     fn bundled_sketchpad_tape_is_present() {
         assert_eq!(SKETCHPAD.len(), 74_232);
+    }
+
+    #[test]
+    fn disconnected_light_pen_does_not_raise_a_flag() {
+        let mut machine = SketchpadMachine::new();
+        assert!(matches!(machine.light_pen_detected(0.0), Ok(false)));
     }
 }

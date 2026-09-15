@@ -67,7 +67,6 @@ use tracing::{Level, event, span};
 
 use crate::diagnostics::CurrentInstructionDiagnostics;
 
-use super::PETR;
 use super::alarm::{Alarm, AlarmDetails, Alarmer};
 use super::alarmunit::AlarmUnit;
 use super::changelog::ChangeIndex;
@@ -75,14 +74,17 @@ use super::context::Context;
 use super::control::ControlUnit;
 use super::event::*;
 use super::types::*;
+use super::{LIGHT_PEN, PETR};
 use base::charset::LincolnState;
 use base::prelude::*;
 
+mod dev_light_pen;
 mod dev_lincoln_writer;
 mod dev_petr;
 mod dev_scope;
 mod pollq;
 
+use dev_light_pen::LightPen;
 use dev_lincoln_writer::{LincolnWriterInput, LincolnWriterOutput};
 pub(crate) use dev_petr::Petr;
 use dev_scope::ScopeDisplay;
@@ -1035,6 +1037,12 @@ pub fn set_up_peripherals(ctx: &Context, devices: &mut DeviceManager) {
         UnitType::from(u6!(0o60)),
         NOT_IN_MAINTENANCE,
         Box::new(ScopeDisplay::new()),
+    );
+    devices.attach(
+        ctx,
+        UnitType::from(LIGHT_PEN),
+        NOT_IN_MAINTENANCE,
+        Box::new(LightPen::new()),
     );
     attach_lw(
         ctx,

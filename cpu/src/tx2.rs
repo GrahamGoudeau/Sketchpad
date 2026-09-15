@@ -23,7 +23,6 @@ use base::prelude::*;
 
 use crate::diagnostics::CurrentInstructionDiagnostics;
 
-use super::PETR;
 use super::alarm::{Alarm, AlarmKind, Alarmer, UnmaskedAlarm};
 use super::alarmunit::AlarmStatus;
 use super::context::Context;
@@ -32,6 +31,7 @@ use super::event::{InputEvent, OutputEvent};
 use super::io::{DeviceManager, ExtendedUnitState, InputFlagRaised, set_up_peripherals};
 use super::memory::{MemoryConfiguration, MemoryUnit};
 use super::{InputEventError, PanicOnUnmaskedAlarm};
+use super::{LIGHT_PEN, PETR};
 
 /// `Tx2` emulates the TX-2 computer, with peripherals.
 #[wasm_bindgen]
@@ -151,6 +151,18 @@ impl Tx2 {
         data: Vec<u8>,
     ) -> Result<InputFlagRaised, InputEventError> {
         self.on_input_event(ctx, PETR, InputEvent::PetrMountPaperTape { data })
+    }
+
+    /// Emulate the light pen seeing an intensified point on scope 60.
+    pub fn light_pen_detected(
+        &mut self,
+        ctx: &Context,
+    ) -> Result<InputFlagRaised, InputEventError> {
+        let raised = self.on_input_event(ctx, LIGHT_PEN, InputEvent::LightPenDetected)?;
+        if raised == InputFlagRaised::Yes {
+            self.next_hw_poll_due = ctx.simulated_time;
+        }
+        Ok(raised)
     }
 
     /// Emulate the effect of the user pressing a key on one of the

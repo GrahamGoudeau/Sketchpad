@@ -21,6 +21,7 @@ pub enum ScopeOrigin {
 pub enum InputEvent {
     PetrMountPaperTape { data: Vec<u8> },
     LwKeyboardInput { data: Vec<Unsigned6Bit> },
+    LightPenDetected,
 }
 
 /// A failed input event.

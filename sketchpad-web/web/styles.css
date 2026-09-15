@@ -102,6 +102,11 @@ canvas,
   height: 100%;
 }
 
+canvas {
+  cursor: crosshair;
+  touch-action: none;
+}
+
 .graticule {
   pointer-events: none;
   opacity: 0.14;
@@ -234,4 +239,3 @@ footer p {
     gap: 8px;
   }
 }
-

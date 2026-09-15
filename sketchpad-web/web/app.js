@@ -16,6 +16,7 @@ let running = false;
 let pointCount = 0;
 let startedAt = performance.now();
 let frameRequest;
+const lightPen = { active: false, x: 0, y: 0 };
 
 function setMessage(message, error = false) {
   messageNode.textContent = message;
@@ -40,7 +41,7 @@ function axisPosition(value, movedOrigin, extent) {
   return Math.max(0, Math.min(extent, normalized * extent));
 }
 
-function drawScopePoint(event) {
+function drawScopePoint(event, realElapsed) {
   const leftOrigin = event.origin === "left_center" || event.origin === "lower_left";
   const bottomOrigin = event.origin === "bottom_center" || event.origin === "lower_left";
   const x = axisPosition(event.x, leftOrigin, canvas.width);
@@ -58,6 +59,13 @@ function drawScopePoint(event) {
   context.fill();
   context.restore();
   pointCount += 1;
+
+  const detectionRadius = 18 * (window.devicePixelRatio || 1);
+  const dx = x - lightPen.x;
+  const dy = y - lightPen.y;
+  if (lightPen.active && dx * dx + dy * dy <= detectionRadius * detectionRadius) {
+    machine.light_pen_detected(realElapsed);
+  }
 }
 
 function fadePhosphor() {
@@ -96,7 +104,7 @@ function frame() {
     const events = machine.step_batch(realElapsed, 2000);
     for (const event of events) {
       if (event?.kind === "scope_point") {
-        drawScopePoint(event);
+        drawScopePoint(event, realElapsed);
       }
     }
   } catch (error) {
@@ -130,6 +138,7 @@ function loadMachine(tape) {
   pause();
   machine = new SketchpadMachine();
   activeTape = tape;
+  lightPen.active = false;
   pointCount = 0;
   startedAt = performance.now();
   resizeCanvas();
@@ -167,6 +176,30 @@ tapeInput.addEventListener("change", async () => {
     stopWithError(error);
   }
 });
+
+function updateLightPen(event) {
+  const box = canvas.getBoundingClientRect();
+  lightPen.x = (event.clientX - box.left) * canvas.width / box.width;
+  lightPen.y = (event.clientY - box.top) * canvas.height / box.height;
+}
+
+canvas.addEventListener("pointerdown", (event) => {
+  updateLightPen(event);
+  lightPen.active = true;
+  canvas.setPointerCapture(event.pointerId);
+});
+
+canvas.addEventListener("pointermove", (event) => {
+  if (lightPen.active) {
+    updateLightPen(event);
+  }
+});
+
+for (const eventName of ["pointerup", "pointercancel"]) {
+  canvas.addEventListener(eventName, () => {
+    lightPen.active = false;
+  });
+}
 
 window.addEventListener("resize", resizeCanvas);
 

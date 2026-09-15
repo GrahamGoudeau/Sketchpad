@@ -72,3 +72,4 @@ pub use tx2::Tx2;
 pub use types::*;
 
 pub const PETR: base::prelude::Unsigned6Bit = base::prelude::u6!(0o52);
+pub const LIGHT_PEN: base::prelude::Unsigned6Bit = base::prelude::u6!(0o55);
