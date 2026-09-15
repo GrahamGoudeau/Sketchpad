@@ -2167,14 +2167,24 @@ impl Equality {
         &self,
     ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
     {
-        [Ok((
+        let mut result = vec![Ok((
             self.name.clone(),
             self.span,
             SymbolUse::Definition(
                 // TODO: the expression.clone() on the next line is expensive.
                 ExplicitDefinition::Equality(self.value.clone()),
             ),
-        ))]
-        .into_iter()
+        ))];
+
+        result.extend(
+            self.value
+                .inner
+                .symbol_uses(BlockIdentifier::from(0), Unsigned18Bit::ZERO)
+                .filter_map(|symbol_use| match symbol_use {
+                    Ok((_, _, SymbolUse::Definition(_))) => None,
+                    other => Some(other),
+                }),
+        );
+        result.into_iter()
     }
 }

@@ -235,6 +235,19 @@ fn test_assignment_rhs_can_allocate_an_rc_word() {
 }
 
 #[test]
+fn test_assignment_rhs_records_undefined_address_symbols() {
+    let direct = assemble_source("100|hJMP EXTERNAL\n", Default::default())
+        .expect("an undefined address symbol is valid");
+    let through_assignment = assemble_source(
+        concat!("TARGET=hJMP EXTERNAL\n", "100|TARGET\n"),
+        Default::default(),
+    )
+    .expect("an undefined address symbol in an equality is valid");
+
+    assert_eq!(through_assignment.chunks, direct.chunks);
+}
+
+#[test]
 fn test_macro_expansion_uses_local_tags() {
     let program = assemble_source(
         concat!(
@@ -1124,12 +1137,11 @@ fn test_undefined_symbol_in_calculation() {
     // (B) which needs to be given a default definition.
     let input = concat!(
         "A = B + 2\n",
-        // B is used only in an index context, so should be
-        // default-assigned as 1 (being the first free index
-        // register).
+        // B is used in normal script in the equality and in an index
+        // context here.  Its normal use requires an RC word.
         "DPX @sub_B@ 4\n",
-        // When we evaluate A, it should be evaluated as B+2, and so
-        // it should take the value 3.
+        // When we evaluate A, it should use the address of that RC
+        // word plus 2.
         "A\n",
     );
 
@@ -1137,16 +1149,18 @@ fn test_undefined_symbol_in_calculation() {
     let program = assemble_source(input, Default::default()).expect("program is valid");
     dbg!(&program);
 
-    // Then the symbol B is assigned the correct default definition (1)
-    // and the value of A is consistent with that definition (so, 3).
-    assert_eq!(program.chunks.len(), 1, "no RC-block should be allocated");
+    // Then the symbol B is assigned the correct default address and
+    // the value of A is consistent with that definition.
+    assert_eq!(program.chunks.len(), 2, "an RC block should be allocated");
     assert_eq!(program.chunks[0].words.len(), 2); // program length
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o200_002)));
+    assert_eq!(program.chunks[1].words, vec![u36!(0)]);
 
     // The potential bug we care about here is the situation in which
     // evaluation of A fails (e.g. because it depends on a value which
     // needs to be default-assigned) and itself gets default-assigned
     // (which would be incorrect, since it has a definition).
-    assert_eq!(program.chunks[0].words[1], u36!(0o3));
+    assert_eq!(program.chunks[0].words[1], u36!(0o200_004));
 }
 
 #[test]

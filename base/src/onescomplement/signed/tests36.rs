@@ -163,7 +163,10 @@ fn test_signed36_multiplication() {
     assert_eq!(minus_one.checked_mul(two), Some(Signed36Bit::from(-2_i8)));
     assert_eq!(two.checked_mul(two), Some(Signed36Bit::from(4_i8)));
     assert_eq!(two.checked_mul(Signed36Bit::MAX), None);
-    assert_eq!(six.checked_mul(Signed36Bit::MINUS_ZERO), Some(Signed36Bit::ZERO));
+    assert_eq!(
+        six.checked_mul(Signed36Bit::MINUS_ZERO),
+        Some(Signed36Bit::ZERO)
+    );
 }
 
 #[test]
