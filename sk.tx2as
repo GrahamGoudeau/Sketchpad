@@ -2441,7 +2441,7 @@ ORDGRPI@arr@
                 @sup_1@@sup_1@RSX @sub_S@@sub_pipe@@sub_S@ LIST+TYPE
                 SXD @sub_S@ VARIABLES-LIST
                 JPQ #+5
-                MKZ @sub_M@@sub_E@@sub_T@@sub_A@|@sub_alpha@ LIST
+                MKZ @sub_M@@sub_E@@sub_T@@sub_A@@sub_pipe@@sub_alpha@ LIST
 ORDGRPIEXIT@arr@
                 JPQ #   ** MODIFIED
                 MOVER@hamb@BWHOS@times@@alpha@@arr@PPART@times@@gamma@

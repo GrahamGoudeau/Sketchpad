@@ -65,18 +65,18 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R008 and validator commits `d3d1d9b`, `4d6bf6c`,
+Repairs R001 through R009 and validator commits `d3d1d9b`, `4d6bf6c`,
 `81e83f9`, `5b2e5c0`, `2e15acd`, `5e2c77b`, `8d7b8da`, `ebf7800`,
-`8d07d2d`, and `b7f4f9d` move the first diagnostic to line 2432.
+`8d07d2d`, `b7f4f9d`, and `94f536d` move the first diagnostic to line 2649.
 
 ```text
-sk.tx2as:2432:24
-found `h` inside the RC word `{-(h)}`
+sk.tx2as:2649:78
+found `*` after the `LGORR` macro invocation
 ```
 
-The source appears to use the hold symbol as a value inside a negated
-parenthesized expression.  Verify the scan and M4 word-assembly rules before
-changing either the source or the validator.
+The final macro parameter appears to use an asterisk as its terminator.
+Verify the scan and M4 macro rules before changing either the source or the
+validator.
 
 ## Validator Changes
 
@@ -91,6 +91,7 @@ substitution in pipe indexes and a nested macro as a parameter.  Commit
 `8d7b8da` accepts mixed-script macro parameters.  Commit `ebf7800` accepts
 tags on macro invocations.  Commit `8d07d2d` accepts hold bits in macro
 parameters.  Commit `b7f4f9d` treats an omitted pipe index as zero.  The
+Commit `94f536d` accepts the hold indicator as an arithmetic value.  The
 assembler test suite passes.
 
 ## Evidence Order
@@ -133,6 +134,7 @@ file marks it clearly and the log records the alternatives.
 | R006 | `sk.tx2as:830,832` | inferred | High-resolution view of Sketchpad part 1, PDF page 23; matching faint glyphs; nearby bit-position pattern | Read both missing bit numbers as `8`. |
 | R007 | `sk.tx2as:886,888,889,892,920` | verified | High-resolution views of Sketchpad part 1, PDF pages 24 and 25; repeated `α` glyph shape; handwritten button map | Restore three `α` subscripts, draw selector `1.8`, and constraint selector `2.8`. |
 | R008 | `sk.tx2as:2352` | inferred | Enhanced view of Sketchpad part 1, PDF page 51; same-page `3` glyph; `SED` branch and garbage-collector control flow; no `GARB8` definition | Read the final label character as `3`, producing `JPQ GARB3`. |
+| R009 | `sk.tx2as:2444` | verified | High-resolution view of Sketchpad part 1, PDF page 53; repeated `META|α LIST` forms at lines 2542, 2557, and 2584; Users Handbook section 6-2.8 | Preserve the printed subscript position of the pipe with `@sub_pipe@`. |
 
 ## Publication Gate
 
