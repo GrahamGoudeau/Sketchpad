@@ -1308,6 +1308,53 @@ Historical significance:
 - The first visible browser output can now come from machine events that the
   recovered assembly generates.
 
+## Checkpoint 32: A Paper Tape Now Lights a Browser Scope
+
+Date: 2026-09-15
+
+Simulator commit `8f4a1ff` adds a separate `sketchpad-web` application.  It
+reuses the canonical Rust TX-2 CPU.  It does not modify the general `tx2-web`
+interface.
+
+The new WASM bridge owns a TX-2 instance.  It mounts paper tape, performs
+CODABO, advances to the next simulated machine event, and returns typed output
+to JavaScript.  Unit-60 events retain their TX-2 coordinates, intensity, and
+origin.  The bridge also has a path for Lincoln Writer output.
+
+A new 53-word scope-check program provides a deterministic end-to-end test.
+Its source is `assembler/examples/scope.tx2as`.  Its 786-byte tape has SHA-256:
+
+```text
+a431fc429f691575888389f28d608af5018ccb1206ed659be59c69284daddd0e
+```
+
+The program loads through the simulated paper-tape reader.  It connects unit
+60 in centered, high-intensity mode.  It then emits 25 points that form a box
+and two diagonals.  Its tape is now an assembler golden test.
+
+The browser surface draws the points on a persistent phosphor-style canvas.
+It shows machine state, simulated TX-2 time, and received point count.  It can
+pause, reset, and load a local paper-tape file.
+
+The release-mode WASM build succeeds.  A Chrome run reached simulated time
+3.828363 seconds and received 23,267 unit-60 point events.  The display showed
+the expected pattern.  The browser console contained no errors or warnings.
+The visual audit found and fixed one error-reporting defect.  It also changed
+automatic start to an explicit RUN action and limited each browser frame so
+the main thread stays responsive.
+
+This tape is a diagnostic program.  It is not Sketchpad.  The result proves
+the runtime path that Sketchpad will use.
+
+Historical significance:
+
+- A TX-2 paper tape now causes visible simulated phosphor output in a modern
+  browser.
+- The display comes from executed machine instructions instead of a new drawing
+  implementation.
+- The dedicated interface keeps the reconstruction distinct from the earlier
+  general simulator demo.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1331,8 +1378,10 @@ oracle.  The first focused uncertainty audit has verified 17 more `2XMX`
 readings.  The broad uncertainty audit has repaired four instruction or data
 words and completed two clipped lines.  It has also settled 49 marked readings
 across both volumes.  One marked held-address glyph remains open in the first
-`2XMX` region.  The simulator now implements TX-2 oscilloscope unit 60 and
-emits typed point events.  The next goal is an event-returning WASM bridge, a
-persistent browser display, and compatible-set loading.
+`2XMX` region.  The simulator now implements TX-2 oscilloscope unit 60.  A
+separate WASM application has run a diagnostic tape through the full browser
+display path.  The next goal is compatible-set loading and the first recovered
+Sketchpad execution attempt.  Light-pen input follows the first stable display
+loop.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.

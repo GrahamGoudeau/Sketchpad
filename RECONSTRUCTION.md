@@ -10,11 +10,12 @@ survive.  A readable C translation is a later deliverable.
 ## Runtime Target
 
 Run the recovered TX-2 machine image in a web browser through WebAssembly.
-The simulator already contains the `tx2-web` WASM crate and browser
-interface.  Extend that runtime with the display, light pen, switches, and
-other devices that Sketchpad requires.  Keep the recovered assembly and
-its assembled machine image authoritative.  Use the later C translation
-as a readable reference implementation and an optional second WASM build.
+The simulator already proved that its Rust CPU can compile to WebAssembly.
+Reuse that CPU through the separate `sketchpad-web` runtime and browser
+surface.  Add the display, light pen, switches, and other devices that
+Sketchpad requires.  Keep the recovered assembly and its assembled machine
+image authoritative.  Use the later C translation as a readable reference
+implementation and an optional second WASM build.
 
 ## Preserved Baselines
 
@@ -131,6 +132,9 @@ attaches TX-2 oscilloscope unit 60.  It emits typed point events from the two
 10-bit signed one's-complement coordinates.  It also models the four origin
 modes, four intensity levels, 10-80 microsecond buffer time, and ready flag.
 The complete simulator workspace passes its tests after this change.
+Commit `8f4a1ff` adds the separate `sketchpad-web` WASM bridge and browser
+surface.  A deterministic scope-check paper tape now exercises the complete
+loader, CPU, unit-60 event, WASM, and canvas path.
 
 The printed `2XMX` automatic table belongs to a different visible revision.
 Its automatic `COPYNUM` conflicts with the surviving explicit
