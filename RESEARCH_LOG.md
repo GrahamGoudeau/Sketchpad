@@ -2418,3 +2418,41 @@ reloaded.  Public checks returned HTTP 200 for the canonical page, versioned
 JavaScript, and WebAssembly.  The page contains the advanced command status
 guide.  The JavaScript contains the Q3.3 and Q2.7 keyboard routes.  The WASM
 file remains 593,792 bytes.
+
+## Checkpoint 60: `DESIGNATE` Exposes the Next Input-Timing Boundary
+
+Date: 2026-09-15
+
+The next experiment started the historical circle workflow.  The recovered
+dispatch table maps Q1.7 to `DESIGNATE`.  The source uses a designated point as
+`CCENT`.  A later `STARTDRAW` call then takes the circle branch instead of the
+line branch.
+
+The first probe held the light pen over the middle of the assembly-created
+line.  The original selection code identified the line.  Q1.7 entered
+`DESIGNATE` at `005555`.  `DESIGNATE` called the original `MACAP` path to make
+a point on the line.  The probe kept the light pen over refreshed scope ink
+while it waited for the command to return.  Repeated light-pen events filled
+the sequence-47 input queue.  Its indexed store eventually wrote the event word
+`000000000040` over program address `007643`.  Execution later reached that
+address and raised `OCSAL`.
+
+The combined tape contains the valid word `001101024072` at `007643`.  A trace
+proved that sequence 47 changed it while it executed the queue store following
+`LDE 011406` at address `004115`.  The invalid word was not present in the
+tape.  This failure is therefore an overlong test gesture.  It is not evidence
+for a source repair or a missing CPU operation.
+
+A second probe aimed at the line endpoint.  The original selection code then
+identified a point, `000275001237`.  Q1.7 again entered `DESIGNATE`.  Moving
+the physical pen away after entry prevented the queue overwrite.  The picture
+list did not change, and no alarm occurred.  However, sequence 76 did not reach
+the self-modified `DESIGNATEND` return at `005574`, did not set the
+`DESIGNATED` metabit in `PAGE1`, and did not set `CCENT` during 200 simulated
+seconds.  Scope sequence 60 continued to run.
+
+No emulator or assembly change follows from this result.  The next experiment
+must resolve the exact light-pen and pushbutton release timing expected by
+`DESIGNATE`.  It must also inspect the sequence-76 run flag and the sequence-47
+queue at the point where Q1.7 transfers control.  Circle creation remains
+unverified.
