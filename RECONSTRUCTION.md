@@ -83,8 +83,9 @@ shorter `OPLW` job is not in this set.  The merged tape contains 12,292 words in
 
 The simulator runs this image through WebAssembly.  A bounded native run emits
 63,080 scope points by simulated time 190 seconds.  A browser run draws the
-word `INK` from the recovered machine code.  Light-pen and console input are
-the next runtime tasks.
+word `INK` from the recovered machine code.  Simulator commit `32e7961`
+connects browser pointer hits to a modeled unit-55 light pen.  The first
+interactive selection check and the remaining console controls are next.
 
 ## Validator Changes
 
@@ -153,6 +154,8 @@ Commit `673b33c` adds alarm masks, deterministic simulated-time limits, and
 runtime event counters to the command-line simulator.  Commit `0514de6`
 bundles the recovered Sketchpad image in the WASM application and batches
 machine ticks across the JavaScript boundary.
+Commit `32e7961` adds the TX-2 light pen and connects browser pointer hits to
+flag 55.
 
 The printed `2XMX` automatic table belongs to a different visible revision.
 Its automatic `COPYNUM` conflicts with the surviving explicit

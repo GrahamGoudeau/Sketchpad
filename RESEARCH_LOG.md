@@ -1481,6 +1481,41 @@ Historical significance:
 - The browser uses the same machine image as the bounded native run.
 - Light-pen and console input can now target a working display loop.
 
+## Checkpoint 36: Scope Ink Can Raise the Light-Pen Flag
+
+Date: 2026-09-15
+
+The TX-2 Users Handbook describes the light pen as unit 55.  A connected pen
+raises flag 55 when it sees an intensified point on scope 60.  Its `TSD`
+operation is not used.
+
+Simulator commit `32e7961` adds this device.  A detection has no effect while
+the pen is disconnected.  A connected detection schedules an immediate
+hardware poll.  That poll raises flag 55 once.  Disconnecting the unit cancels
+a pending detection.  Two focused CPU tests cover these rules.
+
+The WASM bridge exposes the detection event.  The browser tracks a held mouse,
+pen, or touch pointer over the scope.  It compares that position with every
+point that Sketchpad sends to unit 60.  A nearby intensified point causes the
+simulated pen to see light.  A click on blank glass does not directly raise the
+flag.
+
+The release WASM build passes.  The complete workspace passes with 82 CPU
+tests.  A repeated native run reaches 190 simulated seconds.  It executes
+670,071 ticks and emits the same 63,080 scope points.  No unmasked alarm stops
+the run.
+
+The device and browser path are complete.  A visible Sketchpad selection
+result remains to be verified.  Shaft-encoder and console controls also remain
+unmodeled.
+
+Historical significance:
+
+- The first original Sketchpad input device now reaches the recovered program.
+- Hit detection uses emitted scope points, as the physical light pen did.
+- The browser does not replace Sketchpad's selection logic.
+- The unchanged scope count confirms that the idle pen does not alter startup.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1507,6 +1542,7 @@ across both volumes.  One marked held-address glyph remains open in the first
 `2XMX` region.  The simulator now implements TX-2 oscilloscope unit 60 and the
 index operations that the startup path requires.  A bounded run emits 63,080
 Sketchpad scope points.  The WASM application runs the combined tape and shows
-`INK` in the browser.  The next goal is light-pen, shaft-encoder, and console
-input.
+`INK` in the browser.  Unit 55 now carries browser light-pen detections into
+the recovered program.  The next goal is a verified selection result, then
+shaft-encoder and console input.
 The readable C translation will remain a separate explanatory artifact.
