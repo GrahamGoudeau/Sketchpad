@@ -1874,6 +1874,75 @@ Historical significance:
 - The tracker has exposed four independent emulator defects through original
   program execution.
 
+## Checkpoint 44: Arithmetic Progress and a Rejected Pen Test
+
+Date: 2026-09-15
+
+The hardware-only run now passes the former `SUB` stop.  The emulator implements
+the handbook's one's-complement `ADD` and `SUB` operations.  Each configured
+subword uses end-around carry.  The operation writes column carries to C, loads
+the exchanged operand into D, keeps the original memory word in E, and sets the
+overflow indicator for the subword's sign quarter.  Tests cover end-around
+carry, the `+0 - (-0) = +0` exception, full-word overflow, and independent
+quarter arithmetic.
+
+Simulator commit `c73cc6f` contains this checkpoint.  The complete workspace
+passes 583 tests at that commit.
+
+The arithmetic-element state now includes four overflow indicators.  `SCA`
+uses and clears the indicator for each active sign quarter.  It also performs
+the handbook's initial-overflow recovery.  The handbook example
+`400000000000` scaled by minus three now produces `040000000000` in a test.
+
+Execution next exposed `JPA` at address `001374` in sequence 76.  Handbook PDF
+pages 34-35, printed pages 3-32 and 3-33, define `JPA`, `JNA`, and `JOV` together.
+The emulator now tests every active configured subword.  Both positive and
+negative zero are excluded from positive and negative tests.  A taken jump
+saves the return address in the right half of E.  `JOV` reads the overflow
+indicator for each active sign quarter and does not clear it.  Tests cover both
+zero encodings and half-word overflow selection.
+
+After these changes, a Node and WASM run reaches 220 simulated seconds without
+an alarm.  It executes 2,945,280 ticks and emits 521,553 original unit-60
+events.  A fixed physical pen over the `K` in `INK` produces two real unit-55
+detections.  This result proves continued execution after the former arithmetic
+stops.  It does not prove drawing.
+
+The Part 1 manuscript identifies external button `1.8` as `DRAW`.  The button
+handler is original sequence 47.  A held `1.8` button reached that handler and
+exposed missing `COM` at address `004104`.  Handbook PDF pages 52-53, printed
+pages 3-50 and 3-51, define `COM`.  The emulator now permutes all quarters,
+complements active quarters, performs sign extension from the complemented
+sign, stores the result without a second permutation, and copies the result to
+E.  Tests cover full complement and the required all-inactive permutation.
+
+Two interaction tests did not meet the acceptance boundary:
+
+- A fixed pen can hit the illuminated `INK` strokes.  The original pen routine
+  then examines machine state, but this test has not established continuous
+  tracking.  A later `DRAW` button transition did not allocate a line in the
+  inspected list-memory range.
+- A diagnostic shim moved the pen onto every new beam point.  It caused 308,868
+  detections by 230 simulated seconds.  This is not a possible human gesture.
+  It can also keep higher-priority pen service active and prevent the lower
+  priority button sequence from running.  This test is rejected as interaction
+  evidence and must not become an acceptance test.
+
+The next acceptance task is a physically plausible tracking acquisition.  The
+test must keep the pen at a user-selected scope position or move it along a
+bounded human-speed path.  It must then press button `1.8` through register
+`377621`.  A pass requires a new Sketchpad list object and corresponding
+unit-60 output from the assembly.  No host-language geometry can satisfy it.
+
+Historical significance:
+
+- Original execution now passes the first arithmetic and conditional-jump
+  boundary in the tracker path.
+- The manuscript gives a direct source for the `DRAW` control mapping.
+- A real command reached the original sequence 47 handler.
+- The log records a high-detection test artifact before it can become false
+  historical evidence.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1902,9 +1971,10 @@ original `INK` display through unit 60.  It now models scope 60, light pen 55,
 interval timer 54, the shaft register at `377620`, and the external pushbutton
 register at `377621`.  The first original `TRACK` run accepts a physical
 light-pen event and stores its exact illuminated point.  General CPU repairs
-now include deferred `JMP`, successful-`TSD` dismissal, `EXX`, `EXA`, and a
-partial `SCA` without initial-overflow recovery.  Execution currently stops at
-the unimplemented `SUB` instruction in sequence 76.  No assembly-created shape
-or solved constraint has passed acceptance.  The public site still runs the
+now include deferred `JMP`, successful-`TSD` dismissal, `EXX`, `EXA`, `COM`,
+`ADD`, `SUB`, `SCA`, `JPA`, `JNA`, and `JOV`.  A fixed-pen run reaches 220
+simulated seconds without an alarm.  It does not yet establish continuous
+tracking or allocate a line.  No assembly-created shape or solved constraint
+has passed acceptance.  The public site still runs the
 prior safe release at `https://sketchpad.acyclic.sh/`.  The readable C
 translation remains a separate explanatory artifact.
