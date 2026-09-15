@@ -3427,7 +3427,7 @@ H9.2@arr@       HEADER@hamb@HOLDERS@arr@(1,41,,37,42)
                 [SPLAT]
                 [(1,41,,37,42)]
                 [T1]
-H9.3@arr@       HEADERS@hamb@HOLDERS@arr@(2,41,,37,42)
+H9.3@arr@       HEADER@hamb@HOLDERS@arr@(2,41,,37,42)
                 [SMASBL,4,,HOLDERS-LIST]
                 [#-NLIST-SMASBL,,#+SMASBL-NLIST]
                 [-2,0]
