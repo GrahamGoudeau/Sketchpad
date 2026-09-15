@@ -31,6 +31,7 @@ mod op_index;
 mod op_io;
 mod op_jump;
 mod op_loadstore;
+mod op_logic;
 #[cfg(test)]
 mod tests;
 mod timing;
@@ -1251,6 +1252,7 @@ impl ControlUnit {
                 Opcode::Opr => control.op_opr(ctx, mem, devices), // Usually IOS.
                 Opcode::Tsd => control.op_tsd(ctx, devices, prev_program_counter, mem),
                 Opcode::Sed => control.op_sed(ctx, mem),
+                Opcode::Ite => control.op_ite(ctx, mem),
                 Opcode::Exx => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
@@ -1265,20 +1267,22 @@ impl ControlUnit {
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/13",
                     },
                 }),
-                Opcode::Flf | Opcode::Flg => Err(Alarm {
+                opcode @ (Opcode::Flf | Opcode::Flg) => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode {opcode}"
-                            .to_string(),
+                        explanation: format!(
+                            "The emulator does not yet implement opcode {opcode:?}"
+                        ),
                         // Note: that bug report covers two opcodes.
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/14",
                     },
                 }),
-                Opcode::Ite | Opcode::Ita | Opcode::Una | Opcode::Dsa => Err(Alarm {
+                opcode @ (Opcode::Ita | Opcode::Una | Opcode::Dsa) => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode {opcode}"
-                            .to_string(),
+                        explanation: format!(
+                            "The emulator does not yet implement opcode {opcode:?}"
+                        ),
                         // Note: this bug report covers several opcodes.
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/25",
                     },
@@ -1325,11 +1329,12 @@ impl ControlUnit {
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/27",
                     },
                 }),
-                Opcode::Cya | Opcode::Cyb | Opcode::Cab => Err(Alarm {
+                opcode @ (Opcode::Cya | Opcode::Cyb | Opcode::Cab) => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode {opcode}"
-                            .to_string(),
+                        explanation: format!(
+                            "The emulator does not yet implement opcode {opcode:?}"
+                        ),
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/24",
                     },
                 }),
