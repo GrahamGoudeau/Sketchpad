@@ -662,16 +662,27 @@ where
     fn default() -> Self {
         Self {
             expr_parser: maybe_hold()
+                .then(maybe_defer())
                 .then(arithmetic_expression_in_any_script_allowing_spaces())
+                .then(maybe_defer())
                 .or_not()
                 .map_with(|got, extra| match got {
-                    Some((None, (span, script, expr))) => {
-                        (span, Some(MacroParameterValue::Value(script, expr)))
+                    Some((((maybe_hold, leading_defer), (span, script, expr)), trailing_defer)) => {
+                        let holdbit = maybe_hold.unwrap_or(HoldBit::Unspecified);
+                        let defer_span = leading_defer.or(trailing_defer);
+                        if holdbit == HoldBit::Unspecified && defer_span.is_none() {
+                            (span, Some(MacroParameterValue::Value(script, expr)))
+                        } else {
+                            (
+                                extra.span(),
+                                Some(MacroParameterValue::Fragments {
+                                    holdbit,
+                                    defer_span,
+                                    fragments: vec![(script, expr)],
+                                }),
+                            )
+                        }
                     }
-                    Some((Some(hold), (_, script, expr))) => (
-                        extra.span(),
-                        Some(MacroParameterValue::HeldValue(hold, script, expr)),
-                    ),
                     None => (extra.span(), None),
                 })
                 .boxed(),
@@ -785,22 +796,35 @@ where
                             _,
                             Some(
                                 value @ (MacroParameterValue::Value(_, _)
-                                | MacroParameterValue::HeldValue(_, _, _)),
+                                | MacroParameterValue::Fragments { .. }),
                             ),
                         ) => {
-                            let (argument_holdbit, script, expr) = match value {
+                            let (argument_holdbit, argument_defer_span, script, expr) = match value
+                            {
                                 MacroParameterValue::Value(script, expr) => {
-                                    (HoldBit::Unspecified, script, expr)
+                                    (HoldBit::Unspecified, None, script, expr)
                                 }
-                                MacroParameterValue::HeldValue(holdbit, script, expr) => {
-                                    (holdbit, script, expr)
+                                MacroParameterValue::Fragments {
+                                    holdbit,
+                                    defer_span,
+                                    mut fragments,
+                                } => {
+                                    let (script, expr) = fragments
+                                        .pop()
+                                        .expect("parsed macro argument has one fragment");
+                                    assert!(fragments.is_empty());
+                                    (holdbit, defer_span, script, expr)
                                 }
                                 _ => unreachable!(),
                             };
+                            let split_expressions =
+                                split_macro_argument(script, expr, &param_defs[param_index + 1..]);
+                            let split_count = split_expressions.len();
                             let mut argument_values: Vec<(
                                 HoldBit,
+                                Option<Span>,
                                 Vec<(Script, ArithmeticExpression)>,
-                            )> = split_macro_argument(script, expr, &param_defs[param_index + 1..])
+                            )> = split_expressions
                                 .into_iter()
                                 .enumerate()
                                 .map(|(index, expr)| {
@@ -809,6 +833,11 @@ where
                                             argument_holdbit
                                         } else {
                                             HoldBit::Unspecified
+                                        },
+                                        if index + 1 == split_count {
+                                            argument_defer_span
+                                        } else {
+                                            None
                                         },
                                         vec![(script, expr)],
                                     )
@@ -830,8 +859,30 @@ where
                                         argument_values
                                             .last_mut()
                                             .expect("there is at least one argument")
-                                            .1
+                                            .2
                                             .push((script, expr));
+                                    }
+                                    (
+                                        _,
+                                        Some(MacroParameterValue::Fragments {
+                                            holdbit,
+                                            defer_span,
+                                            fragments,
+                                        }),
+                                    ) => {
+                                        let current = argument_values
+                                            .last_mut()
+                                            .expect("there is at least one argument");
+                                        current.0 = match (current.0, holdbit) {
+                                            (HoldBit::Unspecified, supplied) => supplied,
+                                            (body, HoldBit::Unspecified) => body,
+                                            (body, supplied) if body == supplied => body,
+                                            (body, supplied) => panic!(
+                                                "macro argument hold bit {body:?} conflicts with {supplied:?}"
+                                            ),
+                                        };
+                                        current.1 = current.1.or(defer_span);
+                                        current.2.extend(fragments);
                                     }
                                     _ => {
                                         inp.rewind(checkpoint);
@@ -839,34 +890,38 @@ where
                                     }
                                 }
                             }
-                            for (holdbit, fragments) in argument_values {
-                                let argument_span = Span::from(
-                                    fragments
-                                        .first()
-                                        .expect("argument is not empty")
-                                        .1
-                                        .span()
-                                        .start
-                                        ..fragments
+                            for (holdbit, defer_span, fragments) in argument_values {
+                                let argument_start = fragments
+                                    .first()
+                                    .expect("argument is not empty")
+                                    .1
+                                    .span()
+                                    .start;
+                                let argument_end =
+                                    defer_span.map(|span| span.end).unwrap_or_else(|| {
+                                        fragments
                                             .last()
                                             .expect("argument is not empty")
                                             .1
                                             .span()
-                                            .end,
-                                );
-                                let value = if fragments.len() == 1 {
+                                            .end
+                                    });
+                                let argument_span = Span::from(argument_start..argument_end);
+                                let value = if fragments.len() == 1
+                                    && holdbit == HoldBit::Unspecified
+                                    && defer_span.is_none()
+                                {
                                     let (script, expr) = fragments
                                         .into_iter()
                                         .next()
                                         .expect("argument is not empty");
-                                    match holdbit {
-                                        HoldBit::Unspecified => {
-                                            MacroParameterValue::Value(script, expr)
-                                        }
-                                        _ => MacroParameterValue::HeldValue(holdbit, script, expr),
-                                    }
+                                    MacroParameterValue::Value(script, expr)
                                 } else {
-                                    MacroParameterValue::Fragments(holdbit, fragments)
+                                    MacroParameterValue::Fragments {
+                                        holdbit,
+                                        defer_span,
+                                        fragments,
+                                    }
                                 };
                                 param_values.insert(
                                     param_defs[param_index].name.clone(),
@@ -875,10 +930,6 @@ where
                                 );
                                 param_index += 1;
                             }
-                        }
-                        (span, Some(fragments @ MacroParameterValue::Fragments(_, _))) => {
-                            param_values.insert(param_def.name.clone(), span, Some(fragments));
-                            param_index += 1;
                         }
                         (span, Some(expansion @ MacroParameterValue::Expansion(_))) => {
                             param_values.insert(param_def.name.clone(), span, Some(expansion));
@@ -1141,6 +1192,16 @@ where
     ))
     .or_not()
     .labelled("instruction hold bit")
+}
+
+fn maybe_defer<'a, I>() -> impl Parser<'a, I, Option<Span>, ExtraWithoutContext<'a>> + Clone
+where
+    I: Input<'a, Token = Tok, Span = Span> + ValueInput<'a>,
+{
+    just(Tok::Asterisk(Script::Normal))
+        .map_with(|_, extra| extra.span())
+        .or_not()
+        .labelled("deferred-address indicator")
 }
 
 struct Grammar<'a, 'b, I>

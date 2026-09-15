@@ -3085,6 +3085,28 @@ mod macro_tests {
     }
 
     #[test]
+    fn test_defer_bit_in_macro_parameter() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF JUMP→TARGET\n",
+                "JPQ TARGET\n",
+                "☛☛EMD\n",
+                "JUMP→DEST*\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        let fragments = &got.blocks[0].sequences[0].instructions[0]
+            .instruction
+            .fragments;
+        assert!(fragments.iter().any(|fragment| matches!(
+            fragment.fragment,
+            InstructionFragment::DeferredAddressing(_)
+        )));
+    }
+
+    #[test]
     fn test_parse_macro_invocation_with_equality() {
         let got = parse_successfully_with(
             concat!(

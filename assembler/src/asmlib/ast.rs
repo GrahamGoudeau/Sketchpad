@@ -994,14 +994,9 @@ impl SymbolOrLiteral {
                     Some((_, Some(MacroParameterValue::Expansion(_)))) => {
                         unreachable!("macro expansions require a standalone parameter line")
                     }
-                    Some((span, Some(MacroParameterValue::HeldValue(_, _, _)))) => {
+                    Some((span, Some(MacroParameterValue::Fragments { .. }))) => {
                         panic!(
-                            "held macro parameter {symbol_name} at {span:?} is not a standalone instruction fragment"
-                        )
-                    }
-                    Some((span, Some(MacroParameterValue::Fragments(_, _)))) => {
-                        panic!(
-                            "mixed-script macro parameter {symbol_name} at {span:?} is not a standalone instruction fragment"
+                            "structured macro parameter {symbol_name} at {span:?} is not a standalone instruction fragment"
                         )
                     }
                     Some((span, None)) => {
@@ -1491,7 +1486,7 @@ impl CommaDelimitedFragment {
     fn structured_substitution(
         &self,
         param_values: &MacroParameterBindings,
-    ) -> Option<(HoldBit, Vec<(Script, ArithmeticExpression)>)> {
+    ) -> Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)> {
         let InstructionFragment::Arithmetic(ArithmeticExpression { first, tail }) = &self.fragment
         else {
             return None;
@@ -1503,18 +1498,20 @@ impl CommaDelimitedFragment {
         if first.negated {
             return None;
         }
-        let (holdbit, mut fragments) = match param_values.get(name) {
-            Some((_, Some(MacroParameterValue::Fragments(holdbit, fragments)))) => {
-                (*holdbit, fragments.clone())
-            }
-            Some((_, Some(MacroParameterValue::HeldValue(holdbit, script, expression)))) => {
-                (*holdbit, vec![(*script, expression.clone())])
-            }
+        let (holdbit, defer_span, mut fragments) = match param_values.get(name) {
+            Some((
+                _,
+                Some(MacroParameterValue::Fragments {
+                    holdbit,
+                    defer_span,
+                    fragments,
+                }),
+            )) => (*holdbit, *defer_span, fragments.clone()),
             _ => return None,
         };
         let (_, expression) = fragments.iter_mut().find(|(got, _)| got == script)?;
         expression.tail.extend(tail.clone());
-        Some((holdbit, fragments))
+        Some((holdbit, defer_span, fragments))
     }
 
     fn substitute_macro_parameters(
@@ -1592,7 +1589,7 @@ impl UntaggedProgramInstruction {
     ) -> Option<UntaggedProgramInstruction> {
         let mut result = Vec::new();
         for fragment in self.fragments.iter() {
-            if let Some((argument_holdbit, fragments)) =
+            if let Some((argument_holdbit, defer_span, fragments)) =
                 fragment.structured_substitution(param_values)
             {
                 let last = fragments.len() - 1;
@@ -1615,11 +1612,20 @@ impl UntaggedProgramInstruction {
                             HoldBit::Unspecified
                         },
                         fragment: InstructionFragment::Arithmetic(expr.clone()),
-                        trailing_commas: (index == last)
+                        trailing_commas: (index == last && defer_span.is_none())
                             .then(|| fragment.trailing_commas.clone())
                             .flatten(),
                     }
                 }));
+                if let Some(defer_span) = defer_span {
+                    result.push(CommaDelimitedFragment {
+                        span: defer_span,
+                        leading_commas: None,
+                        holdbit: HoldBit::Unspecified,
+                        fragment: InstructionFragment::DeferredAddressing(defer_span),
+                        trailing_commas: fragment.trailing_commas.clone(),
+                    });
+                }
                 continue;
             }
             result.push(fragment.substitute_macro_parameters(param_values, on_missing, macros)?);

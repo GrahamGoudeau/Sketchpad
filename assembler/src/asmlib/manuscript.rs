@@ -593,8 +593,11 @@ impl MacroDefinition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MacroParameterValue {
     Value(Script, ArithmeticExpression),
-    HeldValue(HoldBit, Script, ArithmeticExpression),
-    Fragments(HoldBit, Vec<(Script, ArithmeticExpression)>),
+    Fragments {
+        holdbit: HoldBit,
+        defer_span: Option<Span>,
+        fragments: Vec<(Script, ArithmeticExpression)>,
+    },
     Expansion(Box<MacroInvocation>),
 }
 
