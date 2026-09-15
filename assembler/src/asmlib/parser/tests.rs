@@ -3024,6 +3024,27 @@ mod macro_tests {
     }
 
     #[test]
+    fn test_tagged_macro_invocation() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF FOO|A\n",
+                "A\n",
+                "☛☛EMD\n",
+                "EARLY→\n",
+                "LATE→FOO|1\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        let instructions = &got.blocks[0].sequences[0].instructions;
+        assert_eq!(instructions.len(), 1);
+        assert_eq!(instructions[0].tags.len(), 2);
+        assert_eq!(instructions[0].tags[0].name, SymbolName::from("EARLY"));
+        assert_eq!(instructions[0].tags[1].name, SymbolName::from("LATE"));
+    }
+
+    #[test]
     fn test_parse_macro_invocation_with_equality() {
         let got = parse_successfully_with(
             concat!(

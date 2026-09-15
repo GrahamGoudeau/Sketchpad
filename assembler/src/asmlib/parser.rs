@@ -1574,13 +1574,20 @@ where
             .collect()
             .map(ManuscriptLine::TagsOnly);
         let equality = grammar.assignment.clone().map(ManuscriptLine::Eq);
+        let tagged_macro = tag_definition()
+            .repeated()
+            .at_least(1)
+            .collect()
+            .then(macro_invocation())
+            .map(|(tags, invocation)| ManuscriptLine::Macro(tags, invocation));
 
         choice((
             // We have to parse an assignment first here, in order to
             // accept "FOO=2" as an assignment rather than the instruction
             // fragment "FOO" followed by a syntax error.
             equality,
-            macro_invocation().map(ManuscriptLine::Macro),
+            tagged_macro,
+            macro_invocation().map(|invocation| ManuscriptLine::Macro(Vec::new(), invocation)),
             // Ignore whitespace after the metacommand but not before it.
             parse_and_execute_metacommand(&grammar),
             optional_origin_with_statement,

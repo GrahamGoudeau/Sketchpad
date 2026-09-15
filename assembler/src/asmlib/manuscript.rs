@@ -468,7 +468,7 @@ pub(crate) enum ManuscriptMetaCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ManuscriptLine {
     Meta(ManuscriptMetaCommand),
-    Macro(MacroInvocation),
+    Macro(Vec<Tag>, MacroInvocation),
     Eq(Equality),
     OriginOnly(Origin),
     TagsOnly(Vec<Tag>),
@@ -691,10 +691,17 @@ pub(crate) fn manuscript_lines_to_source_file<'a>(
 
     for (_span, line) in lines {
         match line {
-            ManuscriptLine::Macro(invocation) => {
+            ManuscriptLine::Macro(mut tags, invocation) => {
+                prepend_tags(&mut tags, &mut pending_tags);
+                let mut expansion = expand_macro(&invocation, &macros);
+                if let Some(first) = expansion.instructions.first_mut() {
+                    prepend_tags(&mut first.tags, &mut tags);
+                } else if let Some(tag) = tags.pop() {
+                    return Err(bad_tag_pos(tag));
+                }
                 get_or_create_output_block(&mut blocks)
                     .sequences
-                    .push(expand_macro(&invocation, &macros));
+                    .push(expansion);
             }
             ManuscriptLine::TagsOnly(tags) => {
                 pending_tags.extend(tags);
