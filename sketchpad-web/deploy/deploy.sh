@@ -16,7 +16,7 @@ trap cleanup EXIT
 
 cd "$project_dir"
 npm run build
-COPYFILE_DISABLE=1 tar -C web -czf "$archive" \
+COPYFILE_DISABLE=1 tar --no-xattrs -C web -czf "$archive" \
 	LICENSE-MIT app.js index.html styles.css pkg
 
 scp -i "$deploy_key" "$archive" \
