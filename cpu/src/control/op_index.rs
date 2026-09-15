@@ -18,9 +18,50 @@ use super::context::Context;
 use super::control::{
     ControlUnit, OpcodeResult, ProgramCounterChange, UpdateE, sign_extend_index_value,
 };
+use super::exchanger::exchanged_value_for_load;
 use super::memory::{MemoryUnit, MetaBitChange};
 
+fn ones_complement_add(left: Signed18Bit, right: Signed18Bit) -> Signed18Bit {
+    const MASK: u32 = 0o777_777;
+    let raw =
+        u32::from(left.reinterpret_as_unsigned()) + u32::from(right.reinterpret_as_unsigned());
+    let with_end_around_carry = (raw & MASK) + (raw >> 18);
+    Unsigned18Bit::try_from(with_end_around_carry & MASK)
+        .expect("an 18-bit one's-complement sum always fits")
+        .reinterpret_as_signed()
+}
+
 impl ControlUnit {
+    /// Implements the ADX instruction (Opcode 015, User Handbook,
+    /// page 3-22).
+    pub(crate) fn op_adx(
+        &mut self,
+        ctx: &Context,
+        mem: &mut MemoryUnit,
+    ) -> Result<OpcodeResult, Alarm> {
+        let j = self.regs.n.index_address();
+        let target = self.operand_address_with_optional_defer_without_index(ctx, mem)?;
+        let (memory_word, _extra) =
+            self.fetch_operand_from_address_without_exchange(ctx, mem, &target, &UpdateE::Yes)?;
+        let exchanged =
+            exchanged_value_for_load(&self.get_config(), &memory_word, &Unsigned36Bit::ZERO);
+        let sum = ones_complement_add(
+            self.regs.get_index_register(j),
+            subword::right_half(exchanged).reinterpret_as_signed(),
+        );
+        let value = join_halves(subword::left_half(exchanged), sum.reinterpret_as_unsigned());
+        self.memory_store_with_exchange(
+            ctx,
+            mem,
+            &target,
+            &value,
+            &memory_word,
+            &UpdateE::No,
+            &self.write_operand_metaop(),
+        )?;
+        Ok(OpcodeResult::default())
+    }
+
     /// Implements the `DPX` instruction (Opcode 016, User Handbook,
     /// page 3-16).
     pub(crate) fn op_dpx(
@@ -30,7 +71,7 @@ impl ControlUnit {
     ) -> Result<OpcodeResult, Alarm> {
         let j = self.regs.n.index_address();
         let xj: Unsigned36Bit = sign_extend_index_value(&self.regs.get_index_register(j));
-        let target: Address = self.operand_address_with_optional_defer_and_index(ctx, mem)?;
+        let target: Address = self.operand_address_with_optional_defer_without_index(ctx, mem)?;
 
         // DPX is trying to perform a write.  But to do this in some
         // subword configurations, we need to read the existing value.
@@ -137,66 +178,99 @@ impl ControlUnit {
 
     /// Implements the SKX instruction (Opcode 012, User Handbook,
     /// page 3-24).
-    pub(crate) fn op_skx(&mut self, _ctx: &Context) -> Result<OpcodeResult, Alarm> {
-        let inst = &self.regs.n;
-        let j = inst.index_address();
+    pub(crate) fn op_skx(
+        &mut self,
+        ctx: &Context,
+        mem: &mut MemoryUnit,
+    ) -> Result<OpcodeResult, Alarm> {
+        let j = self.regs.n.index_address();
         // SKX does not cause an access to STUV memory; instead the
         // operand is the full value of the operand and defer fields
         // of the instruction.  This allows us to use SKX to mark a
         // placeholder for use with TRAP 42.
-        let operand = inst.operand_address_and_defer_bit();
-        let config = u8::from(inst.configuration());
-        // NOTE: when we come to implement other configuration values,
-        // we may need to pay closer attention to the ordering of flag
-        // changes, since the TX-2 performed flag lowering and raising
-        // in that order.  For example (text is from section 7-8.3 of
-        // the TX-2 Technical Manual, Volume 1),
-        //
-        // if the CF4 bit is set in an SKX instruction, the flag of
-        // sequence J is raised (if such a flag exists).  Since flag
-        // raising occurs after a flag lowering caused by a dismiss,
-        // an SKX operaiton which dismisses and raises the flag of its
-        // own sequence will have no apparent effect on the flag.
-        //
-        match config {
-            0o0 | 0o10 => {
-                if j != 0 {
-                    // Xj is fixed at 0.
-                    self.regs
-                        .set_index_register(j, &operand.reinterpret_as_signed());
-                }
-                if config & 0o10 != 0 {
-                    self.regs.flags.raise(&j);
-                }
-                Ok(OpcodeResult::default())
+        let operand =
+            Unsigned18Bit::from(self.operand_address_with_optional_defer_without_index(ctx, mem)?);
+        let config = u8::from(self.regs.n.configuration());
+        let old_xj = self.regs.get_index_register(j);
+        let signed_operand = operand.reinterpret_as_signed();
+        let negative_operand = (!operand).reinterpret_as_signed();
+        let mut new_xj = None;
+        let mut skip = false;
+        match config & 0o7 {
+            0o0 => {
+                new_xj = Some(signed_operand);
             }
-            // See comment above for config value 0o30 where the J
-            // bits indicate the current sequence (which the case
-            // where this instruction both lowers and raises the same
-            // flag in the same instruction).
             0o1 => {
-                if j != 0 {
-                    // Xj is fixed at 0.
-                    // Calculate -T
-                    let t_negated = Signed18Bit::ZERO.wrapping_sub(operand.reinterpret_as_signed());
-                    self.regs.set_index_register(j, &t_negated);
-                }
-                Ok(OpcodeResult::default())
+                new_xj = Some(negative_operand);
             }
-            _ => Err(self.alarm_unit.always_fire(
-                Alarm {
-                    sequence: self.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: format!(
-                            "SKX configuration value {:#o} is not implemented yet",
-                            inst.configuration()
-                        ),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/138",
-                    },
-                },
-                &self.regs.diagnostic_only,
-            )),
+            0o2 => {
+                let result = ones_complement_add(old_xj, signed_operand);
+                new_xj = Some(if old_xj.is_positive_zero() && result.is_zero() {
+                    Signed18Bit::ZERO
+                } else {
+                    result
+                });
+            }
+            0o3 => {
+                let result = ones_complement_add(old_xj, negative_operand);
+                new_xj = Some(if result.is_zero() {
+                    Signed18Bit::MINUS_ZERO
+                } else {
+                    result
+                });
+            }
+            0o4 => {
+                skip = old_xj != signed_operand;
+                if old_xj.is_positive_zero() {
+                    new_xj = Some(Signed18Bit::MINUS_ZERO);
+                }
+            }
+            0o5 => {
+                skip = old_xj != negative_operand;
+                if old_xj.is_negative_zero() {
+                    new_xj = Some(Signed18Bit::ZERO);
+                }
+            }
+            0o6 => {
+                skip = old_xj < signed_operand && old_xj.checked_sub(signed_operand).is_some();
+                if old_xj.is_positive_zero() {
+                    new_xj = Some(Signed18Bit::MINUS_ZERO);
+                }
+            }
+            0o7 => {
+                skip = old_xj > negative_operand && old_xj.checked_add(signed_operand).is_some();
+                if old_xj.is_negative_zero() {
+                    new_xj = Some(Signed18Bit::ZERO);
+                }
+            }
+            _ => unreachable!("the low three configuration bits cover octal 0 through 7"),
         }
+
+        if j != 0
+            && let Some(value) = new_xj
+        {
+            self.regs.set_index_register(j, &value);
+        }
+
+        let raises_flag = config & 0o10 != 0;
+        let dismisses = config & 0o20 != 0;
+        let raise_cancels_dismiss = raises_flag && self.regs.k == Some(j);
+        if dismisses && !raise_cancels_dismiss {
+            self.dismiss_unless_held("SKX has dismiss bit set in config syllable");
+        }
+        if raises_flag {
+            self.regs.flags.raise(&j);
+        }
+
+        Ok(OpcodeResult {
+            program_counter_change: if skip {
+                Some(ProgramCounterChange::CounterUpdate)
+            } else {
+                None
+            },
+            poll_order_change: None,
+            output: None,
+        })
     }
 
     /// Implements the JPX (jump on positive index) opcode (06).
@@ -292,9 +366,11 @@ impl ControlUnit {
 #[cfg(test)]
 mod tests {
     use super::super::super::context::Context;
-    use super::super::super::control::{ConfigurationMemorySetup, PanicOnUnmaskedAlarm, UpdateE};
+    use super::super::super::control::{
+        ConfigurationMemorySetup, PanicOnUnmaskedAlarm, ProgramCounterChange, UpdateE,
+    };
     use super::super::super::exchanger::SystemConfiguration;
-    use super::super::super::memory::MetaBitChange;
+    use super::super::super::memory::{MemoryMapped, MetaBitChange};
     use super::super::super::{MemoryConfiguration, MemoryUnit};
     use base::instruction::{Opcode, SymbolicInstruction};
     use base::prelude::*;
@@ -351,6 +427,266 @@ mod tests {
         }
 
         (control, mem)
+    }
+
+    #[test]
+    fn op_dpx_does_not_index_its_direct_destination() {
+        const COMPLAIN: &str = "failed to set up DPX test data";
+        let context = make_ctx();
+        let j = u6!(1);
+        let direct = Address::from(u18!(0o100));
+        let incorrectly_indexed = Address::from(u18!(0o107));
+        let (mut control, mut mem) = setup(
+            &context,
+            j,
+            Signed18Bit::from(7_i8),
+            &[(direct, u36!(0)), (incorrectly_indexed, u36!(0))],
+            None,
+        );
+        let instruction = SymbolicInstruction {
+            held: false,
+            configuration: u5!(0),
+            opcode: Opcode::Dpx,
+            index: j,
+            operand_address: OperandAddress::direct(direct),
+        };
+        control
+            .update_n_register(Instruction::from(&instruction).bits())
+            .expect(COMPLAIN);
+
+        control
+            .op_dpx(&context, &mut mem)
+            .expect("DPX should execute");
+
+        assert_eq!(
+            mem.fetch(&context, &direct, &MetaBitChange::None)
+                .expect(COMPLAIN)
+                .0,
+            u36!(7)
+        );
+        assert_eq!(
+            mem.fetch(&context, &incorrectly_indexed, &MetaBitChange::None)
+                .expect(COMPLAIN)
+                .0,
+            u36!(0)
+        );
+    }
+
+    #[test]
+    fn op_adx_adds_an_index_register_to_memory() {
+        const COMPLAIN: &str = "failed to set up ADX test data";
+        let context = make_ctx();
+        let j = u6!(1);
+        let target = Address::from(u18!(0o100));
+        let original = u36!(0o444_000_222_010);
+        let (mut control, mut mem) = setup(
+            &context,
+            j,
+            u18!(0o000_111).reinterpret_as_signed(),
+            &[(target, original)],
+            None,
+        );
+        let instruction = SymbolicInstruction {
+            held: false,
+            configuration: u5!(0),
+            opcode: Opcode::Adx,
+            index: j,
+            operand_address: OperandAddress::direct(target),
+        };
+        control
+            .update_n_register(Instruction::from(&instruction).bits())
+            .expect(COMPLAIN);
+
+        control
+            .op_adx(&context, &mut mem)
+            .expect("ADX should execute");
+
+        assert_eq!(
+            mem.fetch(&context, &target, &MetaBitChange::None)
+                .expect(COMPLAIN)
+                .0,
+            u36!(0o444_000_222_121)
+        );
+        assert_eq!(mem.get_e_register(), original);
+    }
+
+    fn simulate_skx(
+        config: u8,
+        initial: Signed18Bit,
+        operand: Unsigned18Bit,
+    ) -> (Signed18Bit, bool) {
+        const COMPLAIN: &str = "failed to set up SKX test data";
+        let context = make_ctx();
+        let j = u6!(1);
+        let (mut control, mut mem) = setup(&context, j, initial, &[], None);
+        let instruction = SymbolicInstruction {
+            held: false,
+            configuration: Unsigned5Bit::try_from(config).expect(COMPLAIN),
+            opcode: Opcode::Skx,
+            index: j,
+            operand_address: OperandAddress::direct(Address::from(operand)),
+        };
+        control
+            .update_n_register(Instruction::from(&instruction).bits())
+            .expect(COMPLAIN);
+
+        let result = control
+            .op_skx(&context, &mut mem)
+            .expect("SKX should execute");
+
+        (
+            control.regs.get_index_register(j),
+            result.program_counter_change == Some(ProgramCounterChange::CounterUpdate),
+        )
+    }
+
+    #[test]
+    fn op_skx_implements_the_eight_arithmetic_and_skip_modes() {
+        let three = u18!(3);
+        assert_eq!(
+            simulate_skx(0, Signed18Bit::from(7_i8), three),
+            (Signed18Bit::from(3_i8), false)
+        );
+        assert_eq!(
+            simulate_skx(1, Signed18Bit::from(7_i8), three),
+            (Signed18Bit::from(-3_i8), false)
+        );
+        assert_eq!(
+            simulate_skx(2, Signed18Bit::from(4_i8), three),
+            (Signed18Bit::from(7_i8), false)
+        );
+        let (dex_zero, dex_skipped) = simulate_skx(3, Signed18Bit::from(3_i8), three);
+        assert!(dex_zero.is_negative_zero());
+        assert!(!dex_skipped);
+        assert_eq!(
+            simulate_skx(4, Signed18Bit::from(2_i8), three),
+            (Signed18Bit::from(2_i8), true)
+        );
+        assert_eq!(
+            simulate_skx(5, Signed18Bit::from(2_i8), three),
+            (Signed18Bit::from(2_i8), true)
+        );
+        assert_eq!(
+            simulate_skx(6, Signed18Bit::from(2_i8), three),
+            (Signed18Bit::from(2_i8), true)
+        );
+        assert_eq!(
+            simulate_skx(7, Signed18Bit::from(2_i8), three),
+            (Signed18Bit::from(2_i8), true)
+        );
+    }
+
+    #[test]
+    fn op_skx_uses_the_final_deferred_address_as_its_operand() {
+        const COMPLAIN: &str = "failed to set up deferred DEX test data";
+        let context = make_ctx();
+        let j = u6!(1);
+        let pointer = Address::from(u18!(0o100));
+        let final_operand = u18!(7);
+        let (mut control, mut mem) = setup(
+            &context,
+            j,
+            Signed18Bit::from(10_i8),
+            &[(pointer, join_halves(Unsigned18Bit::ZERO, final_operand))],
+            None,
+        );
+        let instruction = SymbolicInstruction {
+            held: false,
+            configuration: u5!(3),
+            opcode: Opcode::Skx,
+            index: j,
+            operand_address: OperandAddress::deferred(pointer),
+        };
+        control
+            .update_n_register(Instruction::from(&instruction).bits())
+            .expect(COMPLAIN);
+
+        control
+            .op_skx(&context, &mut mem)
+            .expect("deferred DEX should execute");
+
+        assert_eq!(control.regs.get_index_register(j), Signed18Bit::from(3_i8));
+    }
+
+    #[test]
+    fn op_skx_rfd_resets_raises_and_dismisses() {
+        const COMPLAIN: &str = "failed to set up RFD test data";
+        let context = make_ctx();
+        let target_sequence = u6!(0o40);
+        let current_sequence = u6!(0o52);
+        let operand = u18!(0o200_153);
+        let (mut control, mut mem) = setup(
+            &context,
+            target_sequence,
+            Signed18Bit::from(7_i8),
+            &[],
+            None,
+        );
+        control.regs.k = Some(current_sequence);
+        control.regs.current_sequence_is_runnable = true;
+        control.regs.flags.lower_all();
+        control.regs.flags.raise(&current_sequence);
+        let instruction = SymbolicInstruction {
+            held: false,
+            configuration: u5!(0o30),
+            opcode: Opcode::Skx,
+            index: target_sequence,
+            operand_address: OperandAddress::direct(Address::from(operand)),
+        };
+        control
+            .update_n_register(Instruction::from(&instruction).bits())
+            .expect(COMPLAIN);
+
+        control
+            .op_skx(&context, &mut mem)
+            .expect("RFD should execute");
+
+        assert_eq!(
+            control.regs.get_index_register(target_sequence),
+            operand.reinterpret_as_signed()
+        );
+        assert!(!control.regs.flags.current_flag_state(&current_sequence));
+        assert!(control.regs.flags.current_flag_state(&target_sequence));
+        assert!(!control.regs.current_sequence_is_runnable);
+    }
+
+    #[test]
+    fn op_skx_rfd_does_not_dismiss_its_own_sequence() {
+        const COMPLAIN: &str = "failed to set up current-sequence RFD test data";
+        let context = make_ctx();
+        let current_sequence = u6!(0o60);
+        let operand = u18!(0o200_207);
+        let (mut control, mut mem) = setup(
+            &context,
+            current_sequence,
+            Signed18Bit::from(7_i8),
+            &[],
+            None,
+        );
+        control.regs.k = Some(current_sequence);
+        control.regs.current_sequence_is_runnable = true;
+        control.regs.flags.lower_all();
+        let instruction = SymbolicInstruction {
+            held: false,
+            configuration: u5!(0o30),
+            opcode: Opcode::Skx,
+            index: current_sequence,
+            operand_address: OperandAddress::direct(Address::from(operand)),
+        };
+        control
+            .update_n_register(Instruction::from(&instruction).bits())
+            .expect(COMPLAIN);
+
+        control
+            .op_skx(&context, &mut mem)
+            .expect("RFD for the current sequence should execute");
+
+        assert_eq!(
+            control.regs.get_index_register(current_sequence),
+            operand.reinterpret_as_signed()
+        );
+        assert!(control.regs.flags.current_flag_state(&current_sequence));
+        assert!(control.regs.current_sequence_is_runnable);
     }
 
     /// Simulate some AUX instructions and return the result

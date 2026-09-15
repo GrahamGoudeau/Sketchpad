@@ -1229,6 +1229,7 @@ impl ControlUnit {
         ) -> Result<OpcodeResult, Alarm> {
             match opcode {
                 Opcode::Aux => control.op_aux(ctx, mem),
+                Opcode::Adx => control.op_adx(ctx, mem),
                 Opcode::Lda => control.op_lda(ctx, mem),
                 Opcode::Ldb => control.op_ldb(ctx, mem),
                 Opcode::Ldc => control.op_ldc(ctx, mem),
@@ -1240,7 +1241,7 @@ impl ControlUnit {
                 Opcode::Std => control.op_std(ctx, mem),
                 Opcode::Ste => control.op_ste(ctx, mem),
                 Opcode::Rsx => control.op_rsx(ctx, mem),
-                Opcode::Skx => control.op_skx(ctx),
+                Opcode::Skx => control.op_skx(ctx, mem),
                 Opcode::Dpx => control.op_dpx(ctx, mem),
                 Opcode::Jmp => control.op_jmp(ctx, mem),
                 Opcode::Jpx => control.op_jpx(ctx, mem),
@@ -1255,13 +1256,6 @@ impl ControlUnit {
                     details: AlarmDetails::ROUNDTUITAL {
                         explanation: "The emulator does not yet implement opcode EXX".to_string(),
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/16",
-                    },
-                }),
-                Opcode::Adx => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode ADX".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/18",
                     },
                 }),
                 Opcode::Spf => Err(Alarm {
