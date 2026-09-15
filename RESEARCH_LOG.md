@@ -188,6 +188,31 @@ Open work:
 - Resolve the separate `≡` syntax form in Unit 2.
 - Emit and retain all four tapes with reproducible names and checksums.
 
+## Checkpoint 7: Second Component Tape
+
+Date: 2026-09-14
+
+Simulator commit `8a0a2e0` adds checked signed multiplication to the 36-bit
+one's-complement type.  The M4 evaluator now uses that operation for `×`.
+
+Validation result:
+
+- The base and assembler crates pass 456 unit tests and 2 golden tests.
+- Unit 3 completes all assembly passes.
+- Unit 3 emits 1,998 words of binary output before the reader leader.
+- Its temporary tape contains 12,192 bytes.
+
+The Unit 1 arithmetic failure also disappears.  Unit 1 now reaches the unknown
+symbol `DUMEX` during default symbol assignment.
+
+Interpretation:
+
+- The matching negative-one failures in Units 1 and 3 came from one incorrect
+  unsigned implementation rule.
+- Unit 3 is the second complete compilation unit to emit machine output.
+- A successful assembly does not yet prove that the binary matches the printed
+  octal listing or runs correctly.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.

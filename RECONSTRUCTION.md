@@ -69,8 +69,8 @@ Repairs R001 through R011 and the validator changes let all 6,728 source lines
 parse and expand.  The file contains four separate historical M4 assembly jobs.
 It is not one assembly job.
 
-Unit 4 emits a machine tape.  Units 1 and 3 reach signed multiplication during
-final evaluation.  Unit 2 reaches one unsupported `≡` syntax form.  See
+Units 3 and 4 emit machine tapes.  Unit 1 reaches default symbol assignment for
+`DUMEX`.  Unit 2 reaches one unsupported `≡` syntax form.  See
 `RESEARCH_LOG.md` for the unit boundaries, evidence, and current diagnostics.
 
 ## Validator Changes
