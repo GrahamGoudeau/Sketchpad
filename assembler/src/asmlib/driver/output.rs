@@ -195,7 +195,7 @@ fn create_begin_block(
         Instruction::from(&disconnect_tape).bits(),
         Instruction::from(&jump).bits(),
     ];
-    create_tape_block(location, &code, !empty_program)
+    create_tape_block(location, &code, empty_program)
 }
 
 /// Write the user's program as a tape image file.
@@ -267,4 +267,25 @@ pub fn write_user_program<W: Write>(
             error: e,
         })
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{create_begin_block, split_halves, u18};
+
+    #[test]
+    fn nonempty_program_continues_after_begin_block() {
+        let block = create_begin_block(None, false).expect("the begin block is valid");
+        let (_, next) = split_halves(*block.last().expect("the block has a trailer"));
+
+        assert_eq!(next, u18!(0o3));
+    }
+
+    #[test]
+    fn empty_program_ends_after_begin_block() {
+        let block = create_begin_block(None, true).expect("the begin block is valid");
+        let (_, next) = split_halves(*block.last().expect("the block has a trailer"));
+
+        assert_eq!(next, u18!(0o27));
+    }
 }
