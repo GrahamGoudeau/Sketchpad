@@ -3935,8 +3935,6 @@ WHERE= 12       **LOCATION OF THING IN PICTURE
 
 @gamma@= 3
 
-?=#     [creative, explains "JPQ ?" (and similar) below]
-
 @alpha@= 1
 
 @eps@= 5
@@ -5885,7 +5883,7 @@ TX2MSW2@arr@
                 DPX 45CURRENT
 TX2MSW@arr@     SKN @sub_M@@sub_E@@sub_T@@sub_A@#
 45LWRET@arr@
-                JPD ? [? is aliased to #, see pdf_page 90]
+                JPD #
                 MKN @sub_M@@sub_E@@sub_T@@sub_A@ TX2MSW2
 
 [meta file_name=102726903-05-01-acc.pdf pdf_page=128 doc_page=126 type=code proof=1]
@@ -6016,7 +6014,7 @@ TX2MSW@arr@     SKN @sub_M@@sub_E@@sub_T@@sub_A@#
                 JPQ 45TC1
                 SKN @sub_2@@sub_dot@@sub_9@ E   **FLAG
 45TYPECHKX@arr@
-                JPQ ?
+                JPQ #
                 JPQ 45TC1
                 **ERROR ROUTINES
 45ERR@arr@      h@sup_1@STE 45ERRSTOP
@@ -6044,7 +6042,7 @@ TX2MSW@arr@     SKN @sub_M@@sub_E@@sub_T@@sub_A@#
                 INX @sub_alpha@ 1
                 @sup_1@DPX @sub_alpha@ LIST2
                 INX @sub_alpha@ MASTERS-LIST
-LIST2@arr@      SKX @sub_gamma@ ?       ** REL RD ADDR  [? is alias for #, see pdf_page 90]
+LIST2@arr@      SKX @sub_gamma@ #       ** REL RD ADDR
                 @sup_1@@sup_1@RSX @sub_beta@ 45TSD      **END OF RD AREA [subscript illegible, best guess: @sub_beta@]
                 DEX @sub_beta@ LIST
 45MCA1@arr@     SKX @sub_S@@sub_pipe@@sub_alpha@ 0
@@ -6078,31 +6076,31 @@ LIST2@arr@      SKX @sub_gamma@ ?       ** REL RD ADDR  [? is alias for #, see p
                 SKX @sub_beta@ 2002
                 @sup_2@DPX @sub_beta@@sub_pipe@@sub_alpha@ LIST
                 hJPQ 45PUT
-45EXIT@arr@     JPQ ?
+45EXIT@arr@     JPQ #
 45MG3@arr@      @sup_1@STE 45MG3X
                 SKX @sub_beta@ MASTERS-LIST     ** @beta@=OLD RINGS
                 LGORR@hamb@SPECB@times@@beta@=S@arr@45MG4
                 hJPQ 45SWITCHRINGS
-45MG3X@arr@     JPQ ?
+45MG3X@arr@     JPQ #
 45MG4@arr@      @sup_1@STE 45MG4X
                 hLDE @sub_beta@ LIST+NAME
                 SED @sub_alpha@ LIST+NAME
                 JPQ #+2
-45MG4X@arr@     JPQ ?
+45MG4X@arr@     JPQ #
                 @sup_1@DPX @sub_beta@ 45MG5A    **SAVE @beta@ LEVEL
                 LGORR@hamb@SPECB@times@@alpha@=S@arr@45MG5
                 hJPQ 45FREE
                 JPQ 45MG3X*
 45MG5@arr@      @sup_1@STE 45MG5X
-45MG5A@arr@     SKX @sub_beta@ ?
+45MG5A@arr@     SKX @sub_beta@ #
                 LGORR@hamb@SPECB@times@@beta@=S@arr@45MG6
                 hJPQ 45SWITCHRINGS
-45MG5X@arr@     JPQ ?
+45MG5X@arr@     JPQ #
 45MG6@arr@      @sup_1@STE 45MG6X
                 hLDE @sub_beta@ LIST+NAME
                 SED @sub_alpha@ LIST+NAME
                 JPQ #+2
-45MG6X@arr@     JPQ ?
+45MG6X@arr@     JPQ #
 
 [meta file_name=102726903-05-01-acc.pdf pdf_page=132 doc_page=130 type=code proof=1]
 [Page header: "LMH GX7A 027"]
@@ -6120,11 +6118,11 @@ LIST2@arr@      SKX @sub_gamma@ ?       ** REL RD ADDR  [? is alias for #, see p
                 @sup_1@STE 45FREEX
                 CHGRL@hamb@TYPE@times@@alpha@@arr@SPECB@times@@gamma@
 45FREEX@arr@
-                JPQ ?
+                JPQ #
 45PUT@arr@      @sup_1@STE 45PUTX
                 SKX @sub_gamma@ FREES-LIST
                 PUTL@hamb@TYPE@times@@alpha@@arr@SPECB@times@@gamma@
-45PUTX@arr@     JPQ ?
+45PUTX@arr@     JPQ #
 45LAST INSTR@arr@
                 #-45SRN+1
                 **TX-2 TAPE PROGRAMS
@@ -6181,7 +6179,7 @@ TX2SCOPE@arr@
                 @sup_1@DPX @sub_3@@sub_7@ TX2WA2
                 MKN @sub_M@@sub_E@@sub_T@@sub_A@ TX2MSW
 TX2SCOPEX@arr@
-                JPQ ?
+                JPQ #
 TX2ERR@arr@     hJPQ TX2RESET
                 SKX @sub_4@@sub_5@@sub_L@@sub_W@ 45LWRET*
                 RFD @sub_7@@sub_6@ 45EXIT*
@@ -6192,11 +6190,11 @@ TX2RESET@arr@
                 @sup_1@@sup_2@RSX @sub_3@@sub_6@ TX2WA2
                 @sup_1@@sup_1@RSX @sub_3@@sub_7@ TX2WA2
 TX2SCOPERET@arr@
-                RXF @sub_6@@sub_0@ ?
+                RXF @sub_6@@sub_0@ #
                 @sup_2@DPX 45LIST
                 RXF @sub_5@@sub_4@ 45RESETIT
 TX2RESETX@arr@
-                JPQ ?
+                JPQ #
 TX2WA1@arr@     0
 TX2WA2@arr@     0
 TX2WA3@arr@     0

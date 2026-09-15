@@ -65,18 +65,18 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R010 and validator commits `d3d1d9b`, `4d6bf6c`,
+Repairs R001 through R011 and validator commits `d3d1d9b`, `4d6bf6c`,
 `81e83f9`, `5b2e5c0`, `2e15acd`, `5e2c77b`, `8d7b8da`, `ebf7800`,
-`8d07d2d`, `b7f4f9d`, `94f536d`, `28208eb`, `69769eb`, and `39ba1e7`
-move the first diagnostic to line 3938.
+`8d07d2d`, `b7f4f9d`, `94f536d`, `28208eb`, `69769eb`, `39ba1e7`, and
+`3648200` move the first diagnostic to line 4992.
 
 ```text
-sk.tx2as:3938:1
-found `?` at the start of a statement
+sk.tx2as:4992:27
+found superscript `?` after a comment marker
 ```
 
-Verify the scan and the surrounding macro-definition sequence before changing
-the source.
+Verify the scan and comment-token handling before changing the source or the
+validator.
 
 ## Validator Changes
 
@@ -90,12 +90,14 @@ accepts arithmetic expressions in origins.  Commit `5e2c77b` accepts macro
 substitution in pipe indexes and a nested macro as a parameter.  Commit
 `8d7b8da` accepts mixed-script macro parameters.  Commit `ebf7800` accepts
 tags on macro invocations.  Commit `8d07d2d` accepts hold bits in macro
-parameters.  Commit `b7f4f9d` treats an omitted pipe index as zero.  The
-Commit `94f536d` accepts the hold indicator as an arithmetic value.  The
+parameters.  Commit `b7f4f9d` treats an omitted pipe index as zero.  Commit
+`94f536d` accepts the hold indicator as an arithmetic value.
 Commit `28208eb` preserves the deferred-address indicator in macro parameters.
 Commit `69769eb` permits macro redefinition and restores the prior definition
 after parser backtracking.  Commit `39ba1e7` accepts a parenthesized comma-built
-word as an arithmetic atom.  The assembler test suite passes.
+word as an arithmetic atom.
+Commit `3648200` expands nested macro calls after substituting their outer
+parameters.  The assembler test suite passes.
 
 ## Evidence Order
 
@@ -139,6 +141,7 @@ file marks it clearly and the log records the alternatives.
 | R008 | `sk.tx2as:2352` | inferred | Enhanced view of Sketchpad part 1, PDF page 51; same-page `3` glyph; `SED` branch and garbage-collector control flow; no `GARB8` definition | Read the final label character as `3`, producing `JPQ GARB3`. |
 | R009 | `sk.tx2as:2444` | verified | High-resolution view of Sketchpad part 1, PDF page 53; repeated `META|α LIST` forms at lines 2542, 2557, and 2584; Users Handbook section 6-2.8 | Preserve the printed subscript position of the pipe with `@sub_pipe@`. |
 | R010 | `sk.tx2as:3430` | verified | Printed octal output and explicit expansion on Sketchpad part 1, PDF page 75; the `HEADER` definition at line 3251; ten neighboring `HEADER` calls; no `HEADERS` definition | Correct the printed `HEADERS` typo to `HEADER`. |
+| R011 | `sk.tx2as:3938` and self-modified addresses at former lines 5888-6199 | inferred | Users Handbook section 6-2.3 makes `?` a symex terminator; the equality was an explicit creative addition absent from the scan; equivalent self-modified exit slots use `#` | Remove the invented `?=#` equality and use current-location `#` for standalone question-mark address placeholders. |
 
 ## Publication Gate
 
