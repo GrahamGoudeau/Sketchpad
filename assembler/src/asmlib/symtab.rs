@@ -140,10 +140,6 @@ impl ExplicitSymbolTable {
         self.definitions.contains_key(name)
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
-        self.definitions.is_empty()
-    }
-
     pub(crate) fn replace_equality_value(&mut self, name: &SymbolName, value: EqualityValue) {
         match self.definitions.get_mut(name) {
             Some(ExplicitDefinition::Equality(current)) => *current = value,

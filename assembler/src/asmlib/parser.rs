@@ -1513,27 +1513,17 @@ where
 
     let expanded_macro = nested_macro_invocation.try_map_with(|invocation, extra| {
         let expansion = invocation.substitute_macro_parameters(extra.state().macros());
-        if expansion
-            .local_symbols
-            .as_ref()
-            .is_some_and(|symbols| !symbols.is_empty())
-            || expansion
-                .instructions
-                .iter()
-                .any(|instruction| !instruction.tags.is_empty())
-        {
-            return Err(Rich::custom(
-                extra.span(),
-                "macro expansion inside an RC-word cannot yet contain local symbols",
-            ));
-        }
-        OneOrMore::try_from_iter(
+        let words = OneOrMore::try_from_iter(
             expansion
                 .instructions
                 .into_iter()
                 .map(RegisterContaining::from),
         )
-        .map_err(|_| Rich::custom(extra.span(), "macro expansion inside an RC-word is empty"))
+        .map_err(|_| Rich::custom(extra.span(), "macro expansion inside an RC-word is empty"))?;
+        Ok(RegistersContaining::from_macro_expansion(
+            expansion.local_symbols,
+            words,
+        ))
     });
 
     let hold_value = select! {
@@ -1557,7 +1547,7 @@ where
             tags: Vec::new(),
             instruction: UntaggedProgramInstruction::from(OneOrMore::new(fragment)),
         };
-        OneOrMore::new(RegisterContaining::from(instruction))
+        RegistersContaining::from_words(OneOrMore::new(RegisterContaining::from(instruction)))
     });
 
     // Parse {E} where E is either one instruction or a macro expansion.
@@ -1565,15 +1555,17 @@ where
         choice((
             expanded_macro,
             hold_value,
-            tagged_program_instruction
-                .clone()
-                .map(|instruction| OneOrMore::new(RegisterContaining::from(instruction))),
+            tagged_program_instruction.clone().map(|instruction| {
+                RegistersContaining::from_words(OneOrMore::new(RegisterContaining::from(
+                    instruction,
+                )))
+            }),
         ))
         .delimited_by(
             just(Tok::LeftBrace(Script::Normal)),
             just(Tok::RightBrace(Script::Normal)),
         )
-        .map_with(|words, extra| Atom::RcRef(extra.span(), RegistersContaining::from_words(words)))
+        .map_with(|words, extra| Atom::RcRef(extra.span(), words))
         .labelled("RC-word")
         .boxed(),
     );

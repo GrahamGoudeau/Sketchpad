@@ -880,6 +880,24 @@ fn macro_expansion_inside_rc_word() {
 }
 
 #[test]
+fn macro_expansion_inside_rc_word_uses_local_tags() {
+    let input = concat!(
+        "☛☛DEF INNER≡P\n",
+        "LOCAL→P\n",
+        "LOCAL\n",
+        "☛☛EMD\n",
+        "100|{INNER≡4}\n",
+    );
+
+    let program = assemble_source(input, Default::default())
+        .expect("a macro expansion inside an RC word can use local tags");
+
+    assert_eq!(program.chunks.len(), 2);
+    assert_eq!(program.chunks[0].words, vec![u36!(0o101)]);
+    assert_eq!(program.chunks[1].words, vec![u36!(0o4), u36!(0o101)]);
+}
+
+#[test]
 fn bare_macro_expansion_inside_rc_word() {
     let input = concat!("☛☛DEF INNER\n", "4\n", "5\n", "☛☛EMD\n", "100|{INNER}\n",);
 

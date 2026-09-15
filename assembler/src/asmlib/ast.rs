@@ -573,19 +573,31 @@ impl Spanned for ConfigValue {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct RegistersContaining(OneOrMore<RegisterContaining>);
+pub(crate) struct RegistersContaining {
+    local_symbols: Option<ExplicitSymbolTable>,
+    words: OneOrMore<RegisterContaining>,
+}
 
 impl RegistersContaining {
     pub(super) fn from_words(words: OneOrMore<RegisterContaining>) -> RegistersContaining {
-        Self(words)
+        Self {
+            local_symbols: None,
+            words,
+        }
+    }
+
+    pub(super) fn from_macro_expansion(
+        local_symbols: Option<ExplicitSymbolTable>,
+        words: OneOrMore<RegisterContaining>,
+    ) -> RegistersContaining {
+        Self {
+            local_symbols: Some(local_symbols.unwrap_or_default()),
+            words,
+        }
     }
 
     pub(super) fn words(&self) -> impl Iterator<Item = &RegisterContaining> {
-        self.0.iter()
-    }
-
-    pub(crate) fn words_mut(&mut self) -> impl Iterator<Item = &mut RegisterContaining> {
-        self.0.iter_mut()
+        self.words.iter()
     }
 
     fn symbol_uses(
@@ -594,9 +606,25 @@ impl RegistersContaining {
         block_offset: Unsigned18Bit,
     ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<'_>
     {
-        self.0
+        let local_symbols = self.local_symbols.as_ref();
+        let local_tags: BTreeSet<&SymbolName> = self
+            .words
             .iter()
-            .flat_map(move |rc| rc.symbol_uses(block_id, block_offset))
+            .flat_map(|rc| rc.instruction().tags.iter().map(|tag| &tag.name))
+            .collect();
+        let mut result = Vec::new();
+        for rc in self.words.iter() {
+            result.extend(rc.symbol_uses(block_id, block_offset).filter(|result| {
+                match result.as_ref() {
+                    Err(_) => true,
+                    Ok((name, _, _)) => {
+                        !local_tags.contains(name)
+                            && !local_symbols.is_some_and(|symbols| symbols.is_defined(name))
+                    }
+                }
+            }));
+        }
+        result.into_iter()
     }
 
     fn substitute_macro_parameters(
@@ -623,12 +651,15 @@ impl RegistersContaining {
         // for the current implementation of the Spanned trait for
         // RegistersContaining.
         let tmp_rc: OneOrMore<Option<RegisterContaining>> = self
-            .0
+            .words
+            .clone()
             .map(|rc| rc.substitute_macro_parameters(param_values, on_missing, macros));
         if tmp_rc.iter().all(Option::is_some) {
-            Some(RegistersContaining(tmp_rc.into_map(|maybe_rc| {
-                maybe_rc.expect("we already checked this wasn't None")
-            })))
+            Some(RegistersContaining {
+                local_symbols: self.local_symbols.clone(),
+                words: tmp_rc
+                    .into_map(|maybe_rc| maybe_rc.expect("we already checked this wasn't None")),
+            })
         } else {
             None
         }
@@ -645,10 +676,11 @@ impl RegistersContaining {
             span,
             kind: RcWordKind::Braces,
         };
-        for rc in self.words_mut() {
+        for rc in self.words.iter_mut() {
             *rc = rc.clone().assign_rc_word(
                 source.clone(),
                 explicit_symtab,
+                &mut self.local_symbols,
                 implicit_symtab,
                 rc_allocator,
             )?;
@@ -660,7 +692,7 @@ impl RegistersContaining {
 impl Spanned for RegistersContaining {
     fn span(&self) -> Span {
         use chumsky::span::Span;
-        let mut it = self.0.iter();
+        let mut it = self.words.iter();
         match it.next() {
             Some(rc) => it.fold(rc.span(), |acc, rc| acc.union(rc.span())),
             None => {
@@ -802,6 +834,7 @@ impl RegisterContaining {
         self,
         source: RcWordSource,
         explicit_symtab: &mut ExplicitSymbolTable,
+        local_symbols: &mut Option<ExplicitSymbolTable>,
         implicit_symtab: &mut ImplicitSymbolTable,
         rc_allocator: &mut R,
     ) -> Result<RegisterContaining, RcWordAllocationFailure> {
@@ -809,16 +842,13 @@ impl RegisterContaining {
             RegisterContaining::Unallocated(mut tpibox) => {
                 let address: Address = rc_allocator.allocate(source, Unsigned36Bit::ZERO)?;
                 for tag in &tpibox.tags {
-                    eprintln!(
-                        "assigning RC-word at address {address} serves as defnition of tag {}",
-                        &tag.name
-                    );
                     implicit_symtab.remove(&tag.name);
                     let new_tag_definition = TagDefinition::Resolved {
                         span: tag.span,
                         address,
                     };
-                    match explicit_symtab.define(
+                    let tag_symtab = local_symbols.as_mut().unwrap_or(explicit_symtab);
+                    match tag_symtab.define(
                         tag.name.clone(),
                         ExplicitDefinition::Tag(new_tag_definition.clone()),
                     ) {
@@ -1371,12 +1401,14 @@ impl InstructionFragment {
             } => {
                 let span: Span = *rc_word_span;
                 let w = rc_word_value.clone();
+                let mut local_symbols = None;
                 *rc_word_value = w.assign_rc_word(
                     RcWordSource {
                         span,
                         kind: RcWordKind::PipeConstruct,
                     },
                     explicit_symtab,
+                    &mut local_symbols,
                     implicit_symtab,
                     rc_allocator,
                 )?;

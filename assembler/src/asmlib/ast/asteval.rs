@@ -83,26 +83,35 @@ impl Evaluate for RegistersContaining {
         ctx: &mut EvaluationContext<R>,
         scope: ScopeIdentifier,
     ) -> Result<Unsigned36Bit, EvaluationFailure> {
-        let mut first_addr: Option<Unsigned36Bit> = None;
-        for rc_word in self.words() {
-            // Evaluation of the RegisterContaining value will compute
-            // a correct here-value, we don't need to pass it in.  But
-            // we can't pass None, and so instead we pass NotAllowed
-            // so that if a bug is introduced we will see a failure
-            // rather than an incorrect result.
-            let address: Unsigned36Bit = ctx
-                .for_target_address(HereValue::NotAllowed, |newctx| {
-                    rc_word.evaluate(newctx, scope)
-                })?;
-            if first_addr.is_none() {
-                first_addr = Some(address);
+        let evaluate_words = |ctx: &mut EvaluationContext<R>| {
+            let mut first_addr: Option<Unsigned36Bit> = None;
+            for rc_word in self.words() {
+                // Evaluation of the RegisterContaining value will compute
+                // a correct here-value, we don't need to pass it in.  But
+                // we can't pass None, and so instead we pass NotAllowed
+                // so that if a bug is introduced we will see a failure
+                // rather than an incorrect result.
+                let address: Unsigned36Bit = ctx
+                    .for_target_address(HereValue::NotAllowed, |newctx| {
+                        rc_word.evaluate(newctx, scope)
+                    })?;
+                if first_addr.is_none() {
+                    first_addr = Some(address);
+                }
             }
-        }
-        match first_addr {
-            Some(addr) => Ok(addr),
-            None => {
-                unreachable!("RC-references should not occupy zero words of storage");
+            match first_addr {
+                Some(addr) => Ok(addr),
+                None => {
+                    unreachable!("RC-references should not occupy zero words of storage");
+                }
             }
+        };
+
+        if let Some(local_symbols) = self.local_symbols.as_ref() {
+            let symbols = ctx.explicit_symtab.with_overrides(local_symbols);
+            ctx.with_explicit_symbols(&symbols, evaluate_words)
+        } else {
+            evaluate_words(ctx)
         }
     }
 }

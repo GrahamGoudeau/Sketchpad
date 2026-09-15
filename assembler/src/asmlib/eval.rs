@@ -447,6 +447,28 @@ impl<R: RcUpdater> EvaluationContext<'_, R> {
         self.here = old_here;
         output
     }
+
+    pub(super) fn with_explicit_symbols<F, T>(
+        &mut self,
+        explicit_symtab: &ExplicitSymbolTable,
+        closure: F,
+    ) -> T
+    where
+        F: FnOnce(&mut EvaluationContext<'_, R>) -> T,
+    {
+        let mut nested = EvaluationContext {
+            here: self.here,
+            explicit_symtab,
+            implicit_symtab: &mut *self.implicit_symtab,
+            index_register_assigner: &mut *self.index_register_assigner,
+            memory_map: self.memory_map,
+            rc_updater: &mut *self.rc_updater,
+            lookup_operation: std::mem::take(&mut self.lookup_operation),
+        };
+        let output = closure(&mut nested);
+        self.lookup_operation = nested.lookup_operation;
+        output
+    }
 }
 
 /// A scope in which a tag name can be looked up.
