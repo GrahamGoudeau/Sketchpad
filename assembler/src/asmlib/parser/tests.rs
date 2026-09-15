@@ -3045,6 +3045,37 @@ mod macro_tests {
     }
 
     #[test]
+    fn test_hold_bit_in_macro_parameter() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF MOVE|A→B\n",
+                "hLDE A\n",
+                "STE B\n",
+                "☛☛EMD\n",
+                "MOVE|LIST+1@sub_beta@→hLIST+1@sub_alpha@\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        let instructions = &got.blocks[0].sequences[0].instructions;
+        assert_eq!(instructions.len(), 2);
+        assert_eq!(
+            instructions[0].instruction.fragments.first().holdbit,
+            HoldBit::Hold
+        );
+        assert_eq!(
+            instructions[1]
+                .instruction
+                .fragments
+                .iter()
+                .filter(|fragment| fragment.holdbit == HoldBit::Hold)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
     fn test_parse_macro_invocation_with_equality() {
         let got = parse_successfully_with(
             concat!(

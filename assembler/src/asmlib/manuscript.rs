@@ -19,7 +19,6 @@ use base::u18;
 use super::ast::ArithmeticExpression;
 use super::ast::Equality;
 use super::ast::EqualityValue;
-#[cfg(test)]
 use super::ast::HoldBit;
 #[cfg(test)]
 use super::ast::InstructionFragment;
@@ -594,7 +593,8 @@ impl MacroDefinition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MacroParameterValue {
     Value(Script, ArithmeticExpression),
-    Fragments(Vec<(Script, ArithmeticExpression)>),
+    HeldValue(HoldBit, Script, ArithmeticExpression),
+    Fragments(HoldBit, Vec<(Script, ArithmeticExpression)>),
     Expansion(Box<MacroInvocation>),
 }
 
