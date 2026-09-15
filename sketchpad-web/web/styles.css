@@ -451,6 +451,43 @@ footer p {
   line-height: 1.55;
 }
 
+.advanced-guide {
+  grid-column: 2;
+  color: var(--dim);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.advanced-guide summary {
+  color: var(--phosphor);
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.advanced-guide table {
+  width: 100%;
+  margin-top: 14px;
+  border-collapse: collapse;
+}
+
+.advanced-guide th,
+.advanced-guide td {
+  padding: 8px 10px;
+  border: 1px solid #334239;
+  text-align: left;
+  vertical-align: top;
+}
+
+.advanced-guide th {
+  color: #aeb9b2;
+  font-weight: 500;
+}
+
+.advanced-guide p {
+  margin: 12px 0 0;
+}
+
 kbd {
   padding: 1px 5px;
   border: 1px solid #536159;

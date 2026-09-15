@@ -46,10 +46,12 @@ at address `377621`.  The application models the 24 manual toggle registers at
 `377700` through `377727`.  The application also accepts a local paper-tape
 file.
 
-The desktop interface maps `D` to external button Q1.8, the recovered `DRAW`
-command.  It maps `T` to Q2.9, the recovered `TRUEUP` command.  These shortcuts
-only change the External Input Register.  The complete Q4-Q1 button panel stays
-available.
+The desktop interface maps `D` to external button Q1.8 and the recovered
+`STARTDRAW` routine.  It maps `T` to Q2.9 and `TRUEUP`.  It maps `F` to Q3.3
+and `FIXIT`.  It maps `U` to Q2.7 and `UNFIX`.  These shortcuts only change
+the External Input Register.  The complete Q4-Q1 button panel stays available.
+Its button titles name every routine found in the recovered `READIT` dispatch
+table.
 
 `DRAWASFIX` at `377720` bit 4.9 and `SHOWBLKS` at `377725` bit 4.9 are on by
 default.  They keep interactive display and light-pen selection active.  `FIX`
@@ -64,6 +66,11 @@ the program's other interactive inputs.  A regression run now proves the full
 path from an assembly-created line, through original light-pen selection and
 `TRUEUP`, to an assembly-created HOV constraint and a residual-reducing pass of
 the original `RELAX` solver.
+
+A second regression presses Q3.3 on the selected assembly-created line.  The
+original `FIXIT` routine links that line into Sketchpad's `FIXEDS` list without
+allocating a new object.  The regression then presses Q2.7.  The original
+`UNFIX` routine restores every changed list word.
 
 Deploy the current release:
 

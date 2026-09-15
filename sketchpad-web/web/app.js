@@ -22,8 +22,34 @@ const showBlocksToggle = document.querySelector("#show-blocks-toggle");
 const showConstraintsToggle = document.querySelector("#show-constraints-toggle");
 
 const commandButtons = new Map([
-  ["1.8", { name: "DRAW", shortcut: "D" }],
+  ["1.1", { name: "MOVEPIC" }],
+  ["1.2", { name: "CONSTOUT" }],
+  ["1.3", { name: "ERASE" }],
+  ["1.4", { name: "POINTSOUT" }],
+  ["1.5", { name: "PICOUT" }],
+  ["1.6", { name: "STOPMOVEP" }],
+  ["1.7", { name: "DESIGNATE" }],
+  ["1.8", { name: "STARTDRAW", shortcut: "D" }],
+  ["1.9", { name: "CPY1" }],
+  ["2.1", { name: "MOVEPOINT" }],
+  ["2.2", { name: "DESIGIT" }],
+  ["2.3", { name: "DUMMY" }],
+  ["2.4", { name: "SUBPIC" }],
+  ["2.5", { name: "CPY2" }],
+  ["2.6", { name: "MAKPATA" }],
+  ["2.7", { name: "UNFIX", shortcut: "U" }],
+  ["2.8", { name: "MAKECONS" }],
   ["2.9", { name: "TRUEUP", shortcut: "T" }],
+  ["3.1", { name: "CPY3" }],
+  ["3.2", { name: "MAKETEXT" }],
+  ["3.3", { name: "FIXIT", shortcut: "F" }],
+  ["3.6", { name: "CPY4" }],
+  ["3.7", { name: "MAKESCALER" }],
+  ["3.9", { name: "RDTX2" }],
+  ["4.1", { name: "MGPSTART" }],
+  ["4.4", { name: "UNMAC" }],
+  ["4.5", { name: "ORDSTARTW" }],
+  ["4.6", { name: "ORDSTARTB" }],
 ]);
 
 for (const quarter of [4, 3, 2, 1]) {
@@ -40,16 +66,18 @@ for (const quarter of [4, 3, 2, 1]) {
     button.dataset.switchQuarter = String(quarter);
     button.dataset.switchBit = String(bit);
     const command = commandButtons.get(`${quarter}.${bit}`);
-    button.textContent = command ? `${bit} ${command.shortcut}` : String(bit);
+    button.textContent = command?.shortcut ? `${bit} ${command.shortcut}` : String(bit);
     if (command) {
       button.classList.add("command-button");
       button.dataset.command = command.name;
-      button.title = `${command.name} · keyboard ${command.shortcut}`;
+      button.title = command.shortcut
+        ? `${command.name} · keyboard ${command.shortcut}`
+        : command.name;
     }
     button.setAttribute(
       "aria-label",
       command
-        ? `External input bit ${quarter}.${bit}, ${command.name}, keyboard ${command.shortcut}`
+        ? `External input bit ${quarter}.${bit}, ${command.name}${command.shortcut ? `, keyboard ${command.shortcut}` : ""}`
         : `External input bit ${quarter}.${bit}`,
     );
     button.setAttribute("aria-pressed", "false");
@@ -61,8 +89,10 @@ for (const quarter of [4, 3, 2, 1]) {
 const externalButtons = Array.from(document.querySelectorAll("[data-external-button]"));
 const heldExternalButtons = new Set();
 const keyboardButtons = new Map([
-  ["KeyD", externalButtons.find((button) => button.dataset.command === "DRAW")],
+  ["KeyD", externalButtons.find((button) => button.dataset.command === "STARTDRAW")],
   ["KeyT", externalButtons.find((button) => button.dataset.command === "TRUEUP")],
+  ["KeyF", externalButtons.find((button) => button.dataset.command === "FIXIT")],
+  ["KeyU", externalButtons.find((button) => button.dataset.command === "UNFIX")],
 ]);
 
 let machine;
@@ -435,7 +465,7 @@ function loadMachine(tape) {
   applyExternalInputRegister();
   applyToggleRegisters();
   machine.codabo(0);
-  setMessage("Sketchpad is running. Hold the light pen on the scope. Press D to draw or T to TRUEUP a selected line.");
+  setMessage("Sketchpad is running. Use the mouse as the light pen. Press D to draw. Press T on a selected line to constrain it.");
   updateReadouts();
 }
 

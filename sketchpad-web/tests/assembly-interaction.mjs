@@ -11,6 +11,20 @@ const wasmUrl = new URL("../web/pkg/sketchpad_web_bg.wasm", import.meta.url);
 await init({ module_or_path: await readFile(fileURLToPath(wasmUrl)) });
 
 const machine = new SketchpadMachine();
+const selectedCommand = process.env.SELECT_COMMAND ?? "2.9";
+const selectedCommandParts = selectedCommand.split(".").map(Number);
+assert.equal(selectedCommandParts.length, 2, "SELECT_COMMAND must use quarter.bit form");
+const [selectedCommandQuarter, selectedCommandBit] = selectedCommandParts;
+assert.ok(selectedCommandQuarter >= 1 && selectedCommandQuarter <= 4,
+  "SELECT_COMMAND quarter must be 1 through 4");
+assert.ok(selectedCommandBit >= 1 && selectedCommandBit <= 9,
+  "SELECT_COMMAND bit must be 1 through 9");
+
+function setSelectedCommand(held) {
+  const quarters = [0, 0, 0, 0];
+  if (held) quarters[4 - selectedCommandQuarter] = 1 << (selectedCommandBit - 1);
+  machine.set_external_input_register(...quarters, false);
+}
 // Physical console switches used by the original program during interactive work.
 // DRAWASFIX returns to the display cycle after READIT. SHOWBLKS keeps selectable
 // non-drawing display records visible to the light pen.
@@ -938,6 +952,7 @@ if (process.env.CONSTRAINT_ONLY === "1") {
   machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 2 / 1022, true);
   const beforeAtBits = octal(machine.memory_word(0o200044, machine.simulated_time).value);
   const beforeConstraintList = machine.memory_word(0o024000, machine.simulated_time).value;
+  const memoryBeforeSelectedCommand = snapshot();
   const selectionDeadline = machine.simulated_time + 5;
   let trueupPressed = false;
   while (machine.simulated_time < selectionDeadline) {
@@ -948,7 +963,7 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       && state.instruction_address === 0o002320
       && hasOctalBit(atBitsAtInstruction, 0o4000000)
     ) {
-      machine.set_external_input_register(0, 0, 0o400, 0, false);
+      setSelectedCommand(true);
       trueupPressed = true;
       break;
     }
@@ -964,14 +979,80 @@ if (process.env.CONSTRAINT_ONLY === "1") {
   assert.equal(trueupPressed, true, "the TRUEUP button must be pressed while the line remains selected");
   const trueupStart = machine.simulated_time;
   let enteredTrueup = false;
-  while (machine.simulated_time < trueupStart + 200 && !enteredTrueup) {
+  const commandEntryAddresses = new Set();
+  const commandWaitSeconds = selectedCommand === "2.9" ? 200 : 20;
+  while (
+    machine.simulated_time < trueupStart + commandWaitSeconds
+    && (selectedCommand !== "2.9" || !enteredTrueup)
+  ) {
     const state = machine.control_state();
+    if (state.sequence === 0o76) commandEntryAddresses.add(octal(state.instruction_address, 6));
     enteredTrueup ||= state.sequence === 0o76 && state.instruction_address === 0o005421;
     stepBatch(1);
     assert.equal(machine.alarm_active, false, machine.last_alarm);
   }
-  machine.set_external_input_register(0, 0, 0, 0, false);
+  setSelectedCommand(false);
   machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 2 / 1022, false);
+  if (selectedCommand !== "2.9") {
+    const probeStart = machine.simulated_time;
+    const enteredAddresses = new Set();
+    while (machine.simulated_time < probeStart + 20) {
+      const state = machine.control_state();
+      if (state.sequence === 0o76) enteredAddresses.add(octal(state.instruction_address, 6));
+      stepBatch(1);
+      assert.equal(machine.alarm_active, false, machine.last_alarm);
+    }
+    const fixedListChanges = changes(memoryBeforeSelectedCommand, snapshot());
+    if (selectedCommand === "3.3") {
+      assert.ok(commandEntryAddresses.has("005277"),
+        "Q3.3 must enter the original FIXIT routine");
+      assert.equal(machine.memory_word(0o024000, machine.simulated_time).value, beforeConstraintList,
+        "FIXIT must link the selected object without allocating a new block");
+      assert.ok(fixedListChanges.some(({ address }) => address === "025267"),
+        "FIXIT must change the selected line's VORD link");
+
+      const unfixAddresses = new Set();
+      machine.set_external_input_register(0, 0, 0o100, 0, false);
+      const unfixStart = machine.simulated_time;
+      while (machine.simulated_time < unfixStart + 20) {
+        const state = machine.control_state();
+        if (state.sequence === 0o76) unfixAddresses.add(octal(state.instruction_address, 6));
+        stepBatch(1);
+        assert.equal(machine.alarm_active, false, machine.last_alarm);
+      }
+      machine.set_external_input_register(0, 0, 0, 0, false);
+      runUntilTime(machine.simulated_time + 5);
+      assert.ok(unfixAddresses.has("005326"),
+        "Q2.7 must enter the original UNFIX routine");
+      assert.equal(machine.memory_word(0o025267, machine.simulated_time).value,
+        memoryBeforeSelectedCommand.get(0o025267),
+        "UNFIX must restore the selected line's VORD link");
+      console.log(JSON.stringify({
+        selectedCommand,
+        selectedObject,
+        enteredFixit: true,
+        enteredUnfix: true,
+        fixedListChanges,
+        afterUnfixListChanges: changes(memoryBeforeSelectedCommand, snapshot()),
+        alarm: machine.last_alarm,
+      }, null, 2));
+      process.exit(0);
+    }
+    console.log(JSON.stringify({
+      selectedCommand,
+      beforeAtBits,
+      selectedAtBits,
+      selectedObject,
+      beforeList: octal(beforeConstraintList),
+      afterList: octal(machine.memory_word(0o024000, machine.simulated_time).value),
+      commandEntryAddresses: [...commandEntryAddresses],
+      enteredAddresses: [...enteredAddresses],
+      listChanges: fixedListChanges,
+      control: machine.control_state(),
+      alarm: machine.last_alarm,
+    }, null, 2));
+    process.exit(0);
+  }
   assert.equal(enteredTrueup, true, "the TRUEUP button must enter the original routine");
   const constraintAddress = 0o024000 + Number(beforeConstraintList);
   const constraintDeadline = machine.simulated_time + 20;
