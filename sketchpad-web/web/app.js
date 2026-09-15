@@ -9,6 +9,8 @@ const stateNode = document.querySelector("#state");
 const timeNode = document.querySelector("#machine-time");
 const countNode = document.querySelector("#point-count");
 const messageNode = document.querySelector("#message");
+const knobInputs = Array.from(document.querySelectorAll("[data-knob]"));
+const knobMeta = document.querySelector("#knob-meta");
 
 let machine;
 let activeTape;
@@ -83,6 +85,14 @@ function updateReadouts() {
   runButton.textContent = running ? "PAUSE" : "RUN";
 }
 
+function applyKnobRegister() {
+  const values = knobInputs.map((input) => Number(input.value));
+  for (const input of knobInputs) {
+    input.nextElementSibling.value = Number(input.value).toString(8).padStart(3, "0");
+  }
+  machine?.set_knob_register(...values, knobMeta.checked);
+}
+
 function stopWithError(error) {
   running = false;
   cancelAnimationFrame(frameRequest);
@@ -145,6 +155,7 @@ function loadMachine(tape) {
   context.fillStyle = "#010503";
   context.fillRect(0, 0, canvas.width, canvas.height);
   machine.mount_tape(activeTape, 0);
+  applyKnobRegister();
   machine.codabo(0);
   setMessage("The reconstructed Sketchpad tape is mounted. The TX-2 is ready.");
   updateReadouts();
@@ -199,6 +210,10 @@ for (const eventName of ["pointerup", "pointercancel"]) {
   canvas.addEventListener(eventName, () => {
     lightPen.active = false;
   });
+}
+
+for (const input of [...knobInputs, knobMeta]) {
+  input.addEventListener("input", applyKnobRegister);
 }
 
 window.addEventListener("resize", resizeCanvas);

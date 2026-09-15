@@ -508,6 +508,10 @@ impl MemoryUnit {
         self.v_memory.set_e_register(value);
     }
 
+    pub fn set_knob_register(&mut self, value: Unsigned36Bit, meta: bool) {
+        self.v_memory.set_knob_register(value, meta);
+    }
+
     /// Perform a memory read access.  Return a [`MemoryReadRef`] for
     /// the memory word being accessed.
     fn read_access<'a>(
@@ -822,7 +826,7 @@ struct VMemory {
     e_register: Unsigned36Bit,
     m_register_metabit: bool,
 
-    unimplemented_shaft_encoder: MemoryWord,
+    knob_register: MemoryWord,
     unimplemented_external_input_register: MemoryWord,
     rtc: MemoryWord,
     rtc_start: Duration,
@@ -936,7 +940,7 @@ impl VMemory {
                 Unsigned36Bit::default(),
             ],
             plugboard: standard_plugboard_internal(),
-            unimplemented_shaft_encoder: MemoryWord::default(),
+            knob_register: MemoryWord::default(),
             unimplemented_external_input_register: MemoryWord::default(),
             rtc: MemoryWord::default(),
             rtc_start: ctx.real_elapsed_time,
@@ -988,6 +992,10 @@ impl VMemory {
         self.e_register = value;
     }
 
+    fn set_knob_register(&mut self, value: Unsigned36Bit, meta: bool) {
+        self.knob_register = MemoryWord { word: value, meta };
+    }
+
     /// Perform a memory read.
     fn read_access<'a>(
         &'a mut self,
@@ -1025,15 +1033,11 @@ impl VMemory {
                 &self.e_register,
                 &mut self.m_register_metabit,
             )),
-            0o0377620 => {
-                event!(
-                    Level::WARN,
-                    "Reading the shaft encoder is not yet implemented"
-                );
-                Ok(MemoryReadRef::readonly_from(
-                    &mut self.unimplemented_shaft_encoder,
-                ))
-            }
+            0o0377620 => Ok(readonly(
+                &self.knob_register.word,
+                self.knob_register.meta,
+                &mut self.sacrificial_metabit,
+            )),
             0o0377621 => {
                 event!(
                     Level::WARN,
@@ -1339,4 +1343,43 @@ fn test_ae_registers_share_metabit() {
             assert!(!get_metabit(&context, &mut mem, ae_regs[first]));
         }
     }
+}
+
+#[test]
+fn knob_register_is_set_by_hardware_and_read_only_to_software() {
+    let context = make_ctx();
+    let mut mem = MemoryUnit::new(
+        &context,
+        &MemoryConfiguration {
+            with_u_memory: false,
+        },
+    );
+    let address = Address::from(u18!(0o0377620));
+    let value = u36!(0o123_456_654_321);
+    mem.set_knob_register(value, false);
+
+    {
+        let mut first_read = mem
+            .read_access(&context, &address)
+            .expect("the knob register should be readable");
+        assert_eq!(first_read.get_value(), value);
+        assert!(!first_read.get_meta_bit());
+        first_read.set_meta_bit();
+    }
+
+    {
+        let second_read = mem
+            .read_access(&context, &address)
+            .expect("the knob register should remain readable");
+        assert_eq!(second_read.get_value(), value);
+        assert!(!second_read.get_meta_bit());
+    }
+    assert!(mem.write_access(&context, &address).unwrap().is_none());
+
+    mem.set_knob_register(value, true);
+    assert!(
+        mem.read_access(&context, &address)
+            .expect("the hardware metabit should be readable")
+            .get_meta_bit()
+    );
 }

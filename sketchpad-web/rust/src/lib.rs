@@ -5,6 +5,7 @@
 use std::time::Duration;
 
 use base::charset::LincolnChar;
+use base::prelude::Unsigned9Bit;
 use cpu::{
     AlarmKind, Context, InputFlagRaised, MemoryConfiguration, OutputEvent, PanicOnUnmaskedAlarm,
     ResetMode, RunMode, ScopeOrigin, Tx2,
@@ -172,6 +173,30 @@ impl SketchpadMachine {
             .map_err(|error| JsValue::from_str(&error.to_string()))
     }
 
+    pub fn set_knob_register(
+        &mut self,
+        quarter_4: u16,
+        quarter_3: u16,
+        quarter_2: u16,
+        quarter_1: u16,
+        meta: bool,
+    ) -> Result<(), JsValue> {
+        let convert = |value| {
+            Unsigned9Bit::try_from(value)
+                .map_err(|_| JsValue::from_str("a knob value must be between 0 and 511"))
+        };
+        self.tx2.set_knob_register(
+            [
+                convert(quarter_4)?,
+                convert(quarter_3)?,
+                convert(quarter_2)?,
+                convert(quarter_1)?,
+            ],
+            meta,
+        );
+        Ok(())
+    }
+
     #[wasm_bindgen(getter)]
     pub fn simulated_time(&self) -> f64 {
         self.simulated_time.as_secs_f64()
@@ -246,5 +271,15 @@ mod tests {
     fn disconnected_light_pen_does_not_raise_a_flag() {
         let mut machine = SketchpadMachine::new();
         assert!(matches!(machine.light_pen_detected(0.0), Ok(false)));
+    }
+
+    #[test]
+    fn accepts_full_range_shaft_encoder_values() {
+        let mut machine = SketchpadMachine::new();
+        assert!(
+            machine
+                .set_knob_register(0, 0o777, 0o123, 0o456, true)
+                .is_ok()
+        );
     }
 }

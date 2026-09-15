@@ -41,6 +41,34 @@
             <strong id="point-count">0</strong>
           </div>
 
+          <fieldset class="knobs">
+            <legend>SHAFT ENCODERS</legend>
+            <label class="knob">
+              <span>Q4</span>
+              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 4">
+              <output>000</output>
+            </label>
+            <label class="knob">
+              <span>Q3</span>
+              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 3">
+              <output>000</output>
+            </label>
+            <label class="knob">
+              <span>Q2</span>
+              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 2">
+              <output>000</output>
+            </label>
+            <label class="knob">
+              <span>Q1</span>
+              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 1">
+              <output>000</output>
+            </label>
+            <label class="meta-control">
+              <input id="knob-meta" type="checkbox">
+              <span>KNOB META</span>
+            </label>
+          </fieldset>
+
           <div class="controls">
             <button id="run" type="button" disabled>RUN</button>
             <button id="reset" type="button" disabled>RESET</button>

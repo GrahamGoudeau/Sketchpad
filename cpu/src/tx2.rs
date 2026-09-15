@@ -165,6 +165,13 @@ impl Tx2 {
         Ok(raised)
     }
 
+    /// Set the four nine-bit shaft encoders and their pushbutton metabit.
+    pub fn set_knob_register(&mut self, quarters: [Unsigned9Bit; 4], meta: bool) {
+        let left = join_quarters(quarters[0], quarters[1]);
+        let right = join_quarters(quarters[2], quarters[3]);
+        self.mem.set_knob_register(join_halves(left, right), meta);
+    }
+
     /// Emulate the effect of the user pressing a key on one of the
     /// Lincoln Writers.
     pub fn lw_input(
