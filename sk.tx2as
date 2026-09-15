@@ -4327,7 +4327,7 @@ TYPEXIT@beta@@arr@      JPQ XXX@beta@
                 @sup_1@STE {TPK@beta@}+2        **SAVE RETURN
                 hLDE {TPK@beta@}+10.            **CUMULATIVE SUM CHK
                 @sup_2@SED E
-                JQP CMP1        **CORRECT
+                JPQ CMP1        **CORRECT
                 TYPEL,6@sub_3@@sub_6@@times@{603536,,704641} [syntax, 6@sub_3@@sub_6@? TYPEL is a macro.]
                 SKX@sub_3@@sub_6@0 [another symbol on the line, junk?]
                 RFD@sub_4@@sub_6@{TPK@beta@}+2*
@@ -4411,7 +4411,7 @@ TYPEL@sup@{70},3@sub_3@@sub_5@@times@@sup_2@@sup_1@TX2IK [@times@ is the arg sep
                 TYPEN@sup@{70},5@sub_3@@sub_5@@times@@sup_2@@sup_1@{TPK@beta@}+5
                 @sup_3@TSD {60}
                 RFD@sub_4@@sub_6@NORMEXIT@beta@-1
-ELOOPMSG1@beta@@arr@    @sup_1@@sup_3@RSX@sub_3@@sub_7@XSETX@beta@*     **NO OF QUARTERS-1
+ELOOPMSG1@beta@@arr@    @sup_1@@sup_3@RSX@sub_3@@sub_7@XSETK@beta@*     **NO OF QUARTERS-1
                 LDB@sub_3@@sub_5@{TPK@beta@}+8. **WORD
 ELOOPMSG2@beta@@arr@    STB {TPK@beta@}+4       **WA
                 TYPEN@sup@{70},3@sub_3@@sub_4@@times@B
@@ -4656,8 +4656,8 @@ TAFDKR@arr@     TAPEK1-10,,-10
                 TAPEK1+10,,-TAPEK1      **MOD TO TAPEK1-10,,-TAPEK1
 TAFST@arr@      TAPEK1-10,,10           **MOD TO TAPEK1-10,,-10
                 TAPEK2-TAPEK1,,TAPEK1
-                TAPER3-TAPEK2,,TAPEK2
-                TAPEK4-TAPER3,,TAPEK3
+                TAPEK3-TAPEK2,,TAPEK2
+                TAPEK4-TAPEK3,,TAPEK3
                 377777-TAPEK4,,TAPEK4
                 RL+REV+SPD4,,RM+REV+SPD4
                 RL+REV+SPD3,,RM+REV+SPD3
@@ -4790,7 +4790,7 @@ XXX=0
                 **DO NOT WRITE BLOCK MARKS
 WRENTRY@arr@    @sup_1@STE {TPK@beta@}+2        **RETURN
                 @sup_2@DPX@sub_3@@sub_5@{TPK@beta@}+1   **X@sub_3@@sub_5@
-                @sup_1@DPX@sub_3@@sub_7@{TPK@beta@}+8   **X@sub_3@@sub_7@
+                @sup_1@DPX@sub_3@@sub_7@{TPK@beta@}+8.  **X@sub_3@@sub_7@
                 @sup_2@DPX@sub_3@@sub_4@A       **PREV BLOCK
                 @sup_2@@sup_2@ADD {-10,,10}     **START BLOCK
                 @sup_2@@sup_2@STA {TPK@beta@}+1 **X@sub_3@@sub_4@
@@ -4961,7 +4961,7 @@ TEXTCNG@arr@
                 RSX @sub_alpha@ TEXTPLACE
                 SXD @sub_alpha@@sub_pipe@@sub_K@@sub_A@
                 JPQ TEXTCNGEX
-                REX @sub_beta@ MOVING-LIST
+                REX @sub_beta@ MOVINGS-LIST
                 LGORR@hamb@SPECB@times@@beta@=S@arr@TEXTCNG1
 TEXTCNGEX@arr@
                 JPQ #
@@ -5515,9 +5515,9 @@ OO@arr@         4,1,,-200,-0
 
                 SIZE/2
                 0
-                SIZE/2..SIZE/2
+                SIZE/2,,SIZE/2
                 SIZE/2,,-SIZE/2
-                1..-200000
+                1,,-200000
                 SIZE/2,,-SIZE/2
                 0,,-SIZE/2
                 0
@@ -5718,7 +5718,7 @@ COMMA@arr@      1,
                 SKX @sub_5@@sub_4@ 16000.
                 hJPQ {SQ45DELAY}
                 45GFR
-45SF1A@arr@     RXF @sub_5@@sub_4@ 45SIT1
+45SF1A@arr@     RXF @sub_5@@sub_4@ 45IT1
                 h@sup_1@TSD 45WA
                 @sup_1@IOS @sub_5@@sub_4@ 30000
                 @sup_1@IOS @sub_5@@sub_4@ 30300
@@ -6150,7 +6150,7 @@ TX2MSG@arr@     hJPQ TX2RESET
                 @sup_1@@sup_2@RSX @sub_4@@sub_5@@sub_X@{TPK@beta@}+3    **NXT FREE BLOCK
                 @sup_1@DPX @sub_4@@sub_5@@sub_X@ 45MWA3
                 RXF @sub_7@@sub_6@ 45EXIT*
-                SKN 45RSW
+                SKN 45RWSW
                 RXF @sub_7@@sub_6@ 45MERGE
                 RFD @sub_4@@sub_5@@sub_L@@sub_W@#+1
                 @sup_1@IOS @sub_4@@sub_5@@sub_L@@sub_W@30000
@@ -6260,7 +6260,7 @@ TX2ST@arr@      STB @sub_3@@sub_5@ 45LIST       **MOD
 TX21STRD@arr@
                 hJPQ TX2RD3     **MOD TO h@sup_1@@sup_4@JNX TX2RD3
                 h@sup_6@TSD B   **DATA OR SC1
-                h@sup_1@JNK @sub_3@@sub_4@ TX2RDCONT
+                h@sup_1@JNX @sub_3@@sub_4@ TX2RDCONT
 TX2RD2@arr@     h@sup_3@TSD B   **SC2 [guessing the superscript, maybe not 3?]
                 @sup_1@IOS @sub_4@@sub_6@ 30120
                 @sup_2@ADD B

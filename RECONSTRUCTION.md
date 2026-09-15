@@ -65,7 +65,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R031 and the validator changes let the complete source
+Repairs R001 through R041 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -106,7 +106,11 @@ and `4ef49ad` preserve structured nested macro values and complete hold-word
 parsing.  Commit `af58fbb` evaluates M4 addition and subtraction as signed
 one's-complement arithmetic.  Commit `7b54dce` keeps tags on macro invocations
 in global scope.  Commit `1551fbf` supports local symbols in RC-word macro
-expansions.  The assembler package passes 316 unit tests and 2 golden tests.
+expansions.  Commit `2692cbd` places the RC block after the last manuscript
+block, reuses complete bracketed groups, preserves contiguous RC routines,
+resolves forward macros inside RC words, and preassigns the standard `A`
+through `E` register names.  The assembler package passes 321 unit tests and
+2 golden tests.
 
 ## Evidence Order
 
@@ -171,6 +175,16 @@ file marks it clearly and the log records the alternatives.
 | R029 | `sk2.tx2as:5997`, `6349` | mechanical | The assembler glyph table names the superscript plus glyph `add` | Normalize the two ad hoc `@sup_+@` spellings to `@sup_add@`. |
 | R030 | `sk2.tx2as:6719` | verified | Sketchpad part 2, PDF page 150; the adjacent held `TSD` spelling | Read the transcribed barred `h` as the M4 hold indicator `h`. |
 | R031 | `sk2.tx2as:939` | verified | The duplicate Part 1 line; ten adjacent `HEADER` calls; the printed expansion below H3 | Restore the omitted `@hamb@` separator before the `HOLDERS` argument. |
+| R032 | `sk.tx2as:4330` | verified | Sketchpad part 1, PDF page 91; valid TX-2 opcode spelling | Read `JQP` as `JPQ`. |
+| R033 | `sk.tx2as:4414` | verified | High-resolution view of Sketchpad part 1, PDF page 99; the local `XSETKβ` tag in the same macro | Read `XSETXβ` as `XSETKβ`. |
+| R034 | `sk.tx2as:4659-4660` | verified | Sketchpad part 1, PDF page 104; the adjacent `TAPEK1` through `TAPEK4` equalities | Read both `TAPER3` occurrences as `TAPEK3`. |
+| R035 | `sk.tx2as:4964` | verified | The `MOVINGS` equality and the printed `GX7A` symex table | Read `MOVING` as `MOVINGS`. |
+| R036 | `sk.tx2as:5721` | verified | High-resolution view of Sketchpad part 1, PDF page 124; the `45IT1` tag and printed address `016457` | Read `45SIT1` as `45IT1`. |
+| R037 | `sk.tx2as:6153` | verified | The nearby `45RWSW` uses and equality; the printed source line | Read `45RSW` as `45RWSW`. |
+| R038 | `sk.tx2as:6263` | verified | TX-2 opcode spelling and the printed source line | Read `JNK` as `JNX`. |
+| R039 | `sk.tx2as:4793` | verified | High-resolution view of Sketchpad part 1, PDF page 106; adjacent decimal offsets use the same suffix | Restore the faint decimal point after `8`. |
+| R040 | `sk.tx2as:5518` | verified | High-resolution view of Sketchpad part 1, PDF page 121; the two marks match the comma-built coordinate words around them | Read the two faint marks as commas. |
+| R041 | `sk.tx2as:5520` | verified | High-resolution view of Sketchpad part 1, PDF page 121; repeated coordinate words on the same page | Read the two faint marks as commas. |
 
 ## Publication Gate
 
