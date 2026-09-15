@@ -1084,6 +1084,37 @@ Historical significance:
 - Two surviving artifacts now prove a program revision boundary.
 - The address gaps define the next M4 allocation question precisely.
 
+## Checkpoint 27: The First 2XMX Uncertainty Audit Closes 17 Readings
+
+Date: 2026-09-15
+
+A 500-DPI audit checked 17 marked readings in the `2XMX` source.  The audit
+used Part 1, PDF pages 18, 23, 25-27, 30-35, 42-45, 51, 53, and 56.  Each
+reading is clear in the scan or has a clear same-page glyph comparison.
+
+The verified readings include these useful cases:
+
+- `hJPX S #+3` on PDF page 18.
+- Button selectors `1.9`, `4.3`, `3.9`, `4.9`, and `3.8`.
+- The `MRGR8` and `DUM8` labels.
+- `LTAKE|0×β` and `RSX α|α LIST+IPCP`.
+- The unusual `JPQ #+1` instruction on PDF page 35.
+
+The source text already contained the correct readings.  R052 removes only
+the stale uncertainty notes.  The audit does not change machine output.  All
+eight tape hashes remain identical to Checkpoint 26.
+
+One marked reading in this region remains open.  PDF page 42 does not show the
+held-address glyph in `MOVE|LIST+1β→hLIST+1α` clearly enough.  The canonical
+source keeps the uncertainty note.  It also keeps the held form because the
+macro expansion requires it.
+
+Historical significance:
+
+- The source now distinguishes real uncertainty from old transcription doubt.
+- A strange instruction stays intact because the image proves it.
+- One unresolved glyph remains explicit and testable.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1103,7 +1134,9 @@ The `2XMX` symbol audit has repaired eight false names, one duplicated macro
 expansion, and one global tag-offset defect.  Seven selected program tags now
 match the printed table exactly.  The `APY5` audit has repaired one false
 operation name.  The complete printed `2XMX` automatic table is now a direct
-oracle.  The next goal is its mixed RC and automatic allocation schedule.
+oracle.  The first focused uncertainty audit has verified 17 more `2XMX`
+readings.  One marked held-address glyph remains open in that region.  The next
+goal is the mixed RC and automatic allocation schedule.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.

@@ -584,7 +584,7 @@ SKX@sub_S@@sub_pipe@@sub_X@@sub_R@@sub_2@0
         @sup_2@DPX@sub_X@@sub_R@@sub_pipe@@sub_S@LIST
         @sup_1@DPX@sub_X@@sub_R@@sub_pipe@@sub_T@LIST
 @sup_1@@sup_1@RSX@sub_S@@sub_pipe@@sub_X@@sub_R@@sub_2@LIST+(M)
-hJPX@sub_S@#+3  [best guess: 3]
+hJPX@sub_S@#+3
 SKX@sub_S@@sub_pipe@@sub_X@@sub_R@@sub_2@0
 @sup_1@DPX@sub_S@@sub_pipe@@sub_X@@sub_R@LIST-1
 @sup_1@@sup_1@AUX@sub_X@@sub_R@{(N)+1,,-((N)+1)}
@@ -816,7 +816,7 @@ STARTS@arr@     RXF @sub_4@@sub_7@ 47START
                 SXD @sub_alpha@ CIRCLES-LIST
                 MKN @sub_1@@sub_dot@@sub_6@ PAGE1
                 SXD @sub_alpha@ SCALERS-LIST
-                MKN @sub_1@@sub_dot@@sub_9@ PAGE1 [best guess: @sub_9@]
+                MKN @sub_1@@sub_dot@@sub_9@ PAGE1
 47FIXL1@arr@
                 SXD @sub_alpha@ POINTS-LIST
                 MKN @sub_1@@sub_dot@@sub_5@ PAGE1
@@ -955,7 +955,7 @@ PAGE1F@arr@     SKN @sub_4@@sub_dot@@sub_1@@sub_0@ SWITCH       ** IF ONE, DO DE
                 hJPQ POINTSOUT
                 SKZ @sub_1@@sub_dot@@sub_5@ 76BUT
                 hJPQ PICOUT
-                SKN @sub_4@@sub_dot@@sub_3@ 76BUT [best guess: @sub_3@]
+                SKN @sub_4@@sub_dot@@sub_3@ 76BUT
 
 [meta file_name=102726903-05-01-acc.pdf pdf_page=26 doc_page=24 type=code proof=1]
 [Page header: "IES 2XMX 004"]
@@ -977,7 +977,7 @@ PAGE1G@arr@     SKN @sub_4@@sub_dot@@sub_3@ 76BUT
                 hJPQ RIBM
                 hJPQ GARBAGE
                 MKN MOVED
-                SKN @sub_3@@sub_dot@@sub_9@ 76BUT       [best guess: @sub_9@]
+                SKN @sub_3@@sub_dot@@sub_9@ 76BUT
                 JPQ #+3
                 hJPQ RDTX2
                 MKN MOVED
@@ -1042,7 +1042,7 @@ PICOUT1@arr@
                 @sup_1@DPX @sub_alpha@ PICOUT@alpha@
 PICOUT2@arr@
                 RSX @sub_alpha@@sub_pipe@@sub_alpha@ LIST+PICBLKS+1
-                @sup_1@@sup_6@AUX @sub_alpha@@sub_pipe@@sub_alpha@ LIST-1 [best guess: @sup_6@]
+                @sup_1@@sup_6@AUX @sub_alpha@@sub_pipe@@sub_alpha@ LIST-1
                 DEX @sub_alpha@ 1
 PICOUT@alpha@@arr@
                 SXD @sub_alpha@ #
@@ -1192,7 +1192,7 @@ MAKETEXT@arr@
                 MUL { 10,} [zero not very legible, but see next block]
                 DPX B
                 STAB@hamb@LIST+TVAL@sub_alpha@
-                DPX @sub_0@@sub_pipe@@sub_alpha@ LIST+TXTS      [best guess: @sub_0@, there are other examples like this]
+                DPX @sub_0@@sub_pipe@@sub_alpha@ LIST+TXTS
                 MOVE|{ 47,47,,47,47}@arr@LIST+TXTS+1@sub_alpha@
                 hJPQ MTDIS
                 MKN SHAFTUSE
@@ -1252,7 +1252,7 @@ MKCN1X@arr@     JPQ #
                 STA B
                 DPX A
                 DEX @sub_beta@ CVTS+2
-                INX @sub_alpha@ CVTS+2 [best guess: @sub_alpha@]
+                INX @sub_alpha@ CVTS+2
                 JPQ MKCN2X
 MKCN2@arr@      MAKA@hamb@TPVALS@arr@@gamma@
                 PUTL@hamb@0@times@@alpha@@arr@VCON@times@@gamma@
@@ -1329,7 +1329,7 @@ SUBPICR@arr@
                 JPQ SUBPICS
                 JPQ #
 SUBPICS@arr@
-                @sup_1@DPX @sub_alpha@ #+2      ** MAKE I(THIS) [best guess: @sub_alpha@]
+                @sup_1@DPX @sub_alpha@ #+2      ** MAKE I(THIS)
                 hJPQ STOPMOVEP
                 REX @sub_gamma@#
                 MAKA@hamb@INSTANCES@arr@@alpha@
@@ -1419,7 +1419,7 @@ TRUEUP1@arr@
                 JPQ TRUEUPX
                 MAKA@hamb@IBVERTS@arr@@alpha@
                 RSX @sub_beta@ ATBITS+1
-                PUT|IBVW,@alpha@@arr@VCON,@beta@        [best guess: @alpha@]
+                PUT|IBVW,@alpha@@arr@VCON,@beta@
 TRUEUPX@arr@
                 JPQ #
 STARTDRAW@arr@
@@ -1469,7 +1469,7 @@ DESIGNATE@arr@
                 hJPQ MACAP
                 EXX @sub_alpha@ CCENT
                 SNN DESIGNATED
-                JPQ #+1 [looks like 1, but suspicious - isn't JPQ #+1 redundant? possibly 3?]
+                JPQ #+1
                 SKN @sub_1@@sub_dot@@sub_1@ DESTS       **OLD POINT AT LINE
                 hJPQ DELETE
                 MOVEB@times@ATPOINT@arr@21@times@DESTS
@@ -1868,7 +1868,7 @@ MRGR5B@arr@     RSX @sub_beta@ MRGRTS
 MRGRX@arr@      @sup_minus@@sup_2@JPX @sub_gamma@ MRGRXA
 MRGR7@arr@      RSX @sub_alpha@ MRGRU
                 hJPQ DELETE
-MRGR8@arr@      REX @sub_alpha@ MERGERS-LIST    [best guess: 8 in the label]
+MRGR8@arr@      REX @sub_alpha@ MERGERS-LIST
                 LGORR@hamb@SPECB@times@@alpha@=S@arr@MRGR10@arr@MRGR9
 MRGR10@arr@     RSX @sub_beta@@sub_pipe@@sub_alpha@ LIST+VORD+1
                 DEX @sub_beta@ 1
@@ -1895,7 +1895,7 @@ MRGR6@arr@      RSX @sub_delta@@sub_pipe@@sub_alpha@ LIST ** @delta@ IS POINTED 
                 RSX @sub_S@@sub_pipe@@sub_S@ LIST+TYPE
                 SXD @sub_S@ MASTERS-LIST
                 ERROR@hamb@@delta@@arr@MERGEX
-                LTAKE@hamb@0@times@@beta@       [best guess: 0]
+                LTAKE@hamb@0@times@@beta@
                 REX @sub_eps@ MERGERS-LIST
                 MOVEL@hamb@VORD@times@@delta@@arr@SPECB@times@@eps@
                 @sup_1@DPX @sub_eps@@sub_pipe@@sub_delta@ VORD+LIST
@@ -1976,7 +1976,7 @@ DUM7@arr@       RSX @sub_alpha@ ATBITS+1
                 RSX @sub_gamma@@sub_pipe@@sub_alpha@ LIST+IWHAT
                 LDA @sub_gamma@ LIST+PSIZE
                 STA MATD
-                LGORR@hamb@VCON@times@@alpha@=S@arr@DUM8 [best guess: DUM8]
+                LGORR@hamb@VCON@times@@alpha@=S@arr@DUM8
 DUMMEX@arr@     JPQ #
 DUM8@arr@       @sup_1@STE DUM8X
                 RSX @sub_S@@sub_pipe@@sub_alpha@ LIST+TYPE
@@ -1989,7 +1989,7 @@ DUM8X@arr@      JPQ #
 [meta file_name=102726903-05-01-acc.pdf pdf_page=45 doc_page=43 type=code proof=1]
 [Page header: "IES 2XMX 027"]
 
-                RSX @sub_alpha@@sub_pipe@@sub_alpha@ LIST+IPCP [best guess: @sub_alpha@ before pipe in subscript]
+                RSX @sub_alpha@@sub_pipe@@sub_alpha@ LIST+IPCP
                 STAB@hamb@VA@sub_alpha@
                 RSX @sub_S@@sub_pipe@@sub_alpha@ LIST+TYPE
                 hBPQ @sub_S@ LIST+MOVIT
@@ -2341,7 +2341,7 @@ GARB7@arr@      RSX @sub_alpha@ GARBA
                 hLDE @sub_T@@sub_pipe@@sub_beta@ LIST
                 STE @sub_T@@sub_pipe@@sub_alpha@ LIST
                 INX @sub_T@ 1
-                @sup_minus@@sup_1@JPX @sub_S@#-3        [best guess: 3]
+                @sup_minus@@sup_1@JPX @sub_S@#-3
                 @sup_1@@sup_6@AUX @sub_alpha@@sub_pipe@@sub_alpha@ LIST
 GARBS@arr@      INX @sub_beta@ 0
                 JPQ GARB4A
@@ -2467,7 +2467,7 @@ ORDCALC@arr@
 ORDC0@arr@      SUB ORDPX
                 [Some symbol on the left margin, assuming junk]
                 SCA {-1.}
-                SKZ @sub_4@@sub_dot@@sub_9@ A [best guess: @sub_9@]
+                SKZ @sub_4@@sub_dot@@sub_9@ A
                 COM A
                 STA ORDWA1
                 LDA ORDWA3
@@ -2598,7 +2598,7 @@ ORDCIRC3@arr@
                 SKX @sub_alpha@@sub_pipe@@sub_S@ 0
                 JPQ ORDP4
 ORDMP@arr@      @sup_1@@sup_1@RSX @sub_alpha@@sub_pipe@@sub_beta@ LIST-1
-                MKZ @sub_3@@sub_dot@@sub_8@ ORDMPSW     ** MAKE JPQ     [Best guess: @sub_8@.]
+                MKZ @sub_3@@sub_dot@@sub_8@ ORDMPSW     ** MAKE JPQ
                 MOVEL@hamb@BWHOS@times@@alpha@@arr@PICBLKS@times@@gamma@
 ORDMPSW@arr@
                 JPQ ORDI        ** CHGD TO @sup_1@@sup_4@JNX ORDI
