@@ -69,6 +69,19 @@
             </label>
           </fieldset>
 
+          <fieldset class="external-input">
+            <legend>EXTERNAL INPUT · 377621</legend>
+            <p>Hold one or more buttons. Each row and number identifies a TX-2 bit.</p>
+            <div id="external-buttons" class="switch-rows"></div>
+            <button
+              id="external-meta"
+              class="external-button external-meta"
+              data-external-button
+              type="button"
+              aria-pressed="false"
+            >4.10 META</button>
+          </fieldset>
+
           <div class="controls">
             <button id="run" type="button" disabled>RUN</button>
             <button id="reset" type="button" disabled>RESET</button>
@@ -87,7 +100,7 @@
 
       <footer>
         <p>This build runs the compatible seven-job reconstruction of Sketchpad.</p>
-        <p>Light-pen input and TX-2 console controls are the next runtime milestones.</p>
+        <p>The browser models the light pen and the two TX-2 console input registers.</p>
       </footer>
     </main>
     <script type="module" src="./app.js"></script>

@@ -165,7 +165,16 @@ canvas {
   border: 1px solid #334239;
 }
 
+.external-input {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 14px;
+  border: 1px solid #334239;
+}
+
 .knobs legend,
+.external-input legend,
 .knob span,
 .knob output,
 .meta-control {
@@ -195,6 +204,50 @@ canvas {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.external-input p {
+  margin: 0 0 4px;
+  color: var(--dim);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.switch-rows {
+  display: grid;
+  gap: 3px;
+}
+
+.switch-row {
+  display: grid;
+  grid-template-columns: 22px repeat(9, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+}
+
+.switch-row span {
+  color: #aeb9b2;
+  font-size: 0.58rem;
+}
+
+button.external-button {
+  min-height: 26px;
+  padding: 0;
+  font-size: 0.58rem;
+  letter-spacing: 0;
+  touch-action: none;
+}
+
+button.external-button.held {
+  border-color: var(--phosphor);
+  background: #31513e;
+  color: var(--phosphor);
+  box-shadow: inset 0 0 10px rgb(145 255 181 / 18%);
+}
+
+button.external-meta {
+  width: 100%;
+  letter-spacing: 0.08em;
 }
 
 button,

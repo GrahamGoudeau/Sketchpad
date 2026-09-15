@@ -11,6 +11,32 @@ const countNode = document.querySelector("#point-count");
 const messageNode = document.querySelector("#message");
 const knobInputs = Array.from(document.querySelectorAll("[data-knob]"));
 const knobMeta = document.querySelector("#knob-meta");
+const externalButtonRows = document.querySelector("#external-buttons");
+const externalMeta = document.querySelector("#external-meta");
+
+for (const quarter of [4, 3, 2, 1]) {
+  const row = document.createElement("div");
+  row.className = "switch-row";
+  const label = document.createElement("span");
+  label.textContent = `Q${quarter}`;
+  row.append(label);
+  for (let bit = 1; bit <= 9; bit += 1) {
+    const button = document.createElement("button");
+    button.className = "external-button";
+    button.type = "button";
+    button.textContent = String(bit);
+    button.dataset.externalButton = "";
+    button.dataset.switchQuarter = String(quarter);
+    button.dataset.switchBit = String(bit);
+    button.setAttribute("aria-label", `External input bit ${quarter}.${bit}`);
+    button.setAttribute("aria-pressed", "false");
+    row.append(button);
+  }
+  externalButtonRows.append(row);
+}
+
+const externalButtons = Array.from(document.querySelectorAll("[data-external-button]"));
+const heldExternalButtons = new Set();
 
 let machine;
 let activeTape;
@@ -93,6 +119,33 @@ function applyKnobRegister() {
   machine?.set_knob_register(...values, knobMeta.checked);
 }
 
+function applyExternalInputRegister() {
+  const quarters = [0, 0, 0, 0];
+  for (const button of heldExternalButtons) {
+    if (button === externalMeta) {
+      continue;
+    }
+    const quarter = Number(button.dataset.switchQuarter);
+    const bit = Number(button.dataset.switchBit);
+    quarters[4 - quarter] |= 1 << (bit - 1);
+  }
+  machine?.set_external_input_register(
+    ...quarters,
+    heldExternalButtons.has(externalMeta),
+  );
+}
+
+function holdExternalButton(button, held) {
+  if (held) {
+    heldExternalButtons.add(button);
+  } else {
+    heldExternalButtons.delete(button);
+  }
+  button.classList.toggle("held", held);
+  button.setAttribute("aria-pressed", String(held));
+  applyExternalInputRegister();
+}
+
 function stopWithError(error) {
   running = false;
   cancelAnimationFrame(frameRequest);
@@ -156,6 +209,7 @@ function loadMachine(tape) {
   context.fillRect(0, 0, canvas.width, canvas.height);
   machine.mount_tape(activeTape, 0);
   applyKnobRegister();
+  applyExternalInputRegister();
   machine.codabo(0);
   setMessage("The reconstructed Sketchpad tape is mounted. The TX-2 is ready.");
   updateReadouts();
@@ -214,6 +268,33 @@ for (const eventName of ["pointerup", "pointercancel"]) {
 
 for (const input of [...knobInputs, knobMeta]) {
   input.addEventListener("input", applyKnobRegister);
+}
+
+for (const button of externalButtons) {
+  button.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    button.setPointerCapture(event.pointerId);
+    holdExternalButton(button, true);
+  });
+  for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    button.addEventListener(eventName, () => holdExternalButton(button, false));
+  }
+  button.addEventListener("keydown", (event) => {
+    if ((event.key === " " || event.key === "Enter") && !event.repeat) {
+      event.preventDefault();
+      holdExternalButton(button, true);
+    }
+  });
+  button.addEventListener("keyup", (event) => {
+    if (event.key === " " || event.key === "Enter") {
+      event.preventDefault();
+      holdExternalButton(button, false);
+    }
+  });
+  button.addEventListener("blur", () => holdExternalButton(button, false));
 }
 
 window.addEventListener("resize", resizeCanvas);

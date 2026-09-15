@@ -512,6 +512,10 @@ impl MemoryUnit {
         self.v_memory.set_knob_register(value, meta);
     }
 
+    pub fn set_external_input_register(&mut self, value: Unsigned36Bit, meta: bool) {
+        self.v_memory.set_external_input_register(value, meta);
+    }
+
     /// Perform a memory read access.  Return a [`MemoryReadRef`] for
     /// the memory word being accessed.
     fn read_access<'a>(
@@ -827,7 +831,7 @@ struct VMemory {
     m_register_metabit: bool,
 
     knob_register: MemoryWord,
-    unimplemented_external_input_register: MemoryWord,
+    external_input_register: MemoryWord,
     rtc: MemoryWord,
     rtc_start: Duration,
     codabo_start_point: [Unsigned36Bit; 8],
@@ -941,7 +945,7 @@ impl VMemory {
             ],
             plugboard: standard_plugboard_internal(),
             knob_register: MemoryWord::default(),
-            unimplemented_external_input_register: MemoryWord::default(),
+            external_input_register: MemoryWord::default(),
             rtc: MemoryWord::default(),
             rtc_start: ctx.real_elapsed_time,
             permit_unknown_reads: true,
@@ -996,6 +1000,10 @@ impl VMemory {
         self.knob_register = MemoryWord { word: value, meta };
     }
 
+    fn set_external_input_register(&mut self, value: Unsigned36Bit, meta: bool) {
+        self.external_input_register = MemoryWord { word: value, meta };
+    }
+
     /// Perform a memory read.
     fn read_access<'a>(
         &'a mut self,
@@ -1038,17 +1046,11 @@ impl VMemory {
                 self.knob_register.meta,
                 &mut self.sacrificial_metabit,
             )),
-            0o0377621 => {
-                event!(
-                    Level::WARN,
-                    "Reading the external input register is not yet implemented"
-                );
-                Ok(readonly(
-                    &self.unimplemented_external_input_register.word,
-                    self.unimplemented_external_input_register.meta,
-                    &mut self.sacrificial_metabit,
-                ))
-            }
+            0o0377621 => Ok(readonly(
+                &self.external_input_register.word,
+                self.external_input_register.meta,
+                &mut self.sacrificial_metabit,
+            )),
             0o0377630 => {
                 self.update_rtc(ctx);
                 Ok(MemoryReadRef::readonly_from(&mut self.rtc))
@@ -1382,4 +1384,40 @@ fn knob_register_is_set_by_hardware_and_read_only_to_software() {
             .expect("the hardware metabit should be readable")
             .get_meta_bit()
     );
+}
+
+#[test]
+fn external_input_register_is_set_by_hardware_and_read_only_to_software() {
+    let context = make_ctx();
+    let mut mem = MemoryUnit::new(
+        &context,
+        &MemoryConfiguration {
+            with_u_memory: false,
+        },
+    );
+    let address = Address::from(u18!(0o0377621));
+    let value = u36!(0o400_200_100_001);
+    mem.set_external_input_register(value, false);
+
+    {
+        let mut read = mem
+            .read_access(&context, &address)
+            .expect("the external input register should be readable");
+        assert_eq!(read.get_value(), value);
+        assert!(!read.get_meta_bit());
+        read.set_meta_bit();
+    }
+
+    assert!(
+        !mem.read_access(&context, &address)
+            .expect("software should not change the external metabit")
+            .get_meta_bit()
+    );
+    assert!(mem.write_access(&context, &address).unwrap().is_none());
+    mem.set_external_input_register(Unsigned36Bit::ZERO, true);
+    let released = mem
+        .read_access(&context, &address)
+        .expect("the released external input register should be readable");
+    assert_eq!(released.get_value(), Unsigned36Bit::ZERO);
+    assert!(released.get_meta_bit());
 }

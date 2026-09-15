@@ -197,6 +197,30 @@ impl SketchpadMachine {
         Ok(())
     }
 
+    pub fn set_external_input_register(
+        &mut self,
+        quarter_4: u16,
+        quarter_3: u16,
+        quarter_2: u16,
+        quarter_1: u16,
+        meta: bool,
+    ) -> Result<(), JsValue> {
+        let convert = |value| {
+            Unsigned9Bit::try_from(value)
+                .map_err(|_| JsValue::from_str("a button quarter must be between 0 and 511"))
+        };
+        self.tx2.set_external_input_register(
+            [
+                convert(quarter_4)?,
+                convert(quarter_3)?,
+                convert(quarter_2)?,
+                convert(quarter_1)?,
+            ],
+            meta,
+        );
+        Ok(())
+    }
+
     #[wasm_bindgen(getter)]
     pub fn simulated_time(&self) -> f64 {
         self.simulated_time.as_secs_f64()
@@ -279,6 +303,16 @@ mod tests {
         assert!(
             machine
                 .set_knob_register(0, 0o777, 0o123, 0o456, true)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn accepts_simultaneous_external_input_buttons() {
+        let mut machine = SketchpadMachine::new();
+        assert!(
+            machine
+                .set_external_input_register(0o400, 0o200, 0o100, 0o001, true)
                 .is_ok()
         );
     }
