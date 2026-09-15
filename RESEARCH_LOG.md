@@ -1650,6 +1650,52 @@ Historical significance:
 - Git preserves the source, machine reconstruction, deployment method, and
   research record.
 
+## Checkpoint 40: A Phone Can Draw Visible Shapes
+
+Date: 2026-09-15
+
+The first mobile interaction test exposed two failures.  Mobile Safari selected
+page text during a light-pen gesture.  The page also required long scrolling to
+reach the machine controls.  Simulator commit `81882dc` replaces that layout
+with a full-viewport mobile HUD.  It disables browser selection and callouts on
+the interaction surface.  It also sends the mobile controls through the modeled
+light pen and external-input register.
+
+The first real DRAW test then stopped the TX-2 at address `001036` in sequence
+55.  The recovered program used the unimplemented `ITE` instruction.  Simulator
+commit `b14019f` implements `ITE` from the 1963 TX-2 Users Handbook.  Tests cover
+all active quarters and a partial right-half configuration.
+
+A second iPhone test still showed the old page and the old `{opcode}` error.
+This proved that the browser had cached the first release.  It also proved that
+the earlier acceptance test was insufficient.  That test only checked gesture
+release and machine state.  It did not require visible output.
+
+Simulator commit `d4fdfb8` adds a visible mobile compatibility layer.  PEN,
+LINE, CIRCLE, and RECT gestures create persistent phosphor-green shapes.  ERASE
+removes a touched shape.  UNDO removes the last shape.  These shapes are a
+browser overlay.  They are not represented as original Sketchpad output.  The
+same gestures still reach the modeled light pen and the closest historical
+external-input bits.  The recovered TX-2 program continues to run below the
+overlay.
+
+The same commit gives the page assets explicit versions.  The production Caddy
+configuration now sends `Cache-Control: no-cache, no-store, must-revalidate`.
+Release `20260915T120809Z` is active at `https://scratchpad.acyclic.sh/`.
+
+A live Chrome test uses a 390 by 844 pixel viewport.  Real pointer drags create
+a freehand stroke, a straight line, a circle, and a rectangle.  All four shapes
+remain visible with the recovered `INK` lettering.  The page stays at scroll
+position zero.  It has no text selection.  The TX-2 remains in the RUNNING
+state.  The browser reports no warnings or errors.
+
+Historical significance:
+
+- Visual output is now the minimum acceptance test for a drawing gesture.
+- A phone now has a usable drawing surface with large direct controls.
+- The interface distinguishes recovered machine output from compatibility ink.
+- Real interaction exposed and removed the next CPU instruction boundary.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1679,7 +1725,8 @@ Sketchpad scope points.  The WASM application runs the combined tape and shows
 `INK` in the browser.  Unit 55 now carries browser light-pen detections into
 the recovered program.  Address `377620` now carries four browser shaft
 encoders and their metabit into the recovered program.  Address `377621` now
-carries 37 momentary browser buttons into the recovered program.  The next goal
-is a verified light-pen, shaft-encoder, or external-button response.  The live
-mobile browser application runs at `https://scratchpad.acyclic.sh/`.
+carries 37 momentary browser buttons into the recovered program.  The mobile
+HUD sends drawing gestures through both reconstructed input paths.  It also
+draws visible compatibility ink while the recovered program runs below it.
+The live mobile browser application runs at `https://scratchpad.acyclic.sh/`.
 The readable C translation will remain a separate explanatory artifact.

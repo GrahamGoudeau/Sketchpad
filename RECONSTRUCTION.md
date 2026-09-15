@@ -89,8 +89,14 @@ connects browser pointer hits to a modeled unit-55 light pen.  Simulator commit
 Register address `377620`.  Simulator commit `5ef2170` connects 37 momentary
 browser buttons to External Input Register address `377621`.  Simulator commit
 `47aff8b` adds adaptive mobile execution and the production deployment record.
-The recovered program now runs at `https://scratchpad.acyclic.sh/`.  A verified
-interactive response is next.
+Simulator commit `81882dc` adds the full-viewport mobile HUD and sends its
+controls through the reconstructed input devices.  Simulator commit `b14019f`
+implements the `ITE` instruction that the first drawing gesture reached.
+Simulator commit `d4fdfb8` adds visible compatibility ink, shape tools, and
+cache-resistant production delivery.  A live mobile-size browser test draws a
+freehand stroke, a line, a circle, and a rectangle with real pointer gestures.
+The recovered program continues to draw `INK` below this explicit compatibility
+layer at `https://scratchpad.acyclic.sh/`.
 
 ## Validator Changes
 
