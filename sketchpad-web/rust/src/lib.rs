@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use base::charset::LincolnChar;
-use base::prelude::Unsigned9Bit;
+use base::prelude::{Unsigned6Bit, Unsigned9Bit, Unsigned18Bit};
 use cpu::{
     AlarmKind, Context, InputFlagRaised, MemoryConfiguration, OutputEvent, PanicOnUnmaskedAlarm,
     ResetMode, RunMode, ScopeOrigin, Tx2,
@@ -33,6 +33,31 @@ enum BrowserOutput {
         text: Option<String>,
         advance: bool,
     },
+}
+
+#[derive(Debug, Serialize)]
+struct BrowserUnitStatus {
+    unit: u8,
+    index_value: i32,
+    flag: bool,
+    connected: bool,
+    in_maintenance: bool,
+    name: String,
+    text: String,
+    mode: Option<u16>,
+}
+
+#[derive(Debug, Serialize)]
+struct BrowserMemoryWord {
+    value: u64,
+    meta: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct BrowserControlState {
+    sequence: Option<u8>,
+    program_counter: u32,
+    instruction: String,
 }
 
 fn scope_origin_name(origin: ScopeOrigin) -> &'static str {
@@ -135,11 +160,11 @@ impl SketchpadMachine {
         self.simulated_time = self.tx2.next_tick();
         let ctx = context(self.simulated_time, real_elapsed_seconds);
         match self.tx2.tick(&ctx) {
-            Ok(Some(output)) => serde_wasm_bindgen::to_value(&BrowserOutput::from_timed(
-                output,
-                self.simulated_time,
-            ))
-            .map_err(|error| JsValue::from_str(&error.to_string())),
+            Ok(Some(output)) => {
+                let output = BrowserOutput::from_timed(output, self.simulated_time);
+                serde_wasm_bindgen::to_value(&output)
+                    .map_err(|error| JsValue::from_str(&error.to_string()))
+            }
             Ok(None) => Ok(JsValue::NULL),
             Err(error) => {
                 let message = error.to_string();
@@ -174,12 +199,25 @@ impl SketchpadMachine {
             .map_err(|error| JsValue::from_str(&error.to_string()))
     }
 
-    pub fn light_pen_detected(&mut self, real_elapsed_seconds: f64) -> Result<bool, JsValue> {
-        let ctx = context(self.simulated_time, real_elapsed_seconds);
-        self.tx2
-            .light_pen_detected(&ctx)
-            .map(|raised| raised == InputFlagRaised::Yes)
-            .map_err(|error| JsValue::from_str(&error.to_string()))
+    pub fn set_light_pen(
+        &mut self,
+        x: f64,
+        y: f64,
+        radius: f64,
+        active: bool,
+    ) -> Result<(), JsValue> {
+        if !x.is_finite() || !y.is_finite() || !radius.is_finite() || radius < 0.0 {
+            return Err(JsValue::from_str("light-pen values must be finite"));
+        }
+        let scope_coordinate =
+            |normalized: f64| (normalized.clamp(0.0, 1.0) * 1022.0).round() as u16;
+        self.tx2.set_light_pen_position(
+            scope_coordinate(x),
+            scope_coordinate(1.0 - y),
+            scope_coordinate(radius),
+            active,
+        );
+        Ok(())
     }
 
     pub fn set_knob_register(
@@ -230,6 +268,59 @@ impl SketchpadMachine {
         Ok(())
     }
 
+    /// Return one hardware or software sequence state for diagnostics.
+    pub fn unit_status(&mut self, unit: u8, real_elapsed_seconds: f64) -> Result<JsValue, JsValue> {
+        let unit = Unsigned6Bit::try_from(unit)
+            .map_err(|_| JsValue::from_str("a unit number must be between 0 and 63"))?;
+        let ctx = context(self.simulated_time, real_elapsed_seconds);
+        let mut statuses = self
+            .tx2
+            .sequence_statuses(&ctx)
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        let status = statuses
+            .remove(&unit)
+            .ok_or_else(|| JsValue::from_str("the requested unit is not attached"))?;
+        let result = BrowserUnitStatus {
+            unit: unit.into(),
+            index_value: status.index_value.into(),
+            flag: status.flag,
+            connected: status.connected,
+            in_maintenance: status.in_maintenance,
+            name: status.name,
+            text: status.text_info,
+            mode: status.status.map(|connected| connected.mode),
+        };
+        serde_wasm_bindgen::to_value(&result).map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    /// Inspect one memory word for an emulator acceptance test.
+    pub fn memory_word(
+        &mut self,
+        address: u32,
+        real_elapsed_seconds: f64,
+    ) -> Result<JsValue, JsValue> {
+        let address = Unsigned18Bit::try_from(address)
+            .map_err(|_| JsValue::from_str("a memory address must be an 18-bit value"))?;
+        let ctx = context(self.simulated_time, real_elapsed_seconds);
+        let (value, meta) = self
+            .tx2
+            .inspect_memory_word(&ctx, address)
+            .map_err(|error| JsValue::from_str(&error))?;
+        serde_wasm_bindgen::to_value(&BrowserMemoryWord { value, meta })
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    /// Inspect the current control state for an emulator acceptance test.
+    pub fn control_state(&self) -> Result<JsValue, JsValue> {
+        let (sequence, program_counter, instruction) = self.tx2.inspect_control_state();
+        serde_wasm_bindgen::to_value(&BrowserControlState {
+            sequence,
+            program_counter,
+            instruction,
+        })
+        .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
     #[wasm_bindgen(getter)]
     pub fn simulated_time(&self) -> f64 {
         self.simulated_time.as_secs_f64()
@@ -238,6 +329,11 @@ impl SketchpadMachine {
     #[wasm_bindgen(getter)]
     pub fn alarm_active(&self) -> bool {
         self.tx2.unmasked_alarm_active()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn light_pen_detection_count(&self) -> u64 {
+        self.tx2.light_pen_detection_count()
     }
 
     #[wasm_bindgen(getter)]
@@ -303,12 +399,6 @@ mod tests {
     #[test]
     fn bundled_sketchpad_tape_is_present() {
         assert_eq!(SKETCHPAD.len(), 74_232);
-    }
-
-    #[test]
-    fn disconnected_light_pen_does_not_raise_a_flag() {
-        let mut machine = SketchpadMachine::new();
-        assert!(matches!(machine.light_pen_detected(0.0), Ok(false)));
     }
 
     #[test]

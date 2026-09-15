@@ -8,14 +8,46 @@ use super::super::context::Context;
 use super::super::control::{ControlUnit, OpcodeResult, ProgramCounterChange};
 use super::super::diagnostics::CurrentInstructionDiagnostics;
 use super::super::exchanger::exchanged_value_for_load_without_sign_extension;
+use super::super::exchanger::{SubwordForm, SystemConfiguration};
 use super::super::memory::{BitChange, MemoryMapped, MemoryOpFailure, MemoryUnit, WordChange};
 
 /// ## "Jump Skip Class" opcodes
 impl ControlUnit {
+    /// Implements JPA, JNA, and JOV (User Handbook, pages 3-32 and 3-33).
+    pub(crate) fn op_conditional_accumulator_jump(
+        &mut self,
+        ctx: &Context,
+        mem: &mut MemoryUnit,
+        condition: AccumulatorJumpCondition,
+    ) -> Result<OpcodeResult, Alarm> {
+        let target = self.operand_address_with_optional_defer_and_index(ctx, mem)?;
+        let config = self.get_config();
+        let take_jump = accumulator_condition(
+            &config,
+            mem.get_a_register(),
+            mem.overflow_indicators(),
+            condition,
+        );
+        if !take_jump {
+            return Ok(OpcodeResult::default());
+        }
+
+        let saved_left = subword::left_half(mem.get_e_register());
+        mem.set_e_register(subword::join_halves(
+            saved_left,
+            Unsigned18Bit::from(self.regs.p),
+        ));
+        Ok(OpcodeResult {
+            program_counter_change: Some(ProgramCounterChange::Jump(target)),
+            poll_order_change: None,
+            output: None,
+        })
+    }
+
     /// Implements the JMP opcode and its variations (all of which are unconditional jumps).
     pub(crate) fn op_jmp(
         &mut self,
-        _ctx: &Context,
+        ctx: &Context,
         mem: &mut MemoryUnit,
     ) -> Result<OpcodeResult, Alarm> {
         // For JMP the configuration field in the instruction controls
@@ -43,39 +75,10 @@ impl ControlUnit {
         mem.set_e_register(subword::join_halves(left, right));
 
         let (deferred, physical) = self.regs.n.operand_address().split();
-        if deferred {
-            // TODO: I don't know whether this is allowed or
-            // not, but if we disallow this for now, we can
-            // use any resulting error to identify cases where
-            // this is in fact used.
-            self.alarm_unit.fire_if_not_masked(
-                Alarm {
-                    sequence: self.regs.k,
-                    details: AlarmDetails::PSAL(
-                        u32::from(self.regs.n.operand_address_and_defer_bit()),
-                        format!(
-                            "JMP target has deferred address {:#o}",
-                            self.regs.n.operand_address()
-                        ),
-                    ),
-                },
-                &self.regs.diagnostic_only,
-            )?;
-            // If deferred addressing is allowed for JMP, we will
-            // need to implement it.  It's not yet implemented.
-            return Err(self.alarm_unit.always_fire(
-                Alarm {
-                    sequence: self.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "deferred JMP is not yet implemented".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/141",
-                    },
-                },
-                &self.regs.diagnostic_only,
-            ));
-        }
-
-        let new_pc: Address = if indexed {
+        let new_pc: Address = if deferred {
+            let initial_index_override = (!indexed).then_some(Unsigned6Bit::ZERO);
+            self.resolve_operand_address(ctx, mem, initial_index_override)?
+        } else if indexed {
             physical.index_by(self.regs.get_index_register(j))
         } else {
             physical
@@ -244,6 +247,47 @@ impl ControlUnit {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum AccumulatorJumpCondition {
+    Positive,
+    Negative,
+    Overflow,
+}
+
+fn accumulator_condition(
+    config: &SystemConfiguration,
+    accumulator: Unsigned36Bit,
+    overflow: [bool; 4],
+    condition: AccumulatorJumpCondition,
+) -> bool {
+    let fields: &[(u8, u8)] = match config.subword_form() {
+        SubwordForm::FullWord => &[(0, 4)],
+        SubwordForm::Halves => &[(0, 2), (2, 2)],
+        SubwordForm::ThreeOne => &[(0, 1), (1, 3)],
+        SubwordForm::Quarters => &[(0, 1), (1, 1), (2, 1), (3, 1)],
+    };
+    let activity = config.active_quarters();
+    let word = u64::from(accumulator);
+    fields.iter().any(|(first_quarter, quarter_count)| {
+        if !(*first_quarter..*first_quarter + *quarter_count)
+            .any(|quarter| activity.is_active(&quarter))
+        {
+            return false;
+        }
+        let offset = u32::from(*first_quarter) * 9;
+        let width = *quarter_count * 9;
+        let mask = (1_u64 << width) - 1;
+        let value = (word >> offset) & mask;
+        let sign = value & (1_u64 << (width - 1)) != 0;
+        let sign_quarter = usize::from(*first_quarter + *quarter_count - 1);
+        match condition {
+            AccumulatorJumpCondition::Positive => !sign && value != 0,
+            AccumulatorJumpCondition::Negative => sign && value != mask,
+            AccumulatorJumpCondition::Overflow => overflow[sign_quarter],
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::super::alarm::Alarm;
@@ -253,6 +297,7 @@ mod tests {
     };
     use super::super::super::memory::MetaBitChange;
     use super::super::super::{ControlUnit, MemoryConfiguration, MemoryUnit};
+    use super::{AccumulatorJumpCondition, SystemConfiguration, accumulator_condition};
     use base::instruction::{Opcode, SymbolicInstruction};
     use base::prelude::*;
     use core::time::Duration;
@@ -262,6 +307,52 @@ mod tests {
             simulated_time: Duration::new(42, 42),
             real_elapsed_time: Duration::new(7, 12),
         }
+    }
+
+    #[test]
+    fn conditional_accumulator_tests_exclude_both_zero_encodings() {
+        let full_word = SystemConfiguration::try_from(0_u16).unwrap();
+        assert!(!accumulator_condition(
+            &full_word,
+            u36!(0),
+            [false; 4],
+            AccumulatorJumpCondition::Positive,
+        ));
+        assert!(!accumulator_condition(
+            &full_word,
+            u36!(0o777_777_777_777),
+            [false; 4],
+            AccumulatorJumpCondition::Negative,
+        ));
+        assert!(accumulator_condition(
+            &full_word,
+            u36!(1),
+            [false; 4],
+            AccumulatorJumpCondition::Positive,
+        ));
+        assert!(accumulator_condition(
+            &full_word,
+            u36!(0o777_777_777_776),
+            [false; 4],
+            AccumulatorJumpCondition::Negative,
+        ));
+    }
+
+    #[test]
+    fn jov_tests_the_sign_quarter_of_each_active_subword() {
+        let right_half = SystemConfiguration::try_from(0o340_u16).unwrap();
+        assert!(!accumulator_condition(
+            &right_half,
+            u36!(0),
+            [false, false, false, true],
+            AccumulatorJumpCondition::Overflow,
+        ));
+        assert!(accumulator_condition(
+            &right_half,
+            u36!(0),
+            [false, true, false, false],
+            AccumulatorJumpCondition::Overflow,
+        ));
     }
 
     fn setup(
@@ -639,6 +730,57 @@ mod tests {
         assert_eq!(xj, orig_xj); // unaffected
         assert_eq!(e, join_halves(orig_q, orig_p)); // saved Q, P
         assert!(!dismissed);
+    }
+
+    #[test]
+    fn jpq_uses_a_deferred_target() {
+        let context = make_ctx();
+        let original_e = u36!(0o606_202_333_123);
+        let original_p = Address::from(u18!(0o200));
+        let original_q = Address::from(u18!(0o2777));
+        let defer_address = Address::from(u18!(0o300));
+        let target = Address::from(u18!(0o3302));
+        let (mut control, mut mem) = setup(
+            &context,
+            u6!(1),
+            Signed18Bit::from(20_i8),
+            original_e,
+            original_p,
+            original_q,
+        );
+        control
+            .memory_store_without_exchange(
+                &context,
+                &mut mem,
+                &defer_address,
+                &join_halves(Unsigned18Bit::ZERO, target.into()),
+                &UpdateE::No,
+                &MetaBitChange::None,
+            )
+            .unwrap();
+        control
+            .update_n_register(
+                Instruction::from(&SymbolicInstruction {
+                    held: false,
+                    configuration: u5!(0o14),
+                    opcode: Opcode::Jmp,
+                    index: u6!(1),
+                    operand_address: OperandAddress::deferred(defer_address),
+                })
+                .bits(),
+            )
+            .unwrap();
+
+        let result = control.op_jmp(&context, &mut mem).unwrap();
+
+        assert!(matches!(
+            result.program_counter_change,
+            Some(ProgramCounterChange::Jump(destination)) if destination == target
+        ));
+        assert_eq!(
+            mem.get_e_register(),
+            join_halves(original_q.into(), original_p.into())
+        );
     }
 
     /// This test is based on example 11 for JMP on page 3-31 of the

@@ -35,7 +35,7 @@ fn setup(ctx: &Context, p: Address) -> (ControlUnit, MemoryUnit) {
 
 #[test]
 fn test_roundtuital_not_maskable() {
-    // Simulate an unumplemented instruction, verify that the alarm
+    // Simulate an unimplemented instruction, verify that the alarm
     // unit states that an unmaskable alarm (ROUNDTUITAL) is active.
     const COMPLAIN: &str = "failed to set up instruction as test data";
     let context = make_ctx();
@@ -45,7 +45,7 @@ fn test_roundtuital_not_maskable() {
     let sym = SymbolicInstruction {
         held: false,
         configuration: Unsigned5Bit::ZERO,
-        opcode: Opcode::Sca,
+        opcode: Opcode::Scb,
         index: u6!(1),
         operand_address: OperandAddress::direct(Address::ZERO),
     };
@@ -68,7 +68,7 @@ fn test_roundtuital_not_maskable() {
     match result {
         Ok(_) => {
             panic!(
-                "execution of SCA is not expected to succeed, it is not implemented yet: {result:?}"
+                "execution of SCB is not expected to succeed, it is not implemented yet: {result:?}"
             );
         }
         Err((
@@ -79,7 +79,7 @@ fn test_roundtuital_not_maskable() {
             _,
         )) => (),
         Err(_) => {
-            panic!("expected execution of SCA to raise ROUNDTUITAL, but got {result:?}");
+            panic!("expected execution of SCB to raise ROUNDTUITAL, but got {result:?}");
         }
     }
     assert!(control.unmasked_alarm_active());

@@ -29,9 +29,57 @@ use super::context::Context;
 use super::control::{ConfigurationMemorySetup, ControlUnit, ResetMode, RunMode};
 use super::event::{InputEvent, OutputEvent};
 use super::io::{DeviceManager, ExtendedUnitState, InputFlagRaised, set_up_peripherals};
-use super::memory::{MemoryConfiguration, MemoryUnit};
+use super::memory::{MemoryConfiguration, MemoryMapped, MemoryUnit, MetaBitChange};
 use super::{InputEventError, PanicOnUnmaskedAlarm};
 use super::{LIGHT_PEN, PETR};
+
+const SCOPE_AXIS_MAX: u16 = 1022;
+
+/// The physical light pen position on the oscilloscope face.
+///
+/// Coordinates use the complete visible scope area.  Zero is the left or
+/// lower edge.  `SCOPE_AXIS_MAX` is the right or upper edge.
+#[derive(Debug, Default)]
+struct LightPenPosition {
+    active: bool,
+    x: u16,
+    y: u16,
+    radius: u16,
+}
+
+impl LightPenPosition {
+    fn axis_position(value: i16, moved_origin: bool) -> i32 {
+        if moved_origin {
+            i32::from(value) * 2
+        } else {
+            i32::from(value) + 511
+        }
+    }
+
+    fn sees(&self, event: &OutputEvent) -> bool {
+        let OutputEvent::ScopePoint { x, y, origin, .. } = event else {
+            return false;
+        };
+        if !self.active {
+            return false;
+        }
+
+        let left_origin = matches!(
+            origin,
+            super::event::ScopeOrigin::LeftCenter | super::event::ScopeOrigin::LowerLeft
+        );
+        let bottom_origin = matches!(
+            origin,
+            super::event::ScopeOrigin::BottomCenter | super::event::ScopeOrigin::LowerLeft
+        );
+        let scope_x = Self::axis_position(*x, left_origin);
+        let scope_y = Self::axis_position(*y, bottom_origin);
+        let dx = scope_x - i32::from(self.x);
+        let dy = scope_y - i32::from(self.y);
+        let radius = i32::from(self.radius);
+        dx * dx + dy * dy <= radius * radius
+    }
+}
 
 /// `Tx2` emulates the TX-2 computer, with peripherals.
 #[wasm_bindgen]
@@ -42,6 +90,8 @@ pub struct Tx2 {
     next_execution_due: Option<Duration>,
     next_hw_poll_due: Duration,
     run_mode: RunMode,
+    light_pen_position: LightPenPosition,
+    light_pen_detection_count: u64,
 }
 
 impl Tx2 {
@@ -71,6 +121,8 @@ impl Tx2 {
             next_execution_due: None,
             next_hw_poll_due: ctx.simulated_time,
             run_mode: RunMode::InLimbo,
+            light_pen_position: LightPenPosition::default(),
+            light_pen_detection_count: 0,
         }
     }
 
@@ -160,9 +212,42 @@ impl Tx2 {
     ) -> Result<InputFlagRaised, InputEventError> {
         let raised = self.on_input_event(ctx, LIGHT_PEN, InputEvent::LightPenDetected)?;
         if raised == InputFlagRaised::Yes {
+            self.light_pen_detection_count += 1;
             self.next_hw_poll_due = ctx.simulated_time;
         }
         Ok(raised)
+    }
+
+    /// Return the count of photocell detections accepted by unit 55.
+    #[must_use]
+    pub fn light_pen_detection_count(&self) -> u64 {
+        self.light_pen_detection_count
+    }
+
+    /// Put the physical light pen on the oscilloscope face.
+    ///
+    /// A scope point under an active pen causes the unit 55 photocell event.
+    pub fn set_light_pen_position(&mut self, x: u16, y: u16, radius: u16, active: bool) {
+        self.light_pen_position = LightPenPosition {
+            active,
+            x: x.min(SCOPE_AXIS_MAX),
+            y: y.min(SCOPE_AXIS_MAX),
+            radius: radius.min(SCOPE_AXIS_MAX),
+        };
+    }
+
+    fn detect_light_pen_illumination(&mut self, ctx: &Context, output: &OutputEvent) {
+        if !self.light_pen_position.sees(output) {
+            return;
+        }
+        if let Err(error) = self.light_pen_detected(ctx) {
+            event!(
+                Level::ERROR,
+                "light-pen photocell event failed at simulated time {:?}: {}",
+                ctx.simulated_time,
+                error
+            );
+        }
     }
 
     /// Set the four nine-bit shaft encoders and their pushbutton metabit.
@@ -178,6 +263,31 @@ impl Tx2 {
         let right = join_quarters(quarters[2], quarters[3]);
         self.mem
             .set_external_input_register(join_halves(left, right), meta);
+    }
+
+    /// Inspect one memory word without changing the emulated machine state.
+    pub fn inspect_memory_word(
+        &mut self,
+        ctx: &Context,
+        address: Unsigned18Bit,
+    ) -> Result<(u64, bool), String> {
+        self.mem
+            .fetch(ctx, &Address::from(address), &MetaBitChange::None)
+            .map(|(word, extra)| (word.into(), extra.meta))
+            .map_err(|error| error.to_string())
+    }
+
+    /// Inspect the current control state without changing the emulated machine.
+    pub fn inspect_control_state(&self) -> (Option<u8>, u32, String) {
+        let registers = self.control.inspect_registers();
+        (
+            registers.k.map(Into::into),
+            Unsigned18Bit::from(registers.p).into(),
+            registers.n_sym.as_ref().map_or_else(
+                || format!("{:012o}", registers.n.bits()),
+                ToString::to_string,
+            ),
+        )
     }
 
     /// Emulate the effect of the user pressing a key on one of the
@@ -423,6 +533,9 @@ impl Tx2 {
                         due = system_time + Duration::from_nanos(1);
                     }
                     self.set_next_execution_due(system_time, Some(due));
+                    if let Some(output) = maybe_output.as_ref() {
+                        self.detect_light_pen_illumination(ctx, output);
+                    }
                     Ok(maybe_output)
                 }
                 None => {
@@ -513,5 +626,56 @@ impl Tx2 {
                 .or_insert_with(|| self.extended_state_of_software_sequence(seq, index_value));
         }
         Ok(mapping)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::event::ScopeOrigin;
+    use base::u6;
+
+    fn scope_point(x: i16, y: i16, origin: ScopeOrigin) -> OutputEvent {
+        OutputEvent::ScopePoint {
+            unit: u6!(0o60),
+            x,
+            y,
+            intensity: 1,
+            origin,
+        }
+    }
+
+    #[test]
+    fn light_pen_maps_all_scope_origins_to_the_physical_face() {
+        let pen = LightPenPosition {
+            active: true,
+            x: 511,
+            y: 511,
+            radius: 2,
+        };
+        assert!(pen.sees(&scope_point(0, 0, ScopeOrigin::Center)));
+        assert!(pen.sees(&scope_point(0, 256, ScopeOrigin::BottomCenter)));
+        assert!(pen.sees(&scope_point(256, 0, ScopeOrigin::LeftCenter)));
+        assert!(pen.sees(&scope_point(256, 256, ScopeOrigin::LowerLeft)));
+        assert!(!pen.sees(&scope_point(0, 0, ScopeOrigin::LowerLeft)));
+
+        let lower_left_pen = LightPenPosition {
+            active: true,
+            x: 0,
+            y: 0,
+            radius: 0,
+        };
+        assert!(lower_left_pen.sees(&scope_point(0, 0, ScopeOrigin::LowerLeft)));
+    }
+
+    #[test]
+    fn inactive_light_pen_does_not_detect_scope_light() {
+        let pen = LightPenPosition {
+            active: false,
+            x: 511,
+            y: 511,
+            radius: 20,
+        };
+        assert!(!pen.sees(&scope_point(0, 0, ScopeOrigin::Center)));
     }
 }

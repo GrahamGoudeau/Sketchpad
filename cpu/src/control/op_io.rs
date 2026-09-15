@@ -457,6 +457,7 @@ impl ControlUnit {
                 if metabit_was_set && self.trap.trap_on_operand() {
                     self.raise_trap();
                 }
+                self.dismiss_unless_held("successful TSD completed");
                 Ok(OpcodeResult {
                     program_counter_change: None,
                     poll_order_change: self.regs.k,
@@ -481,5 +482,64 @@ impl ControlUnit {
             }
             Err(e) => Err(e),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+    use crate::control::ConfigurationMemorySetup;
+
+    fn run_software_tsd(held: bool) -> ControlUnit {
+        let ctx = Context::new(Duration::ZERO, Duration::ZERO);
+        let mut control = ControlUnit::new(
+            PanicOnUnmaskedAlarm::Yes,
+            ConfigurationMemorySetup::StandardForTestingOnly,
+        );
+        let mut memory = MemoryUnit::new(
+            &ctx,
+            &MemoryConfiguration {
+                with_u_memory: false,
+            },
+        );
+        let mut devices = DeviceManager::new();
+        let sequence = u6!(0o76);
+        control.regs.k = Some(sequence);
+        control.regs.flags.raise(&sequence);
+        control.regs.current_sequence_is_runnable = true;
+        control
+            .update_n_register(
+                Instruction::from(&SymbolicInstruction {
+                    held,
+                    configuration: Unsigned5Bit::ZERO,
+                    opcode: Opcode::Tsd,
+                    index: Unsigned6Bit::ZERO,
+                    operand_address: OperandAddress::direct(Address::from(u18!(0o100))),
+                })
+                .bits(),
+            )
+            .expect("the test TSD instruction must decode");
+
+        let result = control
+            .op_tsd(&ctx, &mut devices, Address::from(u18!(0o200)), &mut memory)
+            .expect("a software-sequence TSD must succeed");
+        assert_eq!(result.program_counter_change, None);
+        control
+    }
+
+    #[test]
+    fn successful_unheld_tsd_dismisses_its_sequence() {
+        let control = run_software_tsd(false);
+        assert!(!control.regs.flags.current_flag_state(&u6!(0o76)));
+        assert!(!control.regs.current_sequence_is_runnable);
+    }
+
+    #[test]
+    fn successful_held_tsd_keeps_its_sequence_running() {
+        let control = run_software_tsd(true);
+        assert!(control.regs.flags.current_flag_state(&u6!(0o76)));
+        assert!(control.regs.current_sequence_is_runnable);
     }
 }

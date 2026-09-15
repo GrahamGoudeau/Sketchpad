@@ -212,7 +212,7 @@ impl SystemConfiguration {
         result
     }
 
-    fn subword_form(&self) -> SubwordForm {
+    pub(crate) fn subword_form(&self) -> SubwordForm {
         const MASK: u16 = 0o3 << 7;
         match u16::from(self.0) & MASK {
             0b000000000 => SubwordForm::FullWord, // 36
@@ -930,6 +930,53 @@ pub(crate) fn exchanged_value_for_store(
     )
     // No sign extension in this direction, see doc comment for
     // rationale.
+}
+
+/// Perform the exchange-element work required by COM.
+///
+/// COM permutes every quarter.  It then complements active quarters and
+/// sign-extends the complemented sign through inactive parts of each subword.
+pub(crate) fn complement_permute(
+    cfg: &SystemConfiguration,
+    source: &Unsigned36Bit,
+) -> Unsigned36Bit {
+    let permuted = permute(
+        &cfg.permutation(),
+        &ExchangeDirection::ME,
+        &QuarterActivity::new(0b1111),
+        source,
+        source,
+    );
+    let activity = cfg.active_quarters();
+    let mut complemented = u64::from(permuted);
+    for quarter in 0..4 {
+        if activity.is_active(&quarter) {
+            complemented ^= quarter_mask(quarter);
+        }
+    }
+    sign_extend(
+        &cfg.subword_form(),
+        Unsigned36Bit::try_from(complemented).expect("COM produces a 36-bit word"),
+        activity,
+    )
+}
+
+#[test]
+fn com_complements_all_active_quarters() {
+    let config = SystemConfiguration::try_from(0_u16).unwrap();
+    assert_octal_eq!(
+        complement_permute(&config, &u36!(0o444_333_222_111)),
+        u36!(0o333_444_555_666),
+    );
+}
+
+#[test]
+fn com_still_permutes_when_all_quarters_are_inactive() {
+    let config = SystemConfiguration::try_from(0o174_u16).unwrap();
+    assert_octal_eq!(
+        complement_permute(&config, &u36!(0o444_333_222_111)),
+        u36!(0o333_444_111_222),
+    );
 }
 
 pub(crate) fn standard_plugboard_f_memory_settings() -> [SystemConfiguration; 0o40] {

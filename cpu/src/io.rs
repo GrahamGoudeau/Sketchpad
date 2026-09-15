@@ -78,12 +78,14 @@ use super::{LIGHT_PEN, PETR};
 use base::charset::LincolnState;
 use base::prelude::*;
 
+mod dev_interval_timer;
 mod dev_light_pen;
 mod dev_lincoln_writer;
 mod dev_petr;
 mod dev_scope;
 mod pollq;
 
+use dev_interval_timer::IntervalTimer;
 use dev_light_pen::LightPen;
 use dev_lincoln_writer::{LincolnWriterInput, LincolnWriterOutput};
 pub(crate) use dev_petr::Petr;
@@ -1031,6 +1033,12 @@ pub fn set_up_peripherals(ctx: &Context, devices: &mut DeviceManager) {
         UnitType::from(PETR),
         NOT_IN_MAINTENANCE,
         Box::new(Petr::new()),
+    );
+    devices.attach(
+        ctx,
+        UnitType::from(u6!(0o54)),
+        NOT_IN_MAINTENANCE,
+        Box::new(IntervalTimer::new()),
     );
     devices.attach(
         ctx,

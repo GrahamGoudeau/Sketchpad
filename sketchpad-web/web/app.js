@@ -69,7 +69,7 @@ let displayRealEpoch = null;
 let displayStoppedAt = null;
 let beamRateWindowStartedAt = 0;
 let beamRateWindowSpots = 0;
-const lightPen = { active: false, pointerId: null, x: 0, y: 0 };
+const lightPen = { active: false, pointerId: null, x: 0.5, y: 0.5, radius: 0.025 };
 
 function setMessage(message, error = false) {
   messageNode.textContent = message;
@@ -152,19 +152,13 @@ function queueScopePoint(event, realNowSeconds) {
   pointCount += 1;
 }
 
-function drawScopePoint(event, realElapsed) {
+function drawScopePoint(event) {
   const { x, y } = scopePointPosition(event);
   const strength = [0.28, 0.42, 0.62, 0.84][event.intensity] ?? 0.28;
   const radius = (0.85 + event.intensity * 0.28) * canvasPixelScale;
   context.fillStyle = `rgb(155 255 167 / ${strength})`;
   context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
 
-  const detectionRadius = 18 * canvasPixelScale;
-  const dx = x - lightPen.x;
-  const dy = y - lightPen.y;
-  if (lightPen.active && dx * dx + dy * dy <= detectionRadius * detectionRadius) {
-    machine.light_pen_detected(realElapsed);
-  }
   return { x, y };
 }
 
@@ -177,7 +171,7 @@ function fadePhosphor(elapsedSeconds) {
   context.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-function renderDueScopePoints(realNowSeconds, realElapsed) {
+function renderDueScopePoints(realNowSeconds) {
   beamHead.style.opacity = "0";
   if (displaySourceEpoch === null) {
     document.documentElement.dataset.renderedSpots = "0";
@@ -193,7 +187,7 @@ function renderDueScopePoints(realNowSeconds, realElapsed) {
     if (event.at_seconds > displayTime) {
       break;
     }
-    beamPosition = drawScopePoint(event, realElapsed);
+    beamPosition = drawScopePoint(event);
     scopeQueueHead += 1;
     rendered += 1;
   }
@@ -330,7 +324,7 @@ function frame(now = performance.now()) {
         }
       }
     }
-    const renderedSpots = renderDueScopePoints(realNowSeconds, realElapsed);
+    const renderedSpots = renderDueScopePoints(realNowSeconds);
     updateBeamRate(realNowSeconds, renderedSpots);
   } catch (error) {
     stopWithError(error);
@@ -434,8 +428,10 @@ tapeInput.addEventListener("change", async () => {
 
 function updateLightPen(event) {
   const box = lightPenSurface.getBoundingClientRect();
-  lightPen.x = (event.clientX - box.left) * canvas.width / box.width;
-  lightPen.y = (event.clientY - box.top) * canvas.height / box.height;
+  lightPen.x = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
+  lightPen.y = Math.max(0, Math.min(1, (event.clientY - box.top) / box.height));
+  lightPen.radius = 18 / Math.max(1, Math.min(box.width, box.height));
+  machine?.set_light_pen(lightPen.x, lightPen.y, lightPen.radius, lightPen.active);
 }
 
 lightPenSurface.addEventListener("pointerdown", (event) => {
@@ -443,9 +439,9 @@ lightPenSurface.addEventListener("pointerdown", (event) => {
     return;
   }
   event.preventDefault();
-  updateLightPen(event);
   lightPen.active = true;
   lightPen.pointerId = event.pointerId;
+  updateLightPen(event);
   lightPenSurface.setPointerCapture(event.pointerId);
 });
 
@@ -464,6 +460,7 @@ for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
     }
     lightPen.active = false;
     lightPen.pointerId = null;
+    machine?.set_light_pen(lightPen.x, lightPen.y, lightPen.radius, false);
   });
 }
 

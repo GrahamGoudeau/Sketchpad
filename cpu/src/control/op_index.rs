@@ -18,7 +18,7 @@ use super::context::Context;
 use super::control::{
     ControlUnit, OpcodeResult, ProgramCounterChange, UpdateE, sign_extend_index_value,
 };
-use super::exchanger::exchanged_value_for_load;
+use super::exchanger::{exchanged_value_for_load, exchanged_value_for_store};
 use super::memory::{MemoryUnit, MetaBitChange};
 
 fn ones_complement_add(left: Signed18Bit, right: Signed18Bit) -> Signed18Bit {
@@ -32,6 +32,36 @@ fn ones_complement_add(left: Signed18Bit, right: Signed18Bit) -> Signed18Bit {
 }
 
 impl ControlUnit {
+    /// Implements the EXX instruction (Opcode 014, User Handbook,
+    /// page 3-18).
+    pub(crate) fn op_exx(
+        &mut self,
+        ctx: &Context,
+        mem: &mut MemoryUnit,
+    ) -> Result<OpcodeResult, Alarm> {
+        let j = self.regs.n.index_address();
+        let old_x = sign_extend_index_value(&self.regs.get_index_register(j));
+        let target = self.operand_address_with_optional_defer_without_index(ctx, mem)?;
+        let (memory_word, _extra) =
+            self.fetch_operand_from_address_without_exchange(ctx, mem, &target, &UpdateE::Yes)?;
+        let config = self.get_config();
+        let new_x = exchanged_value_for_load(&config, &memory_word, &old_x);
+        let new_memory = exchanged_value_for_store(&config, &old_x, &memory_word);
+        self.memory_store_without_exchange(
+            ctx,
+            mem,
+            &target,
+            &new_memory,
+            &UpdateE::No,
+            &self.write_operand_metaop(),
+        )?;
+        if !j.is_zero() {
+            self.regs
+                .set_index_register(j, &right_half(new_x).reinterpret_as_signed());
+        }
+        Ok(OpcodeResult::default())
+    }
+
     /// Implements the ADX instruction (Opcode 015, User Handbook,
     /// page 3-22).
     pub(crate) fn op_adx(
@@ -427,6 +457,46 @@ mod tests {
         }
 
         (control, mem)
+    }
+
+    #[test]
+    fn exx_exchanges_the_selected_subword_and_sets_e_from_memory() {
+        let context = make_ctx();
+        let register = u6!(0o7);
+        let old_x = u18!(0o155_666);
+        let old_memory = u36!(0o111_222_333_444);
+        let address = Address::from(u18!(0o300));
+        let (mut control, mut memory) = setup(
+            &context,
+            register,
+            old_x.reinterpret_as_signed(),
+            &[(address, old_memory)],
+            None,
+        );
+        control
+            .update_n_register(
+                Instruction::from(&SymbolicInstruction {
+                    held: false,
+                    configuration: u5!(1),
+                    opcode: Opcode::Exx,
+                    index: register,
+                    operand_address: OperandAddress::direct(address),
+                })
+                .bits(),
+            )
+            .unwrap();
+
+        control.op_exx(&context, &mut memory).unwrap();
+
+        let (new_memory, _) = memory
+            .fetch(&context, &address, &MetaBitChange::None)
+            .unwrap();
+        assert_eq!(new_memory, u36!(0o111_222_155_666));
+        assert_eq!(
+            control.regs.get_index_register(register),
+            u18!(0o333_444).reinterpret_as_signed()
+        );
+        assert_eq!(memory.get_e_register(), old_memory);
     }
 
     #[test]

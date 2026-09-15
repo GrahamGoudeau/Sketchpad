@@ -9,17 +9,65 @@
 //! - STC: [`ControlUnit::op_stc`]
 //! - STD: [`ControlUnit::op_std`]
 //! - STE: [`ControlUnit::op_ste`]
-//! - EXA: (unimplemented)
+//! - EXA: [`ControlUnit::op_exa`]
+//! - COM: [`ControlUnit::op_com`]
 
 use tracing::{Level, event};
 
 use super::alarm::Alarm;
 use super::context::Context;
 use super::control::{ControlUnit, MemoryUnit, OpcodeResult, UpdateE};
-use super::exchanger::exchanged_value_for_load;
+use super::exchanger::{complement_permute, exchanged_value_for_load, exchanged_value_for_store};
 use base::prelude::*;
 
 impl ControlUnit {
+    /// Implements COM (Opcode 057, User Handbook, pages 3-50 and 3-51).
+    pub(crate) fn op_com(
+        &mut self,
+        ctx: &Context,
+        mem: &mut MemoryUnit,
+    ) -> Result<OpcodeResult, Alarm> {
+        let target = self.operand_address_with_optional_defer_and_index(ctx, mem)?;
+        let (memory_word, _extra) =
+            self.fetch_operand_from_address_without_exchange(ctx, mem, &target, &UpdateE::No)?;
+        let result = complement_permute(&self.get_config(), &memory_word);
+        self.memory_store_without_exchange(
+            ctx,
+            mem,
+            &target,
+            &result,
+            &UpdateE::No,
+            &self.write_operand_metaop(),
+        )?;
+        mem.set_e_register(result);
+        Ok(OpcodeResult::default())
+    }
+
+    /// Implements EXA (Opcode 054, User Handbook, page 3-10).
+    pub(crate) fn op_exa(
+        &mut self,
+        ctx: &Context,
+        mem: &mut MemoryUnit,
+    ) -> Result<OpcodeResult, Alarm> {
+        let target = self.operand_address_with_optional_defer_and_index(ctx, mem)?;
+        let (memory_word, _extra) =
+            self.fetch_operand_from_address_without_exchange(ctx, mem, &target, &UpdateE::Yes)?;
+        let old_a = mem.get_a_register();
+        let config = self.get_config();
+        let new_a = exchanged_value_for_load(&config, &memory_word, &old_a);
+        let new_memory = exchanged_value_for_store(&config, &old_a, &memory_word);
+        self.memory_store_without_exchange(
+            ctx,
+            mem,
+            &target,
+            &new_memory,
+            &UpdateE::No,
+            &self.write_operand_metaop(),
+        )?;
+        mem.set_a_register(new_a);
+        Ok(OpcodeResult::default())
+    }
+
     /// Implements the LDA instruction (Opcode 024, User Handbook,
     /// page 3-6).
     pub(crate) fn op_lda(
@@ -237,6 +285,53 @@ mod tests {
         mem.set_d_register(d);
         mem.set_e_register(e);
         (control, mem)
+    }
+
+    #[test]
+    fn exa_exchanges_the_selected_subword_and_sets_e_from_memory() {
+        let context = make_ctx();
+        let address = Address::from(u18!(0o300));
+        let old_a = u36!(0o555_666_155_666);
+        let old_memory = u36!(0o111_222_333_444);
+        let (mut control, mut memory) = set_up_load(
+            &context,
+            old_a,
+            Unsigned36Bit::ZERO,
+            Unsigned36Bit::ZERO,
+            Unsigned36Bit::ZERO,
+            Unsigned36Bit::ZERO,
+        );
+        control
+            .memory_store_without_exchange(
+                &context,
+                &mut memory,
+                &address,
+                &old_memory,
+                &UpdateE::No,
+                &MetaBitChange::None,
+            )
+            .unwrap();
+        control
+            .update_n_register(
+                Instruction::from(&SymbolicInstruction {
+                    held: false,
+                    configuration: u5!(1),
+                    opcode: Opcode::Exa,
+                    index: Unsigned6Bit::ZERO,
+                    operand_address: OperandAddress::direct(address),
+                })
+                .bits(),
+            )
+            .unwrap();
+
+        control.op_exa(&context, &mut memory).unwrap();
+
+        let (new_memory, _) = memory
+            .fetch(&context, &address, &MetaBitChange::None)
+            .unwrap();
+        assert_eq!(memory.get_a_register(), u36!(0o555_666_333_444));
+        assert_eq!(new_memory, u36!(0o111_222_155_666));
+        assert_eq!(memory.get_e_register(), old_memory);
     }
 
     /// Simulate a load instruction; return (target register, e register)

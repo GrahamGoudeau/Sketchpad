@@ -26,6 +26,7 @@ use std::time::Duration;
 
 use tracing::{Level, event, event_enabled, span};
 
+mod op_arithmetic;
 mod op_configuration;
 mod op_index;
 mod op_io;
@@ -1253,13 +1254,7 @@ impl ControlUnit {
                 Opcode::Tsd => control.op_tsd(ctx, devices, prev_program_counter, mem),
                 Opcode::Sed => control.op_sed(ctx, mem),
                 Opcode::Ite => control.op_ite(ctx, mem),
-                Opcode::Exx => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode EXX".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/16",
-                    },
-                }),
+                Opcode::Exx => control.op_exx(ctx, mem),
                 Opcode::Spf => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
@@ -1287,34 +1282,22 @@ impl ControlUnit {
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/25",
                     },
                 }),
-                Opcode::Jov => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode JOV".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/11",
-                    },
-                }),
-                Opcode::Jpa => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode JPA".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/9",
-                    },
-                }),
-                Opcode::Jna => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode JNA".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/10",
-                    },
-                }),
-                Opcode::Exa => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode EXA".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/143",
-                    },
-                }),
+                Opcode::Jov => control.op_conditional_accumulator_jump(
+                    ctx,
+                    mem,
+                    op_jump::AccumulatorJumpCondition::Overflow,
+                ),
+                Opcode::Jpa => control.op_conditional_accumulator_jump(
+                    ctx,
+                    mem,
+                    op_jump::AccumulatorJumpCondition::Positive,
+                ),
+                Opcode::Jna => control.op_conditional_accumulator_jump(
+                    ctx,
+                    mem,
+                    op_jump::AccumulatorJumpCondition::Negative,
+                ),
+                Opcode::Exa => control.op_exa(ctx, mem),
                 Opcode::Ins => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
@@ -1322,13 +1305,7 @@ impl ControlUnit {
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/26",
                     },
                 }),
-                Opcode::Com => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode COM".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/27",
-                    },
-                }),
+                Opcode::Com => control.op_com(ctx, mem),
                 opcode @ (Opcode::Cya | Opcode::Cyb | Opcode::Cab) => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
@@ -1352,20 +1329,8 @@ impl ControlUnit {
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/23",
                     },
                 }),
-                Opcode::Add => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode ADD".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/28",
-                    },
-                }),
-                Opcode::Sca => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode SCA".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/19",
-                    },
-                }),
+                Opcode::Add => control.op_add_or_subtract(ctx, mem, false),
+                Opcode::Sca => control.op_sca(ctx, mem),
                 Opcode::Scb => Err(Alarm {
                     sequence: control.regs.k,
                     details: AlarmDetails::ROUNDTUITAL {
@@ -1401,13 +1366,7 @@ impl ControlUnit {
                         bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/30",
                     },
                 }),
-                Opcode::Sub => Err(Alarm {
-                    sequence: control.regs.k,
-                    details: AlarmDetails::ROUNDTUITAL {
-                        explanation: "The emulator does not yet implement opcode SUB".to_string(),
-                        bug_report_url: "https://github.com/TX-2/TX-2-simulator/issues/29",
-                    },
-                }),
+                Opcode::Sub => control.op_add_or_subtract(ctx, mem, true),
             }
         }
 

@@ -508,6 +508,14 @@ impl MemoryUnit {
         self.v_memory.set_e_register(value);
     }
 
+    pub(crate) fn overflow_indicators(&self) -> [bool; 4] {
+        self.v_memory.overflow_indicators
+    }
+
+    pub(crate) fn set_overflow_indicators(&mut self, value: [bool; 4]) {
+        self.v_memory.overflow_indicators = value;
+    }
+
     pub fn set_knob_register(&mut self, value: Unsigned36Bit, meta: bool) {
         self.v_memory.set_knob_register(value, meta);
     }
@@ -828,6 +836,12 @@ struct VMemory {
     c_register: Unsigned36Bit,
     d_register: Unsigned36Bit,
     e_register: Unsigned36Bit,
+    /// Arithmetic overflow indicators, one for each quarter.
+    ///
+    /// A fractured arithmetic operation uses the indicator that belongs to
+    /// the sign quarter of each active subword.  The TX-2 User Handbook
+    /// describes these indicators with ADD, SUB, JOV, and scale operations.
+    overflow_indicators: [bool; 4],
     m_register_metabit: bool,
 
     knob_register: MemoryWord,
@@ -932,6 +946,7 @@ impl VMemory {
             c_register: Unsigned36Bit::default(),
             d_register: Unsigned36Bit::default(),
             e_register: Unsigned36Bit::default(),
+            overflow_indicators: [false; 4],
             m_register_metabit: false,
             codabo_start_point: [
                 Unsigned36Bit::default(),
