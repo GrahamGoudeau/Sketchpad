@@ -84,8 +84,10 @@ shorter `OPLW` job is not in this set.  The merged tape contains 12,292 words in
 The simulator runs this image through WebAssembly.  A bounded native run emits
 63,080 scope points by simulated time 190 seconds.  A browser run draws the
 word `INK` from the recovered machine code.  Simulator commit `32e7961`
-connects browser pointer hits to a modeled unit-55 light pen.  The first
-interactive selection check and the remaining console controls are next.
+connects browser pointer hits to a modeled unit-55 light pen.  Simulator commit
+`8720bb4` connects four browser shaft encoders and their metabit to Knob
+Register address `377620`.  A verified interactive response is next.  The
+external input register at `377621` remains unmodeled.
 
 ## Validator Changes
 

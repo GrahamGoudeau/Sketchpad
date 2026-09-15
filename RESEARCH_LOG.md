@@ -1516,6 +1516,47 @@ Historical significance:
 - The browser does not replace Sketchpad's selection logic.
 - The unchanged scope count confirms that the idle pen does not alter startup.
 
+## Checkpoint 37: The Browser Controls the Shaft Encoders
+
+Date: 2026-09-15
+
+The November 1963 TX-2 Users Handbook identifies address `377620` as the
+Knob Register.  It also calls this word the Shaft Encoded Register.  Four
+physical knobs supply its four nine-bit quarters.  Each knob covers octal
+values `000` through `777`.  A lighted pushbutton supplies the word metabit.
+
+The recovered source defines `SHAFT=377620`.  The `SHAFTTEST` routine reads
+this word and calculates changes in the four values.  The source therefore
+confirms that this console input belongs in the executable path.
+
+Simulator commit `8720bb4` implements the register as a hardware-controlled,
+read-only V-memory word.  A software metabit change goes to the existing
+sacrificial metabit.  It cannot alter the physical pushbutton state.  A focused
+CPU test covers the word, the metabit, and the read-only rule.
+
+The WASM bridge accepts four unsigned nine-bit values and the metabit.  The
+browser supplies four sliders.  It shows each value as three octal digits.  A
+checkbox supplies the metabit.  Reset keeps the selected console values and
+writes them into the new TX-2 instance before execution starts.
+
+The complete workspace passes with 83 CPU tests and five `sketchpad-web`
+tests.  The release WASM build and JavaScript syntax check pass.  The changed
+packages pass strict Clippy after exclusion of one pre-existing formatter lint.
+A repeated native run reaches 190 simulated seconds.  It executes 670,071
+ticks and emits 63,080 scope points.  The zeroed knobs do not change the idle
+display result.
+
+The browser control path is complete.  A visible response to a changed knob
+still needs browser verification.  The external input register at `377621`
+also remains unmodeled.
+
+Historical significance:
+
+- Sketchpad can now read a second original input surface.
+- The browser preserves the four historical nine-bit fields.
+- The implementation preserves the hardware-only write rule.
+- The unchanged idle run gives a stable baseline for interaction tests.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1543,6 +1584,8 @@ across both volumes.  One marked held-address glyph remains open in the first
 index operations that the startup path requires.  A bounded run emits 63,080
 Sketchpad scope points.  The WASM application runs the combined tape and shows
 `INK` in the browser.  Unit 55 now carries browser light-pen detections into
-the recovered program.  The next goal is a verified selection result, then
-shaft-encoder and console input.
+the recovered program.  Address `377620` now carries four browser shaft
+encoders and their metabit into the recovered program.  The next goal is a
+verified light-pen or shaft-encoder response.  The external input register at
+`377621` is the next known console boundary.
 The readable C translation will remain a separate explanatory artifact.
