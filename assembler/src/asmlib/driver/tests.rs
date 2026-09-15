@@ -1527,6 +1527,11 @@ fn test_minus_hash_config_evaluation() {
 
     // Then these programs should assemble to identical output.
     assert_eq!(&comparison_program, &program);
+    assert_eq!(
+        program.chunks[0].words[0],
+        u36!(0o360_000_000_000),
+        "a negative configuration must not set the other instruction fields"
+    );
 }
 
 #[test]

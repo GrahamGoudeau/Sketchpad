@@ -72,8 +72,15 @@ impl Evaluate for ConfigValue {
         // which case the `evaluate` value will already have been
         // shifted into the correct position in the word, or in normal
         // script (in which case we need to shift it ourselves).
-        let shift = if self.already_superscript { 0 } else { 30u32 };
-        self.expr.evaluate(ctx, scope).map(|value| value.shl(shift))
+        const CONFIG_FIELD: Unsigned36Bit = u36!(0o370_000_000_000);
+        const CONFIG_VALUE: Unsigned36Bit = u36!(0o37);
+        self.expr.evaluate(ctx, scope).map(|value| {
+            if self.already_superscript {
+                value & CONFIG_FIELD
+            } else {
+                (value & CONFIG_VALUE).shl(30)
+            }
+        })
     }
 }
 
