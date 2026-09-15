@@ -3062,6 +3062,25 @@ mod macro_tests {
     }
 
     #[test]
+    fn test_mixed_script_parameter_in_nested_macro_arithmetic() {
+        let got = parse_successfully_with(
+            concat!(
+                "☛☛DEF INNER|P→Q\n",
+                "LDA Q+(P)-(P)\n",
+                "☛☛EMD\n",
+                "☛☛DEF OUTER|P→Q\n",
+                "INNER|P→Q\n",
+                "☛☛EMD\n",
+                "OUTER|VALUE@sub_A@@sub_B@→EXIT\n",
+            ),
+            source_file(),
+            no_state_setup,
+        );
+
+        assert_eq!(got.blocks[0].sequences[0].instructions.len(), 1);
+    }
+
+    #[test]
     fn test_mixed_script_macro_parameter() {
         let got = parse_successfully_with(
             concat!(

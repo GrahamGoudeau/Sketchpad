@@ -930,6 +930,9 @@ impl Atom {
                     SymbolSubstitution::Hit(span, script, arithmetic_expression) => Some(
                         Atom::Parens(span, script, Box::new(arithmetic_expression.clone())),
                     ),
+                    SymbolSubstitution::Structured(span, instruction) => {
+                        Some(Atom::AssembledWord(span, Box::new(instruction)))
+                    }
                     SymbolSubstitution::Omit => {
                         // The parameter was not set, and this atom is
                         // being used in a context where omitted
@@ -1030,6 +1033,7 @@ impl std::fmt::Display for Atom {
 pub(crate) enum SymbolSubstitution<T> {
     AsIs(T),
     Hit(Span, Script, ArithmeticExpression),
+    Structured(Span, UntaggedProgramInstruction),
     Omit,
     Zero(Span),
 }
@@ -1082,9 +1086,46 @@ impl SymbolOrLiteral {
                     Some((_, Some(MacroParameterValue::Expansion(_)))) => {
                         unreachable!("macro expansions require a standalone parameter line")
                     }
-                    Some((span, Some(MacroParameterValue::Fragments { .. }))) => {
-                        panic!(
-                            "structured macro parameter {symbol_name} at {span:?} is not a standalone instruction fragment"
+                    Some((
+                        span,
+                        Some(MacroParameterValue::Fragments {
+                            holdbit,
+                            defer_span,
+                            fragments,
+                        }),
+                    )) => {
+                        let last = fragments.len() - 1;
+                        let mut result: Vec<CommaDelimitedFragment> = fragments
+                            .iter()
+                            .enumerate()
+                            .map(|(index, (_, expression))| CommaDelimitedFragment {
+                                span: expression.span(),
+                                leading_commas: None,
+                                holdbit: if index == 0 {
+                                    *holdbit
+                                } else {
+                                    HoldBit::Unspecified
+                                },
+                                fragment: InstructionFragment::Arithmetic(expression.clone()),
+                                trailing_commas: None,
+                            })
+                            .collect();
+                        if let Some(defer_span) = defer_span {
+                            result.push(CommaDelimitedFragment {
+                                span: *defer_span,
+                                leading_commas: None,
+                                holdbit: HoldBit::Unspecified,
+                                fragment: InstructionFragment::DeferredAddressing(*defer_span),
+                                trailing_commas: None,
+                            });
+                        }
+                        debug_assert!(last < result.len());
+                        SymbolSubstitution::Structured(
+                            *span,
+                            UntaggedProgramInstruction {
+                                fragments: OneOrMore::try_from_vec(result)
+                                    .expect("a structured macro parameter has fragments"),
+                            },
                         )
                     }
                     Some((span, None)) => {
