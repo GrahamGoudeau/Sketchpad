@@ -65,7 +65,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R045 and the validator changes let the complete source
+Repairs R001 through R050 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -202,6 +202,11 @@ file marks it clearly and the log records the alternatives.
 | R043 | `sk.tx2as:1595` | verified | Sketchpad part 1, PDF page 37; the printed operand and target tag both read `MERGEIFPX`; the 2XMX symbol table has no `MERGEIPFX` | Read the transposed operand as `MERGEIFPX`. |
 | R044 | `sk.tx2as:2204` | verified | Sketchpad part 1, PDF page 48; the printed `LTAKE` operand; the 2XMX symbol table contains `VORD` and no `VORDE` | Remove the extra `E` from the `VORD` macro argument. |
 | R045 | after `sk.tx2as:780` | verified | The `MOVE|NAFFB→AFFB` definition expands to the next two printed lines; printed `STARTS=004007`; later 2XMX tags had a uniform two-word offset | Remove the duplicated printed expansion `hLDE NAFFB; STE AFFB` from the assembly input. |
+| R046 | `sk.tx2as:984` | verified | Sketchpad part 1, PDF page 26; the printed operation has a clear final `X`; valid TX-2 opcode spelling | Read `RSN` as `RSX`. |
+| R047 | `sk.tx2as:1370` | verified | Sketchpad part 1, PDF page 33; the printed operation has a clear final `X`; valid TX-2 opcode spelling | Read `RSZ` as `RSX`. |
+| R048 | `sk.tx2as:2110` | verified | Sketchpad part 1, PDF page 47; the printed operation has a clear initial `D`; valid TX-2 opcode spelling | Read `SPX` as `DPX`. |
+| R049 | `sk.tx2as:2475` | verified | Sketchpad part 1, PDF page 53; the printed operation has a clear final `A`; valid TX-2 opcode spelling | Read `LDS` as `LDA`. |
+| R050 | `sk2.tx2as:2393` | verified | Sketchpad part 2, PDF page 58; the printed operation has a clear initial `D`; the two preceding lines also use `DPX` | Read `SPX` as `DPX`. |
 
 ## Publication Gate
 

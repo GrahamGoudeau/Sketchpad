@@ -2390,7 +2390,7 @@ STA C
 REX@sub_y@@sub_1@@sub_pipe@@sub_x@@sub_1@1
 @sup_1@DPX@sub_y@@sub_1@NORT1
 @sup_1@DPX@sub_y@@sub_1@NORT2-3
-@sup_1@SPX@sub_y@@sub_1@NORT2-1
+@sup_1@DPX@sub_y@@sub_1@NORT2-1
 RSX@sub_y@@sub_1@*NORT3
 DEX@sub_y@@sub_1@1
 DPX NORX

@@ -981,7 +981,7 @@ PAGE1G@arr@     SKN @sub_4@@sub_dot@@sub_3@ 76BUT
                 JPQ #+3
                 hJPQ RDTX2
                 MKN MOVED
-                RSN @sub_alpha@ 76TABLE
+                RSX @sub_alpha@ 76TABLE
                 JPQ READIT+2
 ALLREAD@arr@
                 hDPX 47TABLE
@@ -1367,7 +1367,7 @@ FIXIT@arr@      @sup_1@STE FIXITEX
                 REX @sub_beta@ FIXEDS-LIST
                 SKZ LPLOST
                 JPQ FIXITEX
-                RSZ @sub_alpha@ ATBITS
+                RSX @sub_alpha@ ATBITS
                 SXG @sub_alpha@ 0
                 JPQ FIXITEX
                 RSX @sub_alpha@ ATBITS+1
@@ -2107,7 +2107,7 @@ COPYFIXT@arr@
 COPYFIXEX@arr@
                 JPQ #
                 DEX @sub_S@ 2
-                @sup_1@SPX @sub_S@ COPYFIXI             ** FILTER OUT
+                @sup_1@DPX @sub_S@ COPYFIXI             ** FILTER OUT
                 hLDE @sub_S@@sub_pipe@@sub_alpha@ LIST  ** NEXT TIE
                 h@sup_1@SED { 0}        ** EMPTY?
                 JPQ COPYFIXI
@@ -2472,7 +2472,7 @@ ORDC0@arr@      SUB ORDPX
                 STA ORDWA1
                 LDA ORDWA3
                 SKZ ORDISW
-                LDS @sub_alpha@ LIST+PVAL+1
+                LDA @sub_alpha@ LIST+PVAL+1
                 SUB ORDPY
 
 [meta file_name=102726903-05-01-acc.pdf pdf_page=54 doc_page=52 type=code proof=1]

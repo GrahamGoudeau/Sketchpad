@@ -971,6 +971,54 @@ Historical significance:
 - The project now has exact address oracles for both code and storage.
 - The narrow RC rule preserves evidence instead of erasing source distinctions.
 
+## Checkpoint 25: Five Damaged Opcodes Stop Becoming Storage
+
+Date: 2026-09-15
+
+The modern `2XMX` table assigned storage to four short names that looked like
+operations: `RSN`, `RSZ`, `SPX`, and `LDS`.  The TX-2 handbook does not list
+these names as primary opcodes.  Direct inspection of the high-resolution
+Sketchpad scans resolves every case:
+
+| Repair | Printed source | Recovered text | Correct text |
+| --- | --- | --- | --- |
+| R046 | Part 1, PDF page 26 | `RSN` | `RSX` |
+| R047 | Part 1, PDF page 33 | `RSZ` | `RSX` |
+| R048 | Part 1, PDF page 47 | `SPX` | `DPX` |
+| R049 | Part 1, PDF page 53 | `LDS` | `LDA` |
+| R050 | Part 2, PDF page 58 | `SPX` | `DPX` |
+
+Each printed letter is clear at 400 DPI.  The surrounding instructions also
+support the readings.  The Part 2 `DPX` follows two other `DPX` instructions
+in the same macro.
+
+The four Part 1 repairs remove exactly four false `2XMX` automatic words.  Its
+output falls from 2,839 words to 2,835 words.  The Part 2 repair removes exactly
+one false `APY5` automatic word.  Its output falls from 1,267 words to 1,266
+words.  The other six word counts stay fixed.
+
+All eight jobs assemble after the repairs:
+
+| Job | Emitted words | Tape SHA-256 |
+| --- | ---: | --- |
+| `2XMX` | 2,835 | `c4a680fb7fa2f6da6610cd987a8ba50c56e2edc1eeac943b8780f30f8f1fc101` |
+| `OPLW` | 269 | `a02a9e2951957e825f8e9b118d19821ea365f017a2486d0e788aa474d1660792` |
+| `GX7A` | 2,043 | `4359c83fb274016b0643f546ce9c85592017d79f64f4b72004fb316d748eddd4` |
+| `BOO7` | 1,033 | `eb165a49557653b607a43be780c9eb969acaa8b17e1ebea6c3fe7ab423acddbd` |
+| `ONLW` | 1,829 | `54d8781f4c6cc1578c1200ec09c688c7e51debbc0bb5d613e333a8b56cac4977` |
+| `APY5` | 1,266 | `9bc8fdbab835c1c795e5dce011b930d8747295d79200b77e8911a8fc36a33b79` |
+| `LYUO` | 1,435 | `e4cd010edf0b932424219cad8e85fb2968081f5681f88909f1ce760153f17f01` |
+| `Y3HT` | 1,852 | `eddf8f009d49d2b20765aec2b29d2c5efe92c85fba4d26ccdeef3f73bd1ae8ef` |
+
+The checksum gate rejects all eight provisional tapes.  This remains expected.
+
+Historical significance:
+
+- Valid assembly had hidden five damaged operation names.
+- Automatic storage reports acted as a transcription-error detector.
+- Each repaired operation now has a direct image witness.
+- The output shrinks by the exact number of false storage symbols.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -986,10 +1034,10 @@ The `GX7A` RC block now has a printed historical address oracle.
 The forward-macro shortfall and its false automatic symbols are resolved.
 The automatic-symbol order now matches the printed `GX7A` sequence.
 All sixteen automatic `GX7A` addresses now match that sequence exactly.
-The `2XMX` symbol audit has repaired three false names, one duplicated macro
+The `2XMX` symbol audit has repaired seven false names, one duplicated macro
 expansion, and one global tag-offset defect.  Seven selected program tags now
-match the printed table exactly.  The next goal is a wider row-by-row address
-audit.
+match the printed table exactly.  The `APY5` audit has repaired one false
+operation name.  The next goal is a wider row-by-row address audit.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.
