@@ -58,7 +58,10 @@ let running = false;
 let pointCount = 0;
 let startedAt = performance.now();
 let frameRequest;
-let ticksPerFrame = 1000;
+const MACHINE_BUDGET_MS = 2.5;
+const TICKS_PER_SLICE = 32;
+const MAX_TICKS_PER_FRAME = 2048;
+const MAX_RENDERED_POINTS_PER_FRAME = 768;
 const lightPen = { active: false, pointerId: null, x: 0, y: 0 };
 
 function setMessage(message, error = false) {
@@ -210,23 +213,17 @@ function axisPosition(value, movedOrigin, extent) {
   return Math.max(0, Math.min(extent, normalized * extent));
 }
 
-function drawScopePoint(event, realElapsed) {
+function processScopePoint(event, realElapsed, draw) {
   const leftOrigin = event.origin === "left_center" || event.origin === "lower_left";
   const bottomOrigin = event.origin === "bottom_center" || event.origin === "lower_left";
   const x = axisPosition(event.x, leftOrigin, canvas.width);
   const y = canvas.height - axisPosition(event.y, bottomOrigin, canvas.height);
-  const strength = [0.42, 0.58, 0.76, 0.96][event.intensity] ?? 0.42;
-  const radius = (1.2 + event.intensity * 0.45) * (window.devicePixelRatio || 1);
-
-  context.save();
-  context.globalCompositeOperation = "lighter";
-  context.fillStyle = `rgb(105 255 151 / ${strength})`;
-  context.shadowColor = "#62ff99";
-  context.shadowBlur = radius * 4;
-  context.beginPath();
-  context.arc(x, y, radius, 0, Math.PI * 2);
-  context.fill();
-  context.restore();
+  if (draw) {
+    const strength = [0.42, 0.58, 0.76, 0.96][event.intensity] ?? 0.42;
+    const radius = (0.8 + event.intensity * 0.32) * (window.devicePixelRatio || 1);
+    context.fillStyle = `rgb(105 255 151 / ${strength})`;
+    context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
   pointCount += 1;
 
   const detectionRadius = 18 * (window.devicePixelRatio || 1);
@@ -307,25 +304,47 @@ function frame() {
   if (!running) {
     return;
   }
+  if (document.visibilityState === "hidden") {
+    frameRequest = requestAnimationFrame(frame);
+    return;
+  }
   resizeCanvas();
   fadePhosphor();
   const frameStart = performance.now();
   const realElapsed = (frameStart - startedAt) / 1000;
+  const scopeEvents = [];
+  let executedTicks = 0;
 
   try {
-    const events = machine.step_batch(realElapsed, ticksPerFrame);
-    for (const event of events) {
-      if (event?.kind === "scope_point") {
-        drawScopePoint(event, realElapsed);
+    do {
+      const tickCount = Math.min(TICKS_PER_SLICE, MAX_TICKS_PER_FRAME - executedTicks);
+      const events = machine.step_batch(realElapsed, tickCount);
+      executedTicks += tickCount;
+      for (const event of events) {
+        if (event?.kind === "scope_point") {
+          scopeEvents.push(event);
+        }
       }
-    }
-    const workTime = Math.max(0.25, performance.now() - frameStart);
-    const scale = Math.max(0.6, Math.min(1.5, 10 / workTime));
-    ticksPerFrame = Math.round(Math.max(250, Math.min(8000, ticksPerFrame * scale)));
+    } while (
+      executedTicks < MAX_TICKS_PER_FRAME
+      && performance.now() - frameStart < MACHINE_BUDGET_MS
+    );
   } catch (error) {
     stopWithError(error);
     return;
   }
+
+  const renderStride = Math.max(
+    1,
+    Math.ceil(scopeEvents.length / MAX_RENDERED_POINTS_PER_FRAME),
+  );
+  context.globalCompositeOperation = "lighter";
+  for (let index = 0; index < scopeEvents.length; index += 1) {
+    processScopePoint(scopeEvents[index], realElapsed, index % renderStride === 0);
+  }
+  context.globalCompositeOperation = "source-over";
+  document.documentElement.dataset.machineTicks = String(executedTicks);
+  document.documentElement.dataset.scopeEvents = String(scopeEvents.length);
 
   updateReadouts();
   frameRequest = requestAnimationFrame(frame);
@@ -359,7 +378,6 @@ function loadMachine(tape) {
   activeBridgeShape = null;
   bridgeShapes.length = 0;
   pointCount = 0;
-  ticksPerFrame = 1000;
   startedAt = performance.now();
   resizeCanvas();
   context.fillStyle = "#010503";
@@ -554,7 +572,7 @@ try {
   runButton.disabled = false;
   resetButton.disabled = false;
   mobileRunButton.disabled = false;
-  setMessage("The reconstructed machine is ready. Select RUN to begin.");
+  start();
 } catch (error) {
   stopWithError(error);
 }

@@ -1,4 +1,4 @@
-scratchpad.acyclic.sh {
+sketchpad.acyclic.sh {
 	root * /opt/acyclic/Scratchpad/current
 	encode zstd gzip
 	header {
@@ -9,4 +9,8 @@ scratchpad.acyclic.sh {
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 	}
 	file_server
+}
+
+scratchpad.acyclic.sh {
+	redir https://sketchpad.acyclic.sh{uri} permanent
 }

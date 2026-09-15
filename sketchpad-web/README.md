@@ -17,8 +17,10 @@ npm run dev
 
 Open `http://localhost:8082`.
 
-The machine waits for the user to select `RUN`.  This prevents an unbounded
-simulator workload during page load.
+The machine starts automatically.  Each animation frame gives the simulator at
+most 2.5 milliseconds of CPU time.  Each WASM call executes at most 32 ticks.
+The canvas draws at most 768 scope spots per frame.  Hidden tabs stop executing
+the machine.  These limits keep the main thread and GPU responsive.
 
 The bundled tape is the compatible seven-job Sketchpad reconstruction.  Its
 entry point is octal address `200140`.  Its SHA-256 is
