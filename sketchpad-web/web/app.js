@@ -2,6 +2,8 @@ import init, { SketchpadMachine, sketchpad_tape } from "./pkg/sketchpad_web.js";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
+const inkCanvas = document.querySelector("#bridge-ink");
+const inkContext = inkCanvas.getContext("2d");
 const runButton = document.querySelector("#run");
 const resetButton = document.querySelector("#reset");
 const tapeInput = document.querySelector("#tape");
@@ -14,7 +16,7 @@ const knobMeta = document.querySelector("#knob-meta");
 const externalButtonRows = document.querySelector("#external-buttons");
 const externalMeta = document.querySelector("#external-meta");
 const mobileRunButton = document.querySelector("#mobile-run");
-const mobileResetButton = document.querySelector("#mobile-reset");
+const mobileUndoButton = document.querySelector("#mobile-undo");
 const mobileStateNode = document.querySelector("#mobile-state");
 const mobileMessageNode = document.querySelector("#mobile-message");
 const mobileControlsButton = document.querySelector("#mobile-controls");
@@ -47,6 +49,8 @@ const externalButtons = Array.from(document.querySelectorAll("[data-external-but
 const heldExternalButtons = new Set();
 let selectedMobileTool = mobileToolButtons[0];
 let mobileBridgeActive = false;
+const bridgeShapes = [];
+let activeBridgeShape = null;
 
 let machine;
 let activeTape;
@@ -76,6 +80,128 @@ function resizeCanvas() {
     canvas.height = height;
     context.fillStyle = "#010503";
     context.fillRect(0, 0, width, height);
+  }
+  if (inkCanvas.width !== width || inkCanvas.height !== height) {
+    inkCanvas.width = width;
+    inkCanvas.height = height;
+    renderBridgeInk();
+  }
+}
+
+function bridgePoint(event) {
+  const box = inkCanvas.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)),
+    y: Math.max(0, Math.min(1, (event.clientY - box.top) / box.height)),
+  };
+}
+
+function drawBridgeShape(shape) {
+  const point = ({ x, y }) => ({ x: x * inkCanvas.width, y: y * inkCanvas.height });
+  const start = point(shape.start);
+  const end = point(shape.end ?? shape.start);
+
+  inkContext.beginPath();
+  if (shape.type === "pen") {
+    const [first, ...rest] = shape.points;
+    const firstPoint = point(first);
+    if (rest.length === 0) {
+      inkContext.arc(firstPoint.x, firstPoint.y, inkContext.lineWidth / 2, 0, Math.PI * 2);
+      inkContext.fill();
+      return;
+    }
+    inkContext.moveTo(firstPoint.x, firstPoint.y);
+    for (const current of rest) {
+      const next = point(current);
+      inkContext.lineTo(next.x, next.y);
+    }
+  } else if (shape.type === "line") {
+    inkContext.moveTo(start.x, start.y);
+    inkContext.lineTo(end.x, end.y);
+  } else if (shape.type === "circle") {
+    const radius = Math.hypot(end.x - start.x, end.y - start.y);
+    inkContext.arc(start.x, start.y, radius, 0, Math.PI * 2);
+  } else if (shape.type === "rectangle") {
+    inkContext.rect(start.x, start.y, end.x - start.x, end.y - start.y);
+  }
+  inkContext.stroke();
+}
+
+function renderBridgeInk() {
+  inkContext.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
+  inkContext.save();
+  inkContext.strokeStyle = "#baffca";
+  inkContext.fillStyle = "#baffca";
+  inkContext.lineWidth = 2.4 * (window.devicePixelRatio || 1);
+  inkContext.lineCap = "round";
+  inkContext.lineJoin = "round";
+  inkContext.shadowColor = "#62ff99";
+  inkContext.shadowBlur = 5 * (window.devicePixelRatio || 1);
+  for (const shape of bridgeShapes) {
+    drawBridgeShape(shape);
+  }
+  inkContext.restore();
+  document.documentElement.dataset.shapeCount = String(bridgeShapes.length);
+  mobileUndoButton.disabled = bridgeShapes.length === 0;
+}
+
+function pointSegmentDistance(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y);
+  }
+  const amount = Math.max(
+    0,
+    Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)),
+  );
+  return Math.hypot(point.x - (start.x + amount * dx), point.y - (start.y + amount * dy));
+}
+
+function bridgeShapeDistance(shape, point) {
+  if (shape.type === "pen") {
+    let distance = Math.hypot(point.x - shape.points[0].x, point.y - shape.points[0].y);
+    for (let index = 1; index < shape.points.length; index += 1) {
+      distance = Math.min(
+        distance,
+        pointSegmentDistance(point, shape.points[index - 1], shape.points[index]),
+      );
+    }
+    return distance;
+  }
+  if (shape.type === "line") {
+    return pointSegmentDistance(point, shape.start, shape.end);
+  }
+  if (shape.type === "circle") {
+    const radius = Math.hypot(shape.end.x - shape.start.x, shape.end.y - shape.start.y);
+    return Math.abs(Math.hypot(point.x - shape.start.x, point.y - shape.start.y) - radius);
+  }
+  const left = Math.min(shape.start.x, shape.end.x);
+  const right = Math.max(shape.start.x, shape.end.x);
+  const top = Math.min(shape.start.y, shape.end.y);
+  const bottom = Math.max(shape.start.y, shape.end.y);
+  if (point.x >= left && point.x <= right && point.y >= top && point.y <= bottom) {
+    return 0;
+  }
+  return Math.hypot(
+    Math.max(left - point.x, 0, point.x - right),
+    Math.max(top - point.y, 0, point.y - bottom),
+  );
+}
+
+function eraseBridgeShape(point) {
+  let bestIndex = -1;
+  let bestDistance = 0.055;
+  for (let index = bridgeShapes.length - 1; index >= 0; index -= 1) {
+    const distance = bridgeShapeDistance(bridgeShapes[index], point);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+  if (bestIndex >= 0) {
+    bridgeShapes.splice(bestIndex, 1);
+    renderBridgeInk();
   }
 }
 
@@ -230,12 +356,15 @@ function loadMachine(tape) {
   lightPen.active = false;
   lightPen.pointerId = null;
   mobileBridgeActive = false;
+  activeBridgeShape = null;
+  bridgeShapes.length = 0;
   pointCount = 0;
   ticksPerFrame = 1000;
   startedAt = performance.now();
   resizeCanvas();
   context.fillStyle = "#010503";
   context.fillRect(0, 0, canvas.width, canvas.height);
+  renderBridgeInk();
   machine.mount_tape(activeTape, 0);
   applyKnobRegister();
   applyExternalInputRegister();
@@ -261,7 +390,10 @@ function resetMachine() {
 }
 
 resetButton.addEventListener("click", resetMachine);
-mobileResetButton.addEventListener("click", resetMachine);
+mobileUndoButton.addEventListener("click", () => {
+  bridgeShapes.pop();
+  renderBridgeInk();
+});
 
 tapeInput.addEventListener("change", async () => {
   const [file] = tapeInput.files;
@@ -278,46 +410,73 @@ tapeInput.addEventListener("change", async () => {
 });
 
 function updateLightPen(event) {
-  const box = canvas.getBoundingClientRect();
+  const box = inkCanvas.getBoundingClientRect();
   lightPen.x = (event.clientX - box.left) * canvas.width / box.width;
   lightPen.y = (event.clientY - box.top) * canvas.height / box.height;
 }
 
-canvas.addEventListener("pointerdown", (event) => {
+inkCanvas.addEventListener("pointerdown", (event) => {
   if (event.pointerType === "mouse" && event.button !== 0) {
     return;
   }
   event.preventDefault();
+  const point = bridgePoint(event);
+  const tool = selectedMobileTool.dataset.tool;
+  if (tool === "erase") {
+    eraseBridgeShape(point);
+    activeBridgeShape = null;
+  } else {
+    activeBridgeShape = tool === "pen"
+      ? { type: "pen", start: point, end: point, points: [point] }
+      : { type: tool, start: point, end: point };
+    bridgeShapes.push(activeBridgeShape);
+    renderBridgeInk();
+  }
   updateLightPen(event);
   lightPen.active = true;
   lightPen.pointerId = event.pointerId;
   mobileBridgeActive = true;
   applyExternalInputRegister();
-  canvas.setPointerCapture(event.pointerId);
+  inkCanvas.setPointerCapture(event.pointerId);
 });
 
-canvas.addEventListener("pointermove", (event) => {
+inkCanvas.addEventListener("pointermove", (event) => {
   event.preventDefault();
   if (lightPen.active && event.pointerId === lightPen.pointerId) {
     updateLightPen(event);
+    if (activeBridgeShape) {
+      const point = bridgePoint(event);
+      activeBridgeShape.end = point;
+      if (activeBridgeShape.type === "pen") {
+        const previous = activeBridgeShape.points[activeBridgeShape.points.length - 1];
+        if (Math.hypot(point.x - previous.x, point.y - previous.y) > 0.002) {
+          activeBridgeShape.points.push(point);
+        }
+      }
+      renderBridgeInk();
+    } else if (selectedMobileTool.dataset.tool === "erase") {
+      eraseBridgeShape(bridgePoint(event));
+    }
   }
 });
 
 for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
-  canvas.addEventListener(eventName, (event) => {
+  inkCanvas.addEventListener(eventName, (event) => {
     event.preventDefault();
     if (lightPen.pointerId !== null && event.pointerId !== lightPen.pointerId) {
       return;
     }
     lightPen.active = false;
     lightPen.pointerId = null;
+    activeBridgeShape = null;
     mobileBridgeActive = false;
     applyExternalInputRegister();
+    renderBridgeInk();
   });
 }
 
 for (const eventName of ["touchstart", "touchmove", "touchend", "touchcancel"]) {
-  canvas.addEventListener(eventName, (event) => event.preventDefault(), { passive: false });
+  inkCanvas.addEventListener(eventName, (event) => event.preventDefault(), { passive: false });
 }
 
 for (const eventName of ["selectstart", "contextmenu", "dragstart"]) {
@@ -333,7 +492,7 @@ for (const button of mobileToolButtons) {
       candidate.setAttribute("aria-pressed", String(active));
     }
     const toolName = button.querySelector("span:last-child").textContent;
-    mobileMessageNode.textContent = `${toolName} is ready. Touch visible ink.`;
+    mobileMessageNode.textContent = `${toolName} is ready. Drag anywhere.`;
     mobileMessageNode.classList.remove("error");
   });
 }
@@ -395,7 +554,6 @@ try {
   runButton.disabled = false;
   resetButton.disabled = false;
   mobileRunButton.disabled = false;
-  mobileResetButton.disabled = false;
   start();
 } catch (error) {
   stopWithError(error);

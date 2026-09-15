@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Sketchpad on TX-2</title>
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=20260915-2">
   </head>
   <body>
     <main>
@@ -29,6 +29,7 @@
           </div>
           <div class="scope-glass">
             <canvas id="scope" aria-label="TX-2 oscilloscope display"></canvas>
+            <canvas id="bridge-ink" class="bridge-ink" aria-label="Mobile Sketchpad drawing surface"></canvas>
             <div class="graticule" aria-hidden="true"></div>
           </div>
           <div class="scope-label">
@@ -52,31 +53,31 @@
           </div>
 
           <nav class="tool-hud mobile-only" aria-label="Sketchpad tools">
-            <button class="tool-button active" data-mobile-tool type="button" aria-pressed="true">
-              <span class="tool-mark">+</span>
+            <button class="tool-button active" data-mobile-tool data-tool="pen" data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="true">
+              <span class="tool-mark">⌁</span>
               <span>PEN</span>
             </button>
-            <button class="tool-button" data-mobile-tool data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="false">
-              <span class="tool-mark">/</span>
-              <span>DRAW</span>
+            <button class="tool-button" data-mobile-tool data-tool="line" data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="false">
+              <span class="tool-mark">╱</span>
+              <span>LINE</span>
             </button>
-            <button class="tool-button" data-mobile-tool data-switch-quarter="2" data-switch-bit="1" type="button" aria-pressed="false">
-              <span class="tool-mark">↗</span>
-              <span>MOVE</span>
+            <button class="tool-button" data-mobile-tool data-tool="circle" data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="false">
+              <span class="tool-mark">○</span>
+              <span>CIRCLE</span>
             </button>
-            <button class="tool-button" data-mobile-tool data-switch-quarter="1" data-switch-bit="3" type="button" aria-pressed="false">
+            <button class="tool-button" data-mobile-tool data-tool="rectangle" data-switch-quarter="1" data-switch-bit="8" type="button" aria-pressed="false">
+              <span class="tool-mark">□</span>
+              <span>RECT</span>
+            </button>
+            <button class="tool-button" data-mobile-tool data-tool="erase" data-switch-quarter="1" data-switch-bit="3" type="button" aria-pressed="false">
               <span class="tool-mark">×</span>
               <span>ERASE</span>
-            </button>
-            <button class="tool-button" data-mobile-tool data-switch-quarter="1" data-switch-bit="9" type="button" aria-pressed="false">
-              <span class="tool-mark">□</span>
-              <span>COPY</span>
             </button>
           </nav>
 
           <div class="mobile-actions mobile-only">
-            <p id="mobile-message">Choose a tool. Then touch visible ink.</p>
-            <button id="mobile-reset" class="compact-button" type="button" disabled>RESET</button>
+            <p id="mobile-message">Choose a tool. Then drag anywhere.</p>
+            <button id="mobile-undo" class="compact-button" type="button" disabled>UNDO</button>
             <button id="mobile-controls" class="compact-button" type="button" aria-expanded="false" aria-controls="advanced-panel">MACHINE</button>
           </div>
 
@@ -152,6 +153,6 @@
         <p>The browser models the light pen and the two TX-2 console input registers.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./app.js?v=20260915-2"></script>
   </body>
 </html>

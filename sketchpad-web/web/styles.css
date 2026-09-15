@@ -128,7 +128,17 @@ canvas {
   user-select: none;
 }
 
+#scope {
+  z-index: 0;
+  pointer-events: none;
+}
+
+.bridge-ink {
+  z-index: 2;
+}
+
 .graticule {
+  z-index: 1;
   pointer-events: none;
   opacity: 0.14;
   background:
