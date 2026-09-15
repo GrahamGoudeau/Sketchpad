@@ -1536,10 +1536,35 @@ where
         .map_err(|_| Rich::custom(extra.span(), "macro expansion inside an RC-word is empty"))
     });
 
+    let hold_value = select! {
+        Tok::Hold => ()
+    }
+    .then_ignore(just(Tok::RightBrace(Script::Normal)).rewind())
+    .map_with(|(), extra| {
+        let span = extra.span();
+        let fragment =
+            CommaDelimitedFragment {
+                span,
+                leading_commas: None,
+                holdbit: HoldBit::Unspecified,
+                fragment: InstructionFragment::Arithmetic(ArithmeticExpression::from(Atom::from(
+                    (span, Script::Normal, u36!(1_u64 << 35)),
+                ))),
+                trailing_commas: None,
+            };
+        let instruction = TaggedProgramInstruction {
+            span,
+            tags: Vec::new(),
+            instruction: UntaggedProgramInstruction::from(OneOrMore::new(fragment)),
+        };
+        OneOrMore::new(RegisterContaining::from(instruction))
+    });
+
     // Parse {E} where E is either one instruction or a macro expansion.
     register_containing.define(
         choice((
             expanded_macro,
+            hold_value,
             tagged_program_instruction
                 .clone()
                 .map(|instruction| OneOrMore::new(RegisterContaining::from(instruction))),

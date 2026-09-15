@@ -476,6 +476,16 @@ fn test_hold_indicator_as_arithmetic_value() {
 }
 
 #[test]
+fn test_hold_indicator_as_rc_word_value() {
+    let program = assemble_source("100| {h}\n", Default::default()).expect("program is valid");
+
+    assert_eq!(program.chunks.len(), 2);
+    assert_eq!(program.chunks[0].words[0], u36!(0o101));
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o101)));
+    assert_eq!(program.chunks[1].words[0], u36!(0o400_000_000_000));
+}
+
+#[test]
 fn test_parenthesized_assembled_word_in_arithmetic_expression() {
     let word = assemble_source("100| (770,)\n", Default::default()).expect("program is valid");
     assert_eq!(word.chunks[0].words[0], u36!(0o770_000_000_000));
