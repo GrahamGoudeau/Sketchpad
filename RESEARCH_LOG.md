@@ -2354,3 +2354,59 @@ constraint exists.  The desktop interface therefore starts the machine with
 `FIX` off.  The operator turns it on after creating a constraint.  This is an
 observed assembly behavior.  It is not a browser performance rule or a host
 safety condition.
+
+## Checkpoint 58: First Original `FIXIT` and `UNFIX` Operations
+
+Date: 2026-09-15
+
+The recovered `READIT` dispatch table maps external-input button Q3.3 to
+`FIXIT` and Q2.7 to `UNFIX`.  A new machine test draws and selects a line with
+the same physical input path used by the constraint test.  It then presses
+Q3.3 through register `377621`.
+
+The executing assembly enters `FIXIT` at octal address `005277`.  The picture
+list high-water word stays at `001275`, so this operation allocates no new
+block.  Instead, the original linked-list code changes three words.  It changes
+the `FIXEDS` list header at `024100`, the selected line's `VORD` link at
+`025267`, and the list link at `025270`.
+
+The test next presses Q2.7.  The assembly enters `UNFIX` at octal address
+`005326`.  It restores all three words to their exact earlier values.  The
+final comparison finds no remaining change in the inspected picture-list
+range.  JavaScript supplies only the two external-register edges.  It does not
+modify a list word.
+
+The browser now gives these verified inputs direct keyboard bindings.  `F`
+presses Q3.3.  `U` presses Q2.7.  The full external panel names routines from
+the recovered dispatch table.  A name on that panel proves only source routing.
+The interface marks the smaller set of end-to-end verified workflows
+separately.
+
+A probe of Q2.8, `MAKECONS`, while an ordinary line was selected reached the
+invalid word `000000000040` at address `004147` and raised `OCSAL`.  The source
+expects `MAKECONS` to work from a constraint-template selection.  The current
+probe did not provide that state.  This result is an open workflow question.
+It is not accepted as evidence of a missing CPU instruction or a working
+general-constraint path.
+
+## Checkpoint 59: First Public Desktop Release With Original Constraint Solving
+
+Date: 2026-09-15
+
+Simulator commit `821c417` and reconstruction commit `077ec0a` were pushed
+before deployment.  The static release `20260915T221307Z` was installed at
+`/opt/acyclic/Scratchpad/releases/` on the Acyclic server.  Caddy validated the
+complete configuration before its reload.
+
+The old host `https://scratchpad.acyclic.sh/` redirects to the canonical host
+`https://sketchpad.acyclic.sh/`.  Read-only public checks returned HTTP 200 for
+the final HTML, JavaScript, and WebAssembly files.  The WebAssembly file is
+593,792 bytes.  Its deployed SHA-256 is
+`fea15c9c4b7b383179d12e7203f22dc331aadfe5c8a6d49026a3141de8b62868`.
+The deployed HTML contains the physical Sketchpad toggle controls.  The
+deployed JavaScript contains `set_toggle_register`, `KeyD`, and `KeyT`.
+
+No graphical browser was opened for this production check.  This avoids the
+host failure previously associated with loading an earlier build in Chrome.
+The release had already passed Node and WebAssembly interaction tests.  The
+public check verified the deployed static artifacts and redirect path only.
