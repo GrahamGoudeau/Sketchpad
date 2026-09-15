@@ -1,6 +1,5 @@
 //! Explicit and implicit symbol definitions.
-use std::collections::BTreeMap;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fmt::{self, Debug, Display, Formatter};
 
 use base::prelude::*;
@@ -138,6 +137,23 @@ impl ExplicitSymbolTable {
 
     pub(crate) fn is_defined(&self, name: &SymbolName) -> bool {
         self.definitions.contains_key(name)
+    }
+
+    pub(crate) fn subset(&self, names: &BTreeSet<SymbolName>) -> Option<ExplicitSymbolTable> {
+        let definitions = names
+            .iter()
+            .filter_map(|name| {
+                self.definitions
+                    .get(name)
+                    .cloned()
+                    .map(|definition| (name.clone(), definition))
+            })
+            .collect::<BTreeMap<_, _>>();
+        if definitions.is_empty() {
+            None
+        } else {
+            Some(ExplicitSymbolTable { definitions })
+        }
     }
 
     pub(crate) fn replace_equality_value(&mut self, name: &SymbolName, value: EqualityValue) {

@@ -659,6 +659,17 @@ fn test_identical_rc_words_share_one_address() {
 }
 
 #[test]
+fn test_rc_reuse_ignores_redundant_parentheses() {
+    let program = assemble_source("X=42\n100|{X}\n{((X))}\n", Default::default())
+        .expect("redundant parentheses in RC words are valid");
+
+    assert_eq!(program.chunks.len(), 2);
+    assert_eq!(program.chunks[0].words, vec![u36!(0o102), u36!(0o102)]);
+    assert_eq!(program.chunks[1].address, Address::from(u18!(0o102)));
+    assert_eq!(program.chunks[1].words, vec![u36!(0o42)]);
+}
+
+#[test]
 fn test_200_200_200_200_with_no_commas() {
     // This example is from section 6-2.4 "NUMERICAL FORMAT - USE OF
     // COMMAS" in the Users Handbook.
