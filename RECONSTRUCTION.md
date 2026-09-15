@@ -65,18 +65,13 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R011 and validator commits `d3d1d9b`, `4d6bf6c`,
-`81e83f9`, `5b2e5c0`, `2e15acd`, `5e2c77b`, `8d7b8da`, `ebf7800`,
-`8d07d2d`, `b7f4f9d`, `94f536d`, `28208eb`, `69769eb`, `39ba1e7`, and
-`3648200` move the first diagnostic to line 4992.
+Repairs R001 through R011 and the validator changes let all 6,728 source lines
+parse and expand.  The file contains four separate historical M4 assembly jobs.
+It is not one assembly job.
 
-```text
-sk.tx2as:4992:27
-found superscript `?` after a comment marker
-```
-
-Verify the scan and comment-token handling before changing the source or the
-validator.
+Unit 4 emits a machine tape.  Units 1 and 3 reach signed multiplication during
+final evaluation.  Unit 2 reaches one unsupported `≡` syntax form.  See
+`RESEARCH_LOG.md` for the unit boundaries, evidence, and current diagnostics.
 
 ## Validator Changes
 
@@ -97,7 +92,12 @@ Commit `69769eb` permits macro redefinition and restores the prior definition
 after parser backtracking.  Commit `39ba1e7` accepts a parenthesized comma-built
 word as an arithmetic atom.
 Commit `3648200` expands nested macro calls after substituting their outer
-parameters.  The assembler test suite passes.
+parameters.  Commit `d6f6c85` recognizes comment markers that follow source
+text.  Commit `e2e8fa3` accepts the M4 question-mark symex terminator.  Commit
+`fcac3ab` applies macro parameter elevation at the parameter use site.  Commit
+`e6e8cd1` completes RC allocation for equality values and evaluates macro-local
+tags in their expansion scope.  The assembler test suite passes 305 unit tests
+and 2 golden tests.
 
 ## Evidence Order
 

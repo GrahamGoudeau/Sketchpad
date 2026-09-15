@@ -43,3 +43,9 @@ See [Verifying
 Listings](https://tx-2.github.io/software/verifying-listings) for an
 explanation of our general approach to verifying listings of TX-2
 software.
+
+## Reconstruction Research
+
+See [Sketchpad Reconstruction](RECONSTRUCTION.md) for the evidence rules and
+source repair register.  See [Research Log](RESEARCH_LOG.md) for dated project
+checkpoints, major findings, and open interpretations.
