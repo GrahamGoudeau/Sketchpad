@@ -420,6 +420,16 @@ fn test_hold_indicator_as_arithmetic_value() {
 }
 
 #[test]
+fn test_parenthesized_assembled_word_in_arithmetic_expression() {
+    let word = assemble_source("100| (770,)\n", Default::default()).expect("program is valid");
+    assert_eq!(word.chunks[0].words[0], u36!(0o770_000_000_000));
+
+    let expression = assemble_source("100| ((777777777777)∧(770,))\n", Default::default())
+        .expect("program is valid");
+    assert_eq!(expression.chunks[0].words[0], u36!(0o770_000_000_000));
+}
+
+#[test]
 fn test_division_overflow_on_constants() {
     // See the documentation for the opcode DIV (Users Handbook, page
     // 3-62) for a description of the rules around division by either

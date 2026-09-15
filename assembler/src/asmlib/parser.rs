@@ -1254,9 +1254,11 @@ where
     // parser and define it after both dependent parsers exist.
     let mut register_containing = Recursive::declare();
     let register_containing_for_expression = register_containing.clone();
+    let comma_delimited_instructions_for_expression = comma_delimited_instructions.clone();
 
     let arith_expr = |allow_spaces: bool, script_required: Script| {
         {
+            let parenthesized_word_parser = comma_delimited_instructions_for_expression.clone();
             let symex_syllable_rule = if allow_spaces {
                 SymexSyllableRule::Multiple
             } else {
@@ -1277,6 +1279,20 @@ where
                         Atom::Parens(extra.span(), script_required, Box::new(expr))
                     })
                     .labelled("parenthesised arithmetic expression");
+
+                let parenthesized_assembled_word = parenthesized_word_parser
+                    .clone()
+                    .delimited_by(
+                        just(Tok::LeftParen(Script::Normal)),
+                        just(Tok::RightParen(Script::Normal)),
+                    )
+                    .map_with(|fragments, extra| {
+                        Atom::AssembledWord(
+                            extra.span(),
+                            Box::new(UntaggedProgramInstruction::from(fragments)),
+                        )
+                    })
+                    .labelled("parenthesized assembled word");
 
                 let hold_indicator = select! {
                     Tok::Hold if script_required == Script::Normal => ()
@@ -1302,6 +1318,7 @@ where
                     ),
                     register_containing_for_expression.clone(),
                     parenthesised_arithmetic_expression,
+                    parenthesized_assembled_word,
                 ))
                 .boxed();
 

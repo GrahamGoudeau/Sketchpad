@@ -809,6 +809,7 @@ impl RegisterContaining {
 pub(crate) enum Atom {
     SymbolOrLiteral(SymbolOrLiteral),
     Parens(Span, Script, Box<ArithmeticExpression>),
+    AssembledWord(Span, Box<UntaggedProgramInstruction>),
     RcRef(Span, RegistersContaining),
 }
 
@@ -843,6 +844,9 @@ impl Atom {
             Atom::SymbolOrLiteral(SymbolOrLiteral::Literal(_) | SymbolOrLiteral::Here(_, _)) => (),
             Atom::Parens(_span, _script, expr) => {
                 result.extend(expr.symbol_uses(block_id, block_offset));
+            }
+            Atom::AssembledWord(_span, word) => {
+                result.extend(word.symbol_uses(block_id, block_offset));
             }
             Atom::RcRef(_span, rc_words) => {
                 result.extend(rc_words.symbol_uses(block_id, block_offset));
@@ -891,6 +895,9 @@ impl Atom {
                 .map(|arithmetic_expression| {
                     Atom::Parens(*span, *script, Box::new(arithmetic_expression))
                 }),
+            Atom::AssembledWord(span, word) => word
+                .substitute_macro_parameters(param_values, on_missing, macros)
+                .map(|word| Atom::AssembledWord(*span, Box::new(word))),
             Atom::RcRef(span, registers_containing) => registers_containing
                 .substitute_macro_parameters(param_values, on_missing, macros)
                 .map(|registers_containing| Atom::RcRef(*span, registers_containing)),
@@ -910,6 +917,9 @@ impl Atom {
             Atom::Parens(_, _, expr) => {
                 expr.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
             }
+            Atom::AssembledWord(_, word) => {
+                word.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+            }
             Atom::RcRef(span, rc) => {
                 rc.allocate_rc_words(*span, explicit_symtab, implicit_symtab, rc_allocator)
             }
@@ -922,6 +932,7 @@ impl Spanned for Atom {
         match self {
             Atom::SymbolOrLiteral(value) => value.span(),
             Atom::Parens(span, _script, _bae) => *span,
+            Atom::AssembledWord(span, _) => *span,
             Atom::RcRef(span, _) => *span,
         }
     }
@@ -944,6 +955,7 @@ impl std::fmt::Display for Atom {
         match self {
             Atom::SymbolOrLiteral(value) => write!(f, "{value}"),
             Atom::Parens(_span, script, expr) => elevated_string(&expr.to_string(), *script).fmt(f),
+            Atom::AssembledWord(_span, _word) => f.write_str("(...)"),
             Atom::RcRef(_span, _rc_reference) => {
                 // The RcRef doesn't itself record the content of the
                 // {...} because that goes into the rc-block itself.

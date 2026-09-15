@@ -188,6 +188,7 @@ impl Evaluate for Atom {
         match self {
             Atom::SymbolOrLiteral(value) => value.evaluate(ctx, scope),
             Atom::Parens(_span, _script, expr) => expr.evaluate(ctx, scope),
+            Atom::AssembledWord(_span, word) => word.evaluate(ctx, scope),
             Atom::RcRef(_span, registers_containing) => registers_containing.evaluate(ctx, scope),
         }
     }
