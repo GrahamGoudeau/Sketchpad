@@ -73,8 +73,10 @@ mod span;
 mod state;
 mod symbol;
 mod symtab;
+mod tape;
 mod types;
 
 pub use driver::*;
 pub use readerleader::*;
+pub use tape::*;
 pub use types::AssemblerFailure;

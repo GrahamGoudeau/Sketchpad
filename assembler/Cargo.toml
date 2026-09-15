@@ -47,3 +47,7 @@ path = "src/tx2dis/main.rs"
 [[bin]]
 name = "tx2maketape"
 path = "src/tx2maketape/main.rs"
+
+[[bin]]
+name = "tx2mergetape"
+path = "src/tx2mergetape/main.rs"

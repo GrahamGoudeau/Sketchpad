@@ -254,11 +254,12 @@ impl Binary {
         self.chunks().iter().map(BinaryChunk::count_words).sum()
     }
 
-    fn entry_point(&self) -> Option<Address> {
+    #[must_use]
+    pub fn entry_point(&self) -> Option<Address> {
         self.entry_point
     }
 
-    fn set_entry_point(&mut self, address: Address) {
+    pub fn set_entry_point(&mut self, address: Address) {
         self.entry_point = Some(address);
     }
 
@@ -266,11 +267,13 @@ impl Binary {
         self.chunks.push(chunk);
     }
 
-    fn chunks(&self) -> &[BinaryChunk] {
+    #[must_use]
+    pub fn chunks(&self) -> &[BinaryChunk] {
         &self.chunks
     }
 
-    fn is_empty(&self) -> bool {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
         self.chunks.is_empty()
     }
 }
