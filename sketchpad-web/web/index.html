@@ -29,12 +29,13 @@
           </div>
           <div class="scope-glass">
             <canvas id="scope" aria-label="TX-2 oscilloscope display"></canvas>
+            <div id="beam-head" class="beam-head" aria-hidden="true"></div>
             <canvas id="bridge-ink" class="bridge-ink" aria-label="Mobile Sketchpad drawing surface"></canvas>
             <div class="graticule" aria-hidden="true"></div>
           </div>
           <div class="scope-label">
             <span>OSCILLOSCOPE DISPLAY</span>
-            <span>SEQUENCE 60</span>
+            <span id="beam-readout">TIMED POINT BEAM · UNIT 60</span>
           </div>
         </div>
 
@@ -150,9 +151,9 @@
 
       <footer>
         <p>This build runs the compatible seven-job reconstruction of Sketchpad.</p>
-        <p>The browser models the light pen and the two TX-2 console input registers.</p>
+        <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260915-4"></script>
+    <script type="module" src="./app.js?v=20260915-5"></script>
   </body>
 </html>

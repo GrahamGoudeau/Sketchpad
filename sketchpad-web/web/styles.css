@@ -133,8 +133,26 @@ canvas {
   pointer-events: none;
 }
 
-.bridge-ink {
+.beam-head {
+  position: absolute;
   z-index: 2;
+  left: 50%;
+  top: 50%;
+  width: clamp(2px, 0.38%, 4px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #e6f8ff;
+  box-shadow:
+    0 0 3px 1px rgb(192 235 255 / 90%),
+    0 0 9px 3px rgb(91 179 255 / 55%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  will-change: left, top, opacity;
+}
+
+.bridge-ink {
+  z-index: 3;
 }
 
 .graticule {

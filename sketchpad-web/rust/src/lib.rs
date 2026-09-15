@@ -20,6 +20,7 @@ const SKETCHPAD: &[u8] = include_bytes!("../assets/sketchpad-combined.tape");
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum BrowserOutput {
     ScopePoint {
+        at_seconds: f64,
         unit: u8,
         x: i16,
         y: i16,
@@ -27,6 +28,7 @@ enum BrowserOutput {
         origin: &'static str,
     },
     LincolnWriter {
+        at_seconds: f64,
         unit: u8,
         text: Option<String>,
         advance: bool,
@@ -42,8 +44,8 @@ fn scope_origin_name(origin: ScopeOrigin) -> &'static str {
     }
 }
 
-impl From<OutputEvent> for BrowserOutput {
-    fn from(event: OutputEvent) -> Self {
+impl BrowserOutput {
+    fn from_timed(event: OutputEvent, at: Duration) -> Self {
         match event {
             OutputEvent::ScopePoint {
                 unit,
@@ -52,6 +54,7 @@ impl From<OutputEvent> for BrowserOutput {
                 intensity,
                 origin,
             } => BrowserOutput::ScopePoint {
+                at_seconds: at.as_secs_f64(),
                 unit: unit.into(),
                 x,
                 y,
@@ -64,6 +67,7 @@ impl From<OutputEvent> for BrowserOutput {
                     LincolnChar::Unprintable(_) => None,
                 });
                 BrowserOutput::LincolnWriter {
+                    at_seconds: at.as_secs_f64(),
                     unit: unit.into(),
                     text: text.map(|c| c.to_string()),
                     advance: ch.advance,
@@ -131,8 +135,11 @@ impl SketchpadMachine {
         self.simulated_time = self.tx2.next_tick();
         let ctx = context(self.simulated_time, real_elapsed_seconds);
         match self.tx2.tick(&ctx) {
-            Ok(Some(output)) => serde_wasm_bindgen::to_value(&BrowserOutput::from(output))
-                .map_err(|error| JsValue::from_str(&error.to_string())),
+            Ok(Some(output)) => serde_wasm_bindgen::to_value(&BrowserOutput::from_timed(
+                output,
+                self.simulated_time,
+            ))
+            .map_err(|error| JsValue::from_str(&error.to_string())),
             Ok(None) => Ok(JsValue::NULL),
             Err(error) => {
                 let message = error.to_string();
@@ -152,7 +159,9 @@ impl SketchpadMachine {
             self.simulated_time = self.tx2.next_tick();
             let ctx = context(self.simulated_time, real_elapsed_seconds);
             match self.tx2.tick(&ctx) {
-                Ok(Some(output)) => outputs.push(BrowserOutput::from(output)),
+                Ok(Some(output)) => {
+                    outputs.push(BrowserOutput::from_timed(output, self.simulated_time));
+                }
                 Ok(None) => (),
                 Err(error) => {
                     let message = error.to_string();
@@ -260,14 +269,18 @@ mod tests {
 
     #[test]
     fn converts_scope_event_for_the_browser() {
-        let event = BrowserOutput::from(OutputEvent::ScopePoint {
-            unit: u6!(0o60),
-            x: -12,
-            y: 34,
-            intensity: 3,
-            origin: ScopeOrigin::LowerLeft,
-        });
+        let event = BrowserOutput::from_timed(
+            OutputEvent::ScopePoint {
+                unit: u6!(0o60),
+                x: -12,
+                y: 34,
+                intensity: 3,
+                origin: ScopeOrigin::LowerLeft,
+            },
+            Duration::from_micros(20),
+        );
         let BrowserOutput::ScopePoint {
+            at_seconds,
             unit,
             x,
             y,
@@ -279,6 +292,7 @@ mod tests {
         };
         assert_eq!((unit, x, y, intensity), (0o60, -12, 34, 3));
         assert_eq!(origin, "lower_left");
+        assert_eq!(at_seconds, 0.000_020);
     }
 
     #[test]
