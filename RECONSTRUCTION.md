@@ -149,6 +149,22 @@ file marks it clearly and the log records the alternatives.
 | R012 | `sk.tx2as:1928` | verified | Sketchpad part 1, PDF page 43; the printed macro argument and its target label at line 1982 both read `DUMMEX` | Restore the omitted second `M` in the `LGORR` exit argument. |
 | R013 | `sk.tx2as:3132-3145` | mechanical | The printed Unit 2 order matches the original Unit 1 order; `ERROR` expands `ERROR1` inside an RC word; the validator resolves nested macro names in one pass | Move `ERROR1` before `ERROR` and preserve both macro bodies. |
 | R014 | `sk.tx2as:3364` | verified | Sketchpad part 1, PDF page 74; adjacent `HEADER` calls; the printed expansion directly below H3 | Restore the omitted `@hamb@` separator before the `HOLDERS` argument. |
+| R015 | `sk2.tx2as:89` | inferred | Sketchpad part 2, PDF page 3; paired `β` and `γ` setup and value-location reads; the preceding `PYTH LISTβ` call | Restore the damaged second operand as `LISTγ`. |
+| R016 | `sk2.tx2as:566-5182` | mechanical | Printed XOR glyph; repeated forms in Part 1; Users Handbook section 6-2.7 | Replace 26 ASCII caret transcription markers with `@xor@`. |
+| R017 | four macro blocks in `sk2.tx2as` | mechanical | Each `ERROR` macro expands `ERROR1`; the validator resolves nested macro names in one pass | Put `ERROR1` before `ERROR` in `ONLW`, `APY5`, `LYUO`, and `Y3HT`. |
+| R018 | `sk2.tx2as:766,2648,2665,2682,2704` | mechanical | Printed compound XOR glyph; Users Handbook section 6-2.7; Part 1 repair R005 | Replace `@circled_v@` with `@xor@`. |
+| R019 | four definitions and calls in `sk2.tx2as` | mechanical | Printed compound getter macro; parameter order; Part 1 repair R001 | Name the compound macro `GETIX` and preserve both operands as explicit parameters. |
+| R020 | `sk2.tx2as:4435` | verified | Sketchpad part 2, PDF page 103; the adjacent `PS2P` branch and target label | Restore uppercase `S` in `JPQ PS2P`. |
+| R021 | `sk2.tx2as:1006` | verified | The printed H9.3 expansion; ten adjacent `HEADER` calls; Part 1 repair R010 | Correct the printed `HEADERS` typo to `HEADER`. |
+| R022 | the `APY5` `SOLVE` macro | mechanical | `SOLVE` expands `SOLVEM` and `SOLVEM1`; the validator resolves nested macro names in one pass | Put `SOLVE` after both unchanged helper definitions. |
+| R023 | the `Y3HT` `PYTH` macro | mechanical | `PYTH` expands `PYTH1`; the validator resolves nested macro names in one pass | Put `PYTH` after the unchanged `PYTH1` definition. |
+| R024 | `sk2.tx2as:2502` | inferred | Sketchpad part 2, PDF page 60; the paired `DPX` index-packing pattern in `CCCROSS` and `LLCROSS` | Read the clipped configuration on the second `ADCON` deposit as `2`. |
+| R025 | `sk2.tx2as:3790` | verified | Sketchpad part 2, PDF page 90; the only invocation and the printed macro name | Remove the extra transcribed `P` from macro name `LLCROSS`. |
+| R026 | `sk2.tx2as:2184` | mechanical | The annotation parser treats the first closing square bracket as the annotation end | Replace the nested-bracket page-header description with equivalent plain text. |
+| R027 | the `Y3HT` `FULL` macro | mechanical | `FULL` expands `FULL1`; the validator resolves nested macro names in one pass | Put `FULL` after the unchanged `FULL1` definition. |
+| R028 | `sk2.tx2as:5425` | mechanical | The printed logical-disjunction glyph and other recovered M4 XOR glyphs have the same word-combination role | Normalize the four logical-disjunction glyphs to `@xor@`. |
+| R029 | `sk2.tx2as:5997`, `6349` | mechanical | The assembler glyph table names the superscript plus glyph `add` | Normalize the two ad hoc `@sup_+@` spellings to `@sup_add@`. |
+| R030 | `sk2.tx2as:6719` | verified | Sketchpad part 2, PDF page 150; the adjacent held `TSD` spelling | Read the transcribed barred `h` as the M4 hold indicator `h`. |
 
 ## Publication Gate
 

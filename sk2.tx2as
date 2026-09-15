@@ -86,7 +86,7 @@ MSCOMP@arr@     @sup_1@STE MSCOMPX
                 RSX @sub_S@@sub_pipe@@sub_gamma@ LIST+TYPE
                 AUX @sub_gamma@@sub_pipe@@sub_S@ LIST+VARLOC
                 PYTH@hamb@LIST@sub_beta@=TS@arr@BADOV
-                PYTH@hamb@LIST??=TT@arr@BADOV [part of the line obscured/damaged]
+                PYTH@hamb@LIST@sub_gamma@=TT@arr@BADOV [inferred from the paired β,γ data flow]
                 EITHER@hamb@MD1,MD2,MD3,MD4,MD5@arr@14
 MSCOMPX@arr@
                 JPQ #
@@ -563,7 +563,7 @@ STE B
 @hand@@hand@DEF HDIF|P,Q@arr@R
 LDA P
 SUB Q
-SCA {-1,-1,,-1,-1}+((Q)^(770,))
+SCA {-1,-1,,-1,-1}+((Q)@xor@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -629,7 +629,7 @@ STB G+1
 @hand@@hand@DEF HSUM@hamb@P,Q@arr@R
 LDA P
 ADD Q
-SCA {-1,-1,,-1,-1}+((Q)^(770,))
+SCA {-1,-1,,-1,-1}+((Q)@xor@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -707,20 +707,19 @@ STA P
 STB P+1
 @hand@@hand@EMD
 
+@hand@@hand@DEF ERROR1@hamb@@alpha@@arr@P
+@sup_1@STE #+2
+SKZ ERRORSTOP
+@sup_1@#@sub_alpha@
+JPQ P
+@hand@@hand@EMD
+
 @hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
 hJPQ {ERROR1@hamb@@alpha@@arr@P}
 @hand@@hand@EMD
 
-@hand@@hand@DEF ERROR1@hamb@@alpha@@arr@P
-@sup_1@STE #+2
-SKZ ERRORSTOP
-
 [meta file_name=102726903-05-02-acc.pdf pdf_page=19 doc_page=169 type=macros proof=1]
 [Page header: "IES ONLW 015"]
-
-@sup_1@#@sub_alpha@
-JPQ P
-@hand@@hand@EMD
 
 @hand@@hand@DEF PUTNAME@hamb@@alpha@@arr@LMNAME
 SKZ EXPINS      **WORKING IN INST?
@@ -764,7 +763,7 @@ h@sup_minus@@sup_1@JNX@sub_X@@sub_R@#+2
 @sup_1@SKX@sub_X@@sub_R@1
 INX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@0
 LGORR1@arr@     SXD@sub_X@@sub_R@#      ** MODIFIED
-hJPQ GORREXIT+(GORREXIT/GORREXIT@circled_v@1@times@(LGORREND+1))
+hJPQ GORREXIT+(GORREXIT/GORREXIT@xor@1@times@(LGORREND+1))
 @sup_1@@sup_1@RSX@sub_X@@sub_R@@sub_2@@sub_pipe@@sub_X@@sub_R@@sub_2@LIST
 @sup_1@DPX@sub_X@@sub_R@@sub_2@LGORR2
 hJPQ SUBR
@@ -843,7 +842,7 @@ SUBR1@arr@      JPQ #
                 N
 @hand@@hand@EMD
 
-@hand@@hand@DEF @alpha@@rect_dash@A,@beta@
+@hand@@hand@DEF GETIX@hamb@@alpha@@times@A,@beta@
                 RSX@sub_alpha@@sub_pipe@@sub_beta@LIST+A
 @hand@@hand@EMD
 
@@ -1004,7 +1003,7 @@ H9.2@arr@       HEADER@hamb@HOLDERS@arr@(1,41,,37,42)
                 [SPLAT]
                 [(1,41,,37,42)]
                 [T1]
-H9.3@arr@       HEADERS@hamb@HOLDERS@arr@(2,41,,37,42)
+H9.3@arr@       HEADER@hamb@HOLDERS@arr@(2,41,,37,42)
                 [SMASBL,4,,HOLDERS-LIST]
                 [#-NLIST-SMASBL,,#+SMASBL-NLIST]
                 [-2,0]
@@ -1240,7 +1239,7 @@ CPWRAPA@arr@
                 LGORR@hamb@PPART@times@@alpha@=S@arr@CPWRAPB@arr@CPWRAPC
 CPWRAPB@arr@
                 @sup_1@STE CPWRAPBX
-                S@rect_dash@TYPE,@alpha@
+                GETIX@hamb@S@times@TYPE,@alpha@
                 hBPQ @sub_S@ HOWBIG+LIST
 CPWRAPBX@arr@
                 JPQ #
@@ -1277,7 +1276,7 @@ CPWRAP1@arr@
                 LGORR@hamb@PPART@times@@alpha@=S@arr@CPWRAP2@arr@CPWRAP3
 CPWRAP2@arr@
                 @sup_1@STE CPWRAP2X
-                S@rect_dash@TYPE,@alpha@
+                GETIX@hamb@S@times@TYPE,@alpha@
                 hBPQ @sub_S@ LIST+MOVIT
 CPWRAP2X@arr@
                 JPQ #
@@ -1290,21 +1289,21 @@ CPIP@arr@       @sup_1@STE CPIPX        **FOR A POINT
                 hJPQ CPNS       **MINI MAX
 CPIPX@arr@      JPQ #
 CPIL@arr@       @sup_1@STE CPILX        **FOR A LINE
-                S@rect_dash@LEP,@alpha@
+                GETIX@hamb@S@times@LEP,@alpha@
                 ROTA@hamb@S
                 hJPQ CPNS
-                S@rect_dash@LSP,@alpha@
+                GETIX@hamb@S@times@LSP,@alpha@
                 ROTA@hamb@S
                 hJPQ CPNS
 CPILX@arr@      JPQ #
 CPIC@arr@       @sup_1@STE CPICX        **FOR A CIRCLE
-                S@rect_dash@CEP,@alpha@
+                GETIX@hamb@S@times@CEP,@alpha@
                 ROTA@hamb@S@arr@AFEND
                 hJPQ CPNS
-                S@rect_dash@CSP,@alpha@
+                GETIX@hamb@S@times@CSP,@alpha@
                 ROTA@hamb@S@arr@AFST
                 hJPQ CPNS
-                T@rect_dash@CIRCEN,@alpha@
+                GETIX@hamb@T@times@CIRCEN,@alpha@
                 ROTA@hamb@T@arr@AFCEN
                 PYTH@hamb@VA@sub_T@@arr@VA@sub_S@=CPTU@arr@BADOV
 CPIC1@arr@      STA @sub_alpha@ LIST+CVAL+1
@@ -1545,7 +1544,7 @@ START76@arr@
                 hJOV BADOV
                 STA MATS
                 STA @sub_alpha@ LIST+ISIZE
-                @gamma@@rect_dash@IWHAT,@alpha@
+                GETIX@hamb@@gamma@@times@IWHAT,@alpha@
                 MOVE|PSIZE+LIST@sub_gamma@@arr@MATD
                 LGORR@hamb@VCON@times@@alpha@=S@arr@76MOVIT@arr@76MOVIX
 76MOVIT@arr@
@@ -1555,9 +1554,9 @@ START76@arr@
                 JPQ #+2
 76MOVITX@arr@
                 JPQ #
-                S@rect_dash@IPCV,@alpha@
+                GETIX@hamb@S@times@IPCV,@alpha@
                 ROTA@hamb@S
-                S@rect_dash@IPCP,@alpha@
+                GETIX@hamb@S@times@IPCP,@alpha@
                 STAB@hamb@VA@sub_S@
                 JPQ 76MOVITX
 76LOOP1@arr@
@@ -1672,7 +1671,7 @@ MAGPICX@arr@
                 JPQ #
                 LGORR@hamb@PICBLKS@times@@alpha@=S@arr@MAG1@arr@MAGPICX
 MAG1@arr@       @sup_1@STE MAG1X
-                @gamma@@rect_dash@TYPE,@alpha@
+                GETIX@hamb@@gamma@@times@TYPE,@alpha@
                 hBPQ @sub_gamma@ LIST+DISPLAY
 MAG1X@arr@      JPQ #
 MAGL@arr@       @sup_1@STE MAGLX
@@ -1681,9 +1680,9 @@ MAGL@arr@       @sup_1@STE MAGLX
                 JPQ #+2
                 JPQ MAGLX
                 PUTNAME@hamb@@alpha@@arr@LMNAME
-                @gamma@@rect_dash@LSP,@alpha@
+                GETIX@hamb@@gamma@@times@LSP,@alpha@
                 ROTA@hamb@@gamma@@arr@LMSTART
-                @gamma@@rect_dash@LEP,@alpha@
+                GETIX@hamb@@gamma@@times@LEP,@alpha@
                 ROTA@hamb@@gamma@@arr@LMEND
                 hJPQ LMAG
 MAGLX@arr@      JPQ #
@@ -1692,9 +1691,9 @@ MAGC@arr@       @sup_1@STE MAGCX
                 SKZ EXPINS
                 JPQ #+2
                 JPQ MAGCX
-                @gamma@@rect_dash@CIRCEN,@alpha@
+                GETIX@hamb@@gamma@@times@CIRCEN,@alpha@
                 ROTA@hamb@@gamma@@arr@CMCEN
-                @gamma@@rect_dash@CSP,@alpha@
+                GETIX@hamb@@gamma@@times@CSP,@alpha@
                 ROTA@hamb@@gamma@@arr@CMSTART
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=42 doc_page=192 type=code proof=1]
@@ -1702,7 +1701,7 @@ MAGC@arr@       @sup_1@STE MAGCX
 
                 SKZ EXPINS
                 JPQ MAGC1
-                @gamma@@rect_dash@CEP,@alpha@
+                GETIX@hamb@@gamma@@times@CEP,@alpha@
                 ROTA@hamb@@gamma@@arr@AFEND
                 hJPQ ANGLEFIX
 MAGC1@arr@      LDA @sub_alpha@ CVAL+LIST
@@ -1744,7 +1743,7 @@ MAGCON@arr@     @sup_1@STE MAGCONEXIT
                 SKN SHOWCON
                 JPQ MAGCONEXIT
                 PUTNAME@hamb@@alpha@@arr@LMNAME
-                T@rect_dash@CHVAR,@gamma@       **@gamma@=TYPE
+                GETIX@hamb@T@times@CHVAR,@gamma@       **@gamma@=TYPE
                 DPX MAGCONXP
                 DPX MAGCONYP
                 DPX A
@@ -1767,7 +1766,7 @@ MAGCON1@arr@
                 LDA @sub_T@#    **SET TO FIRST VARIABLE
                 DPX @sub_T@ MAGCONT1
                 RSX @sub_alpha@ A
-                @gamma@@rect_dash@TYPE,@alpha@
+                GETIX@hamb@@gamma@@times@TYPE,@alpha@
                 hBPQ @sub_gamma@ LIST+WHERE     **FIND PLACE OF TIE
                 STB MAGCONYT
                 MUL MAGCONN
@@ -1785,7 +1784,7 @@ MAGCON2@arr@
                 LDA *MAGCON1
                 DPX @sub_T@ MAGCONT1
                 RSX @sub_alpha@ A
-                @gamma@@rect_dash@TYPE,@alpha@
+                GETIX@hamb@@gamma@@times@TYPE,@alpha@
                 hBPQ @sub_gamma@ LIST+WHERE
                 STAB@hamb@LMEND
                 RSX @sub_T@ MAGCONT1
@@ -2092,8 +2091,8 @@ ROTATER@arr@    @sup_1@STE ROTATX
 ROTATX@arr@     JPQ #
 WHERESUB@arr@
                 @sup_1@STE WHERESUBX
-                S@rect_dash@TYPE,@alpha@
-                T@rect_dash@VARLOC,S
+                GETIX@hamb@S@times@TYPE,@alpha@
+                GETIX@hamb@T@times@VARLOC,S
                 hLDE @sub_S@ TUPLE+LIST
                 h@sup_1@SED { 2}
                 JPQ #+5
@@ -2108,7 +2107,7 @@ WHERESUBX@arr@
 TRANSFORM@arr@
                 @sup_1@STE TRANSFORMX
                 DPX @sub_alpha@ TRANSFORM@alpha@
-                S@rect_dash@TYPE,@alpha@
+                GETIX@hamb@S@times@TYPE,@alpha@
                 AUX @sub_alpha@@sub_pipe@@sub_S@ LIST+VARLOC
                 INX @sub_alpha@ LIST
                 RSX @sub_S@@sub_pipe@@sub_S@ LIST+TUPLE
@@ -2182,7 +2181,7 @@ AFOVER@arr@     LDA { 377,-0,,-0,-0}
 AF1B@arr@       LDA AFTT
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=51 doc_page=201 type=code proof=1]
-[Page header: "IES [4 random symbols] 027"]
+[Page header has four unreadable symbols before IES 027]
 
                 STA AFANG
 ANGFX@arr@      JPQ #
@@ -2486,10 +2485,6 @@ STA P
 STB P+1
 @hand@@hand@EMD
 
-@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
-hJPQ {ERROR1@hamb@@alpha@@arr@P}
-@hand@@hand@EMD
-
 @hand@@hand@DEF ERROR1@hamb@@alpha@@arr@P
 @sup_1@STE #+2
 SKZ ERRORSTOP
@@ -2497,46 +2492,32 @@ SKZ ERRORSTOP
 JPQ P
 @hand@@hand@EMD
 
-@hand@@hand@DEF SOLVE|P@arr@Q
-REX@sub_x@@sub_1@* {P}
-REX@sub_x@@sub_2@* {Q}
-h@sup_1@@sup_5@LDE @sub_x@@sub_1@0
-        hSED {2}
-        JPQ #+12
-hSED {3}
-JPQ #+6
-hSED {5}
-JPQ #+2
-0
-hJPQ {SOLVEM|4}
-JPQ #+4
-hJPQ {SOLVEM|2}
-        JPQ #+2
-        hJPQ {SOLVEM1}
+@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
+hJPQ {ERROR1@hamb@@alpha@@arr@P}
 @hand@@hand@EMD
 
 @hand@@hand@DEF ADCON@hamb@C@arr@P
 [Problem: some symbols may be clipped by the left margin]
 DPX@sub_C@A
-@sup_?@DPX@sub_P@A
+@sup_2@DPX@sub_P@A [inferred from the paired index packing]
 hJPQ ADCONER
 @hand@@hand@EMD
 
-@hand@@hand@DEF @beta@@rect_dash@A@times@B@times@C@times@D@times@E@times@F@times@G@times@H@times@I,@alpha@
+@hand@@hand@DEF GETIX@hamb@@beta@@times@A@times@B@times@C@times@D@times@E@times@F@times@G@times@H@times@I,@alpha@
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=61 doc_page=211 type=macros proof=1]
 [Page header: "HHL APY5 012"]
 
 REX @sub_beta@*{0@sub_alpha@}
-RSX@sub_beta@*{LIST+I@sub_beta@}+(I^(370,))
-RSX@sub_beta@*{LIST+H@sub_beta@}+(H^(370,))
-RSX@sub_beta@*{LIST+G@sub_beta@}+(G^(370,))
-RSX@sub_beta@*{LIST+F@sub_beta@}+(F^(370,))
-RSX@sub_beta@*{LIST+E@sub_beta@}+(E^(370,))
-RSX@sub_beta@*{LIST+D@sub_beta@}+(D^(370,))
-RSX@sub_beta@*{LIST+C@sub_beta@}+(C^(370,))
-RSX@sub_beta@*{LIST+B@sub_beta@}+(B^(370,))
-RSX@sub_beta@*{LIST+A@sub_beta@}+(A^(370,))
+RSX@sub_beta@*{LIST+I@sub_beta@}+(I@xor@(370,))
+RSX@sub_beta@*{LIST+H@sub_beta@}+(H@xor@(370,))
+RSX@sub_beta@*{LIST+G@sub_beta@}+(G@xor@(370,))
+RSX@sub_beta@*{LIST+F@sub_beta@}+(F@xor@(370,))
+RSX@sub_beta@*{LIST+E@sub_beta@}+(E@xor@(370,))
+RSX@sub_beta@*{LIST+D@sub_beta@}+(D@xor@(370,))
+RSX@sub_beta@*{LIST+C@sub_beta@}+(C@xor@(370,))
+RSX@sub_beta@*{LIST+B@sub_beta@}+(B@xor@(370,))
+RSX@sub_beta@*{LIST+A@sub_beta@}+(A@xor@(370,))
 @hand@@hand@EMD
 
 @hand@@hand@DEF LTAKE@hamb@N@times@XR
@@ -2646,7 +2627,7 @@ LGORR0@arr@     @sup_1@@sup_6@RSX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@LI
                 @sup_1@SKX@sub_X@@sub_R@1
                 INX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@0
 LGORR1@arr@     SXD@sub_X@@sub_R@#      ** MODIFIED
-                hJPQ GORREXIT+(GORREXIT/GORREXIT@circled_v@1@times@(LGORREND+1))
+                hJPQ GORREXIT+(GORREXIT/GORREXIT@xor@1@times@(LGORREND+1))
                 @sup_1@@sup_1@RSX@sub_X@@sub_R@@sub_2@@sub_pipe@@sub_X@@sub_R@@sub_2@LIST
                 @sup_1@DPX@sub_X@@sub_R@@sub_2@LGORR2
                 hJPQ SUBR
@@ -2663,7 +2644,7 @@ LGORL0@arr@     @sup_1@@sup_6@RSX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@LI
                 @sup_1@SKX@sub_X@@sub_R@1
                 INX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@0
 LGORL1@arr@     SXD@sub_X@@sub_R@#      ** MODIFIED
-                hJPQ GORLEXIT+(GORLEXIT/GORLEXIT@circled_v@1@times@(LGORLEND+1))
+                hJPQ GORLEXIT+(GORLEXIT/GORLEXIT@xor@1@times@(LGORLEND+1))
                 @sup_1@@sup_2@RSX@sub_X@@sub_R@@sub_2@@sub_pipe@@sub_X@@sub_R@@sub_2@LIST
                 @sup_1@DPX@sub_X@@sub_R@@sub_2@LGORL2
                 hJPQ SUBR
@@ -2680,7 +2661,7 @@ LGORRI0@arr@    @sup_1@@sup_6@RSX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@LI
                 @sup_1@SKX@sub_X@@sub_R@1
                 INX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@0
 LGORRI1@arr@    SXD@sub_X@@sub_R@#      ** MODIFIED
-                hJPQ GORRIEXIT+(GORRIEXIT/GORRIEXIT@circled_v@1@times@(LGORRIEND+1))
+                hJPQ GORRIEXIT+(GORRIEXIT/GORRIEXIT@xor@1@times@(LGORRIEND+1))
                 @sup_1@DPX@sub_X@@sub_R@@sub_2@LGORRI2
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=64 doc_page=214 type=macros proof=1]
@@ -2702,7 +2683,7 @@ LGORLI0@arr@    @sup_1@@sup_6@RSX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@LI
                 @sup_1@SKX@sub_X@@sub_R@1
                 INX@sub_X@@sub_R@@sub_pipe@@sub_X@@sub_R@@sub_2@0
 LGORLI1@arr@    SXD@sub_X@@sub_R@#      ** MODIFIED
-                hJPQ GORLIEXIT+(GORLIEXIT/GORLIEXIT@circled_v@1@times@(LGORLIEND+1))
+                hJPQ GORLIEXIT+(GORLIEXIT/GORLIEXIT@xor@1@times@(LGORLIEND+1))
                 @sup_1@DPX@sub_X@@sub_R@@sub_2@LGORLI2
                 @sup_1@@sup_2@RSX@sub_X@@sub_R@@sub_2@@sub_pipe@@sub_X@@sub_R@@sub_2@LIST       **CURRENT NXT
                 hJPQ SUBR
@@ -2980,6 +2961,24 @@ SLVAD9@arr@     SCA {-2,}       **OVERFLOW IN FIGURING CONSTANT
 SOLVX@arr@      JPQ #
 @hand@@hand@EMD
 
+@hand@@hand@DEF SOLVE|P@arr@Q
+REX@sub_x@@sub_1@* {P}
+REX@sub_x@@sub_2@* {Q}
+h@sup_1@@sup_5@LDE @sub_x@@sub_1@0
+        hSED {2}
+        JPQ #+12
+hSED {3}
+JPQ #+6
+hSED {5}
+JPQ #+2
+0
+hJPQ {SOLVEM|4}
+JPQ #+4
+hJPQ {SOLVEM|2}
+        JPQ #+2
+        hJPQ {SOLVEM1}
+@hand@@hand@EMD
+
 [meta file_name=102726903-05-02-acc.pdf pdf_page=70 doc_page=220 type=main proof=1]
 [Page header: "HHL APY5 023"]
 
@@ -3027,8 +3026,8 @@ RELBX@arr@      JPQ #
 RELC@arr@       RSX @sub_gamma@ REEQ
                 SXD @sub_gamma@ 0
                 JPQ RELX
-                @gamma@@rect_dash@TUPLE@times@TYPE,@alpha@
-                @beta@@rect_dash@VARLOC@times@TYPE,@alpha@
+                GETIX@hamb@@gamma@@times@TUPLE@times@TYPE,@alpha@
+                GETIX@hamb@@beta@@times@VARLOC@times@TYPE,@alpha@
                 INX @sub_alpha@@sub_pipe@@sub_beta@
                 LDA {-REANS}
                 ADX @sub_gamma@ A
@@ -3166,7 +3165,7 @@ FREESUB1B@arr@
 FREESUB1A@arr@
                 REX @sub_S@ 1
                 @sup_1@ADX @sub_S@ FRBC
-                S @rect_dash@ NCON@times@TYPE,@alpha@
+                GETIX@hamb@S@times@NCON@times@TYPE,@alpha@
                 @sup_1@ADX @sub_S@ FRCC
 FREESUB1X@arr@
                 JPQ #
@@ -3178,7 +3177,7 @@ FREESUBFREE@arr@
                 SUMM@hamb@{ 1}@arr@@sup_1@ FREESUBX=@sup_1@ FREESUBX
                 JPQ FREESUBX
 FREESUB3@arr@
-                S @rect_dash@ TUPLE@times@TYPE,@alpha@
+                GETIX@hamb@S@times@TUPLE@times@TYPE,@alpha@
 FRCC@arr@       SXL @sub_S@#    **# CONSTRAINTS
                 JPQ FREESUB4
                 JPQ FREESUB7
@@ -3206,7 +3205,7 @@ FREESUB5X@arr@
                 JPQ #
 FREESUB6@arr@
                 SOLVE|REEQ@arr@REANS
-                S @rect_dash@ TYPE,@alpha@
+                GETIX@hamb@S@times@TYPE,@alpha@
                 ADD @sub_S@ TUPLE+LIST  **K-DEGEN
                 @sup_1@@sup_1@SUB FRCC
 
@@ -3359,10 +3358,10 @@ CLEAN1X@arr@
 CLEAN2@arr@     SUBR@hamb@(LTAKE@hamb@CVTS@times@@alpha@)
 IPCONCOMP@arr@
                 @sup_1@STE IPCONEX
-                @beta@ @rect_dash@ IPCP,@alpha@
-                @gamma@ @rect_dash@ IPCI,@alpha@
-                @alpha@ @rect_dash@ IPCV,@alpha@
-                @delta@ @rect_dash@ BWHOS,@alpha@
+                GETIX@hamb@@beta@@times@IPCP,@alpha@
+                GETIX@hamb@@gamma@@times@IPCI,@alpha@
+                GETIX@hamb@@alpha@@times@IPCV,@alpha@
+                GETIX@hamb@@delta@@times@BWHOS,@alpha@
                 PROD@hamb@VA@sub_alpha@@times@IVAL+LIST@sub_gamma@/PSIZE+LIST@sub_delta@=ROTS@arr@BADOV
                 PROD@hamb@VA+1@sub_alpha@@times@IVAL+LIST+1@sub_gamma@/PSIZE+LIST@sub_delta@@arr@BADOV
                 SUMM@arr@ROTS@arr@BADOV
@@ -3376,10 +3375,10 @@ IPCONCOMP1@arr@
 [meta file_name=102726903-05-02-acc.pdf pdf_page=78 doc_page=228 type=code proof=1]
 [Page header: "HHL APY5 010"]
 
-                @beta@ @rect_dash@ IPCP,@alpha@
-                @gamma@ @rect_dash@ IPCI,@alpha@
-                @alpha@ @rect_dash@ IPCV,@alpha@
-                @delta@ @rect_dash@ BWHOS,@alpha@
+                GETIX@hamb@@beta@@times@IPCP,@alpha@
+                GETIX@hamb@@gamma@@times@IPCI,@alpha@
+                GETIX@hamb@@alpha@@times@IPCV,@alpha@
+                GETIX@hamb@@delta@@times@BWHOS,@alpha@
                 PROD@hamb@VA@sub_alpha@@times@IVAL+1+LIST@sub_gamma@/PSIZE+LIST@sub_delta@=ROTS@arr@BADOV
                 PROD@hamb@VA+1@sub_alpha@@times@IVAL+LIST@sub_gamma@/PSIZE+LIST@sub_delta@@arr@BADOV
                 DIFF@arr@ROTS@arr@BADOV
@@ -3629,7 +3628,7 @@ STE B
 @hand@@hand@DEF HDIF|P,Q@arr@R
 LDA P
 SUB Q
-SCA {-1,-1,,-1,-1}+((Q)^(770,))
+SCA {-1,-1,,-1,-1}+((Q)@xor@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -3788,7 +3787,7 @@ STA R
 STB R+1
 @hand@@hand@EMD
 
-@hand@@hand@DEF LLCROSSP@hamb@P@arr@Q=R@arr@S
+@hand@@hand@DEF LLCROSS@hamb@P@arr@Q=R@arr@S
 DPX@sub_P@A
 @sup_2@DPX@sub_Q@A      [best guess: @sup_2@, based on the previous def.]
 hJPQ INTOL
@@ -3815,19 +3814,19 @@ hJPQ B
 JPQ T1+(C)-(C)
 @hand@@hand@EMD
 
-@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
-hJPQ {ERROR1@hamb@@alpha@@arr@P}
-@hand@@hand@EMD
-
-[meta file_name=102726903-05-02-acc.pdf pdf_page=91 doc_page=241 type=macros proof=1]
-[Page header: "HHL LYUO 015"]
-
 @hand@@hand@DEF ERROR1@hamb@@alpha@@arr@P
 @sup_1@STE #+2
 SKZ ERRORSTOP
 @sup_1@#@sub_alpha@
 JPQ P
 @hand@@hand@EMD
+
+@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
+hJPQ {ERROR1@hamb@@alpha@@arr@P}
+@hand@@hand@EMD
+
+[meta file_name=102726903-05-02-acc.pdf pdf_page=91 doc_page=241 type=macros proof=1]
+[Page header: "HHL LYUO 015"]
 
 @hand@@hand@DEF LDAB@hamb@P
 LDA P
@@ -3839,7 +3838,7 @@ STA P
 STB P+1
 @hand@@hand@EMD
 
-@hand@@hand@DEF @beta@ @rect_dash@ A,@alpha@
+@hand@@hand@DEF GETIX@hamb@@beta@@times@A,@alpha@
         RSX@sub_beta@@sub_pipe@@sub_alpha@LIST+A
 @hand@@hand@EMD
 
@@ -4315,7 +4314,7 @@ PS1A@arr@       LDA @sub_P@@sub_S@@sub_alpha@ PENSEE
                 CYA {-10.,}
                 ITA { 177777}
                 RSX @sub_P@@sub_S@@sub_gamma@ A **PS@gamma@=SEEN BLOCK
-                PS@beta@ @rect_dash@ TYPE,PS@gamma@
+                GETIX@hamb@PS@beta@@times@TYPE,PS@gamma@
                 @sup_2@DPX @sub_P@@sub_S@@sub_beta@ A
                 STA @sub_P@@sub_S@@sub_delta@ PSNPS+3
                 SXD @sub_P@@sub_S@@sub_beta@ CIRCLES-LIST
@@ -4391,7 +4390,7 @@ PS2@arr@        RSX @sub_P@@sub_S@@sub_alpha@ PSNNPS
                 DPX PSTT
                 JPQ PS2X
 PS2S@arr@       @sup_1@STE PS2SE
-                S @rect_dash@ TYPE,@sub_P@@sub_S@@sub_gamma@
+                GETIX@hamb@S@times@TYPE,@sub_P@@sub_S@@sub_gamma@
                 REX @sub_alpha@@sub_pipe@@sub_P@@sub_S@@sub_gamma@
                 hBPQ @sub_S@ LIST+WHERE
                 STAB@hamb@PS2SLOC
@@ -4433,7 +4432,7 @@ PS2A@arr@       RSX @sub_P@@sub_S@@sub_beta@@sub_pipe@@sub_P@@sub_S@@sub_alpha@ 
                 SXD @sub_P@@sub_S@@sub_gamma@ TPVALS-LIST
                 JPQ PS2P
                 SXD @sub_P@@sub_S@@sub_gamma@ POINTS-LIST
-                JPQ Ps2P
+                JPQ PS2P
                 hLDE @sub_P@@sub_S@@sub_gamma@ LIST+TYPE
                 @sup_1@SED { CONSTRAINTS-LIST}
                 JPQ PS2CON
@@ -4443,7 +4442,7 @@ PS2P@arr@       REX @sub_P@@sub_S@@sub_gamma@@sub_pipe@@sub_P@@sub_S@@sub_beta@
                 JPQ PS2X
 PS2CON@arr@     INX @sub_P@@sub_S@@sub_beta@ LIST+CVTS+2
                 @sup_1@DPX @sub_P@@sub_S@@sub_beta@ PS2CON1
-                PS@beta@ @rect_dash@ CHVAR,PS@gamma@
+                GETIX@hamb@PS@beta@@times@CHVAR,PS@gamma@
                 INX @sub_P@@sub_S@@sub_beta@@sub_pipe@@sub_P@@sub_S@@sub_beta@
                 JPQ PS2CON1X
 PS2CON1@arr@
@@ -4463,23 +4462,23 @@ PS2I1@arr@      @sup_1@STE PS2I1X
                 @sup_1@SED { IPCONS-LIST}
                 JPQ #+2
 PS2I1X@arr@     JPQ #
-                PS@gamma@@rect_dash@IPCP,PS@gamma@
+                GETIX@hamb@PS@gamma@@times@IPCP,PS@gamma@
                 hJPQ PS2S
                 JPQ PS2I1X
-PS2L@arr@       PS@gamma@ @rect_dash@ LSP,PS@beta@
+PS2L@arr@       GETIX@hamb@PS@gamma@@times@LSP,PS@beta@
                 hJPQ PS2S
-                PS@gamma@ @rect_dash@ LEP,PS@beta@
+                GETIX@hamb@PS@gamma@@times@LEP,PS@beta@
                 hJPQ PS2S
                 JPQ PS2X
-PS2C@arr@       PS@gamma@ @rect_dash@ CSP,PS@beta@
+PS2C@arr@       GETIX@hamb@PS@gamma@@times@CSP,PS@beta@
                 hJPQ PS2S
-                PS@gamma@ @rect_dash@ CEP,PS@beta@
+                GETIX@hamb@PS@gamma@@times@CEP,PS@beta@
                 hJPQ PS2S
 PS2X@arr@       @sup_minus@@sup_4@JPX @sub_P@@sub_S@@sub_alpha@ PS2A
                 SKN @sub_4@@sub_dot@@sub_9@ PSTT
                 JPQ PS3
 PSAP@arr@       RSX @sub_alpha@ PSTT
-                S @rect_dash@ TYPE,@alpha@
+                GETIX@hamb@S@times@TYPE,@alpha@
                 DPX @sub_alpha@ ATBITS+1
                 @sup_2@DPX @sub_S@ ATBITS+1
                 hBPQ @sub_S@ LIST+WHERE
@@ -4532,11 +4531,11 @@ PSAL@arr@       LDA PSNPS
                 LDD { 1}
                 @sup_2@RSX @sub_P@@sub_S@@sub_alpha@ PSNPS+3
                 SXD @sub_P@@sub_S@@sub_alpha@ CIRCLES-LIST
-                MKN ((ATCIRCLE)^(377777,,))+ D
+                MKN ((ATCIRCLE)@xor@(377777,,))+ D
                 SXD @sub_P@@sub_S@@sub_alpha@ LINES-LIST
-                MKN ((ATLINE)^(377777,,))+ D
+                MKN ((ATLINE)@xor@(377777,,))+ D
                 SXD @sub_P@@sub_S@@sub_alpha@ INSTANCES-LIST
-                MKN ((ATINS)^(377777,,))+ D
+                MKN ((ATINS)@xor@(377777,,))+ D
                 hSTC ATBITS+1
                 STD ATBITS
                 hSTA PSPL
@@ -4557,8 +4556,8 @@ PS3I@arr@       RSX @sub_P@@sub_S@@sub_beta@ PSNNPS
                 SXD @sub_P@@sub_S@@sub_beta@ 4
                 JPQ PS4
                 JPQ PS3R
-PS3L@arr@       PS@gamma@ @rect_dash@ LSP,PS@beta@
-                PS@delta@ @rect_dash@ LEP,PS@beta@
+PS3L@arr@       GETIX@hamb@PS@gamma@@times@LSP,PS@beta@
+                GETIX@hamb@PS@delta@@times@LEP,PS@beta@
                 HDIF|VA@sub_P@@sub_S@@sub_gamma@,PSNPS@sub_P@@sub_S@@sub_alpha@@arr@PSTS
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=106 doc_page=256 type=code proof=1]
@@ -4584,8 +4583,8 @@ PS3R@arr@       RSX @sub_P@@sub_S@@sub_beta@ PSNNPS
                 LDAE@hamb@PSNPS@sub_P@@sub_S@@sub_beta@,1,2,3
                 STAE@hamb@PSNPS@sub_P@@sub_S@@sub_alpha@,1,2,3
                 JPQ PS3X
-PS3C@arr@       PS@gamma@ @rect_dash@ CSP,PS@beta@
-                PS@delta@ @rect_dash@ CIRCEN,PS@beta@
+PS3C@arr@       GETIX@hamb@PS@gamma@@times@CSP,PS@beta@
+                GETIX@hamb@PS@delta@@times@CIRCEN,PS@beta@
                 DIREC@hamb@VA@sub_P@@sub_S@@sub_gamma@@arr@VA@sub_P@@sub_S@@sub_delta@=PSTS@arr@PS3R
                 DIREC@hamb@PSNPS@sub_P@@sub_S@@sub_alpha@@arr@VA@sub_P@@sub_S@@sub_delta@=PSTT@arr@PS3R
                 SUB PSTS
@@ -4706,15 +4705,15 @@ INTOC@arr@      h@sup_1@STE INTOCX
                 @sup_2@@sup_2@STE INTOCN        **NO INTERSECTION
                 STA INTCLS      **POINTERS TO CIRCLES
                 RSX @sub_I@@sub_N@@sub_alpha@ A
-                IN@beta@ @rect_dash@ CSP,IN@alpha@
-                IN@alpha@ @rect_dash@ CIRCEN,IN@alpha@
+                GETIX@hamb@IN@beta@@times@CSP,IN@alpha@
+                GETIX@hamb@IN@alpha@@times@CIRCEN,IN@alpha@
                 PYTH@hamb@VA@sub_I@@sub_N@@sub_alpha@@arr@VA@sub_I@@sub_N@@sub_beta@=INR1@arr@INTOCN
 INTOC1@arr@     @sup_2@RSX @sub_I@@sub_N@@sub_alpha@ INTCLS
-                IN@beta@ @rect_dash@ CIRCEN,IN@alpha@
-                IN@alpha@ @rect_dash@ CSP,IN@alpha@
+                GETIX@hamb@IN@beta@@times@CIRCEN,IN@alpha@
+                GETIX@hamb@IN@alpha@@times@CSP,IN@alpha@
                 PYTH@hamb@VA@sub_I@@sub_N@@sub_alpha@@arr@VA@sub_I@@sub_N@@sub_beta@=INR2@arr@INTOCN
                 RSX @sub_I@@sub_N@@sub_alpha@ INTCLS
-                IN@alpha@ @rect_dash@ CIRCEN,IN@alpha@
+                GETIX@hamb@IN@alpha@@times@CIRCEN,IN@alpha@
                 DIFF@hamb@VA+1@sub_I@@sub_N@@sub_beta@@arr@VA+1@sub_I@@sub_N@@sub_alpha@=INDY@arr@INTOCN
                 STA B
                 DIFF@hamb@VA@sub_I@@sub_N@@sub_beta@@arr@VA@sub_I@@sub_N@@sub_alpha@=INDX@arr@INTOCN
@@ -4809,8 +4808,8 @@ INTOCL@arr@     h@sup_1@STE INTOCX
                 STA INXP
                 STB INYP
                 @sup_2@RSX @sub_I@@sub_N@@sub_alpha@ INTOCLS
-                IN@beta@ @rect_dash@ CIRCEN,IN@alpha@
-                IN@alpha@ @rect_dash@ CSP,IN@alpha@
+                GETIX@hamb@IN@beta@@times@CIRCEN,IN@alpha@
+                GETIX@hamb@IN@alpha@@times@CSP,IN@alpha@
                 SUB VA@sub_I@@sub_N@@sub_beta@
                 hJOV INTOCN
                 EXA B
@@ -4836,8 +4835,8 @@ INTOCL2@arr@
 [meta file_name=102726903-05-02-acc.pdf pdf_page=111 doc_page=261 type=code proof=1]
 [Page header: "HHL LYUO 023"]
 
-                IN@beta@ @rect_dash@ LSP,IN@alpha@
-                IN@alpha@ @rect_dash@ LEP,IN@alpha@
+                GETIX@hamb@IN@beta@@times@LSP,IN@alpha@
+                GETIX@hamb@IN@alpha@@times@LEP,IN@alpha@
                 DIFF@hamb@VA@sub_I@@sub_N@@sub_beta@@arr@VA@sub_I@@sub_N@@sub_alpha@=INDX@arr@INTOCN
                 DIFF@hamb@VA+1@sub_I@@sub_N@@sub_beta@@arr@VA+1@sub_I@@sub_N@@sub_alpha@=INDY@arr@INTOCN
                 LDB INDX
@@ -4859,15 +4858,15 @@ INTOCL4@arr@
 INTOL@arr@      h@sup_1@STE INTOLX
                 STA INTLINES    **LINES IN QUESTION
                 RSX @sub_I@@sub_N@@sub_alpha@ A
-                IN@beta@ @rect_dash@ LSP,IN@alpha@
-                IN@alpha@ @rect_dash@ LEP,IN@alpha@
+                GETIX@hamb@IN@beta@@times@LSP,IN@alpha@
+                GETIX@hamb@IN@alpha@@times@LEP,IN@alpha@
                 TWINNORM@hamb@VA@sub_I@@sub_N@@sub_alpha@@arr@VA@sub_I@@sub_N@@sub_beta@=INDX1,INDY1
                 @sup_2@RSX @sub_I@@sub_N@@sub_alpha@ INTLINES
-                IN@beta@ @rect_dash@ LSP,IN@alpha@
-                IN@alpha@ @rect_dash@ LEP,IN@alpha@
+                GETIX@hamb@IN@beta@@times@LSP,IN@alpha@
+                GETIX@hamb@IN@alpha@@times@LEP,IN@alpha@
                 TWINNORM@hamb@VA@sub_I@@sub_N@@sub_alpha@@arr@VA@sub_I@@sub_N@@sub_beta@=INDX2,INDY2
                 RSX @sub_I@@sub_N@@sub_alpha@ INTLINES
-                IN@alpha@ @rect_dash@ LSP,IN@alpha@
+                GETIX@hamb@IN@alpha@@times@LSP,IN@alpha@
 INTOL1@arr@     PROD@hamb@INDX2@times@INDY1=INX2Y1
                 PROD@hamb@INDX1@times@INDY2=INX1Y2
                 HDIF,INX2Y1@arr@INDENOM
@@ -5082,7 +5081,7 @@ STA T
 
 LDA P
 SUB Q
-SCA {-1,-1,,-1,-1}+(Q^(770,))
+SCA {-1,-1,,-1,-1}+(Q@xor@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -5144,21 +5143,17 @@ COM A
 STA Q
 @hand@@hand@EMD
 
-@hand@@hand@DEF @beta@ @rect_dash@ A@times@B@times@C@times@D@times@E@times@F@times@G@times@H@times@I,@alpha@
+@hand@@hand@DEF GETIX@hamb@@beta@@times@A@times@B@times@C@times@D@times@E@times@F@times@G@times@H@times@I,@alpha@
 REX @sub_beta@*{0@sub_alpha@}
-RSX@sub_beta@*{LIST+I@sub_beta@}+(I^(370,))
-RSX@sub_beta@*{LIST+H@sub_beta@}+(H^(370,))
-RSX@sub_beta@*{LIST+G@sub_beta@}+(G^(370,))
-RSX@sub_beta@*{LIST+F@sub_beta@}+(F^(370,))
-RSX@sub_beta@*{LIST+E@sub_beta@}+(E^(370,))
-RSX@sub_beta@*{LIST+D@sub_beta@}+(D^(370,))
-RSX@sub_beta@*{LIST+C@sub_beta@}+(C^(370,))
-RSX@sub_beta@*{LIST+B@sub_beta@}+(B^(370,))
-RSX@sub_beta@*{LIST+A@sub_beta@}+(A^(370,))
-@hand@@hand@EMD
-
-@hand@@hand@DEF PYTH@hamb@P@arr@Q=T@arr@U
-PYTH1@hamb@P@arr@Q,P+1@arr@Q+1=T@arr@U
+RSX@sub_beta@*{LIST+I@sub_beta@}+(I@xor@(370,))
+RSX@sub_beta@*{LIST+H@sub_beta@}+(H@xor@(370,))
+RSX@sub_beta@*{LIST+G@sub_beta@}+(G@xor@(370,))
+RSX@sub_beta@*{LIST+F@sub_beta@}+(F@xor@(370,))
+RSX@sub_beta@*{LIST+E@sub_beta@}+(E@xor@(370,))
+RSX@sub_beta@*{LIST+D@sub_beta@}+(D@xor@(370,))
+RSX@sub_beta@*{LIST+C@sub_beta@}+(C@xor@(370,))
+RSX@sub_beta@*{LIST+B@sub_beta@}+(B@xor@(370,))
+RSX@sub_beta@*{LIST+A@sub_beta@}+(A@xor@(370,))
 @hand@@hand@EMD
 
 @hand@@hand@DEF DIREC1@hamb@P@arr@Q,R@arr@S=T@arr@U
@@ -5180,7 +5175,7 @@ DIREC1@hamb@P@arr@Q,P+1@arr@Q+1=T@arr@U
 @hand@@hand@DEF HSUM@hamb@P,Q@arr@R
 LDA P
 ADD Q
-SCA {-1,-1,,-1,-1}+((Q)^(770,))
+SCA {-1,-1,,-1,-1}+((Q)@xor@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -5234,8 +5229,8 @@ hJOV U
 STA T
 @hand@@hand@EMD
 
-@hand@@hand@DEF FULL@hamb@@alpha@@arr@P
-hJPQ {FULL1@hamb@@alpha@@arr@P}
+@hand@@hand@DEF PYTH@hamb@P@arr@Q=T@arr@U
+PYTH1@hamb@P@arr@Q,P+1@arr@Q+1=T@arr@U
 @hand@@hand@EMD
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=122 doc_page=272 type=macros proof=1]
@@ -5248,13 +5243,13 @@ SKZ STOPIFFULL
 JPQ P
 @hand@@hand@EMD
 
+@hand@@hand@DEF FULL@hamb@@alpha@@arr@P
+hJPQ {FULL1@hamb@@alpha@@arr@P}
+@hand@@hand@EMD
+
 @hand@@hand@DEF LDAB@hamb@A
 LDA A
 LDB A+1
-@hand@@hand@EMD
-
-@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
-hJPQ {ERROR1@hamb@@alpha@@arr@P}
 @hand@@hand@EMD
 
 @hand@@hand@DEF ERROR1@hamb@@alpha@@arr@P
@@ -5262,6 +5257,10 @@ hJPQ {ERROR1@hamb@@alpha@@arr@P}
 SKZ ERRORSTOP
 @sup_1@#@sub_alpha@
 JPQ P
+@hand@@hand@EMD
+
+@hand@@hand@DEF ERROR@hamb@@alpha@@arr@P
+hJPQ {ERROR1@hamb@@alpha@@arr@P}
 @hand@@hand@EMD
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=123 doc_page=273 type=main proof=1]
@@ -5423,7 +5422,7 @@ SQ60IRR@arr@
                 @sup_1@IOS @sub_6@@sub_1@ 30000
                 @sup_3@TSD SCRAMX
                 hLDE SCRAMX
-                hITE { LACE-1⋁(LACE-1/2)⋁(LACE-1/4)⋁(LACE-1/10)⋁(LACE-1/20)}
+                hITE { LACE-1@xor@(LACE-1/2)@xor@(LACE-1/4)@xor@(LACE-1/10)@xor@(LACE-1/20)}
                 RSX @sub_S@@sub_C@@sub_alpha@ E
 
 [meta file_name=102726903-05-02-acc.pdf pdf_page=127 doc_page=277 type=code proof=1]
@@ -5995,7 +5994,7 @@ CMLOOP1@arr@
                 STA @sub_C@@sub_M@@sub_alpha@ 0
                 LDA CMPT1       **Y,X
                 @sup_2@@sup_0@MUL CMFAC
-                @sup_+@@sup_1@JNX @sub_C@@sub_M@@sub_alpha@ CMLOOPS [syntax, first time seeing explicit plus in superscript: @sup_+@@sup_1@]
+                @sup_add@@sup_1@JNX @sub_C@@sub_M@@sub_alpha@ CMLOOPS [syntax, first time seeing explicit plus in superscript: @sup_add@@sup_1@]
                 RSX @sub_C@@sub_M@@sub_alpha@ NDISP
                 AUX @sub_C@@sub_M@@sub_alpha@ CMSTEPS
                 INX @sub_C@@sub_M@@sub_alpha@ 1
@@ -6347,7 +6346,7 @@ LMDRAW1B@arr@
 LMDRAWLOOP@arr@
                 STC @sub_C@@sub_M@@sub_alpha@ 0
                 @sup_2@@sup_0@ ADD LMINC
-                @sup_+@@sup_1@JNX @sub_C@@sub_M@@sub_alpha@ LMDRAWLOOP-2
+                @sup_add@@sup_1@JNX @sub_C@@sub_M@@sub_alpha@ LMDRAWLOOP-2
                 MOVE|LMTS@arr@NDISP
 LMAGEXIT@arr@
                 JPQ #
@@ -6717,7 +6716,7 @@ PLPPBI@arr@     hTSD PLPWA
                 JPQ PLPIT3
 PLPIT@arr@      SKN TRBUSY
                 RXF @sub_5@@sub_7@ TRACK
-                ħ@sup_1@JNX @sub_P@@sub_L@@sub_P@ PLPIT
+                h@sup_1@JNX @sub_P@@sub_L@@sub_P@ PLPIT
                 @sup_1@@sup_3@RSX @sub_P@@sub_L@@sub_P@ PLITWA  **BLKS LEFT
                 h@sup_minus@@sup_1@JPX @sub_P@@sub_L@@sub_P@ PLPIT3
 

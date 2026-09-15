@@ -331,12 +331,158 @@ Interpretation:
 - This validation does not yet compare each generated word with its printed
   octal witness.
 
+## Checkpoint 11: The Scans Preserve More Than Four Jobs
+
+Date: 2026-09-14
+
+Inspection of the second transcription changes the artifact inventory.
+
+Observed facts:
+
+- `sk2.tx2as` starts with the continuation of the `IES BOO7` job from Part 1.
+- Part 2 then contains four new assembly jobs.
+- Their printed identifiers are `IES ONLW`, `HHL APY5`, `HHL LYUO`, and
+  `LMH Y3HT`.
+- The Part 2 transcription contains 6,981 lines.
+- The current four-tape build does not include these four jobs.
+- The current `BOO7` tape also stops before the continuation in Part 2.
+
+The printed symex pages are historical assembler output.  They provide direct
+expected addresses for labels and automatically assigned symbols.
+
+One comparison proves that the four Part 1 tapes are not yet one verified load
+set.  The `OPLW` symex output prints `DEGEN1=205273`.  The current `BOO7`
+fragment prints and defines `DEGEN1=023760`.  A direct linkage cannot use both
+addresses at once.
+
+Interpretation:
+
+- The folder preserves multiple program revisions, modules, or machine-state
+  snapshots.
+- Printed file order alone does not prove a compatible load order.
+- A combined tape must wait until symbol tables and fixed-address references
+  identify a compatible set.
+- The immediate task is a complete assembly-job inventory and an assembly test
+  for every Part 2 job.
+
+Historical significance:
+
+- The surviving material is larger than the first reconstruction model.
+- The printed symex output gives a machine-checkable oracle for recovery work.
+- Failed address comparisons now help separate program versions without guesswork.
+
+## Checkpoint 12: Complete BOO7 and the Part 2 Frontiers
+
+Date: 2026-09-14
+
+The `BOO7` job now assembles across the boundary between the two scanned
+volumes.  This is the first complete assembly result for a job that spans both
+PDF files.
+
+Observed result:
+
+- The complete job contains 1,750 pass-two instructions.
+- It produces 1,128 TX-2 words.
+- Its tape contains 6,972 bytes.
+- Its SHA-256 is
+  `77d65bf141c7927ae2bcaa453af77a8e2b9179bec2bf3d10338170aa8939c073`.
+- The source has no `PUNCH` start address.  This fact limits what the tape alone
+  can prove about execution.
+
+Three simulator commits made this result possible:
+
+- `34da3ba` preserves structured parameters through nested macro calls.
+- `bf9918e` substitutes structured parameters inside arithmetic expressions.
+- `4ef49ad` parses a hold value as a complete RC word.
+
+The four later Part 2 jobs now reach four exact and separate frontiers:
+
+- `ONLW` reaches its last source page.  A research annotation contains nested
+  square brackets that the annotation parser does not accept.
+- `APY5` reaches a macro expansion that defines and uses local tags inside an
+  RC word.  The modern assembler rejects that historical M4 construction.
+- `LYUO` completes parsing.  It then reaches signed M4 subtraction that the
+  modern arithmetic evaluator does not implement correctly.
+- `Y3HT` reaches a nested call to `FULL1` before the transcription defines that
+  macro.  This matches the earlier definition-order transcription defects.
+
+Interpretation:
+
+- The continuation boundary between Part 1 and Part 2 is now operational, not
+  only documentary.
+- The remaining failures identify small source defects and precise missing M4
+  semantics.
+- Each failure occurs later than the previous broad parser failures.  The
+  reconstruction now advances by individual historical language features.
+
+## Checkpoint 13: LYUO Produces a Complete Tape
+
+Date: 2026-09-14
+
+The `HHL LYUO` job now assembles completely.  It is the first later Part 2 job
+to produce machine output.
+
+Observed result:
+
+- The tape contains 9,330 bytes.
+- Its SHA-256 is
+  `0509db53e9367f5811d844b1e8ac58c5b59932d18d7c36da5e2b150b13c5cab8`.
+- The complete parser and evaluator path finishes without an assembly error.
+
+Simulator commit `af58fbb` evaluates M4 addition and subtraction as signed
+36-bit one's-complement arithmetic.  Two regression tests cover addition with
+a negative operand and subtraction with a negative result.  All 314 assembler
+library tests pass.
+
+Interpretation:
+
+- The earlier subtraction panic was a modern assembler defect.
+- The recovered `LYUO` source passes the currently implemented M4 semantics.
+- A successful tape does not yet prove word-for-word agreement with the printed
+  historical output.  The printed symex comparison remains the next proof
+  stage.
+
+## Checkpoint 14: Y3HT Produces a Complete Tape
+
+Date: 2026-09-14
+
+The `LMH Y3HT` job now assembles completely.  The structural disassembler also
+accepts the generated tape.
+
+Observed result:
+
+- Assembly pass two generates 3,255 instructions.
+- Assembly pass three generates 1,957 output words.
+- The tape contains 12,006 bytes.
+- Its SHA-256 is
+  `4a1166d0afb5cbd84c130a3168fc43662ecd8855a4eb5efa2909d92192c7eef1`.
+- The source has no `PUNCH` start address.
+
+The final source repairs were small but informative:
+
+- The superscript-plus glyph used a noncanonical transcription name.
+- A damaged hold indicator used a barred `h` character.
+- The scan on PDF page 150 confirms that the barred character is the normal M4
+  hold indicator.
+
+Interpretation:
+
+- Two of the four later Part 2 jobs now produce deterministic machine output.
+- The last `Y3HT` blocker was a transcription character, not missing machine
+  semantics.
+- `ONLW` and `APY5` remain at modern assembler semantic boundaries.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
-It contains all four assembly jobs in printed-listing order.
+It contains four Part 1 assembly jobs in printed-listing order.
+The `sk2.tx2as` file contains a continuation and four more assembly jobs.
 
-All four historical units now assemble into deterministic tapes.
-The next goal is printed-octal comparison and successful simulator loading.
+All four Part 1 fragments now assemble into deterministic tapes.
+The complete cross-volume `BOO7` job also assembles into deterministic output.
+The next goal is to assemble `ONLW` and `APY5`.
+The later Part 2 jobs `LYUO` and `Y3HT` now have deterministic machine output.
+Printed-output comparison follows successful assembly of each job.
+Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.
