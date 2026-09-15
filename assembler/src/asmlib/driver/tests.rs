@@ -411,6 +411,15 @@ fn test_division_on_negative_constants() {
 }
 
 #[test]
+fn test_hold_indicator_as_arithmetic_value() {
+    let positive = assemble_source("100| -(h)\n", Default::default()).expect("program is valid");
+    assert_eq!(positive.chunks[0].words[0], u36!(0o377_777_777_777));
+
+    let negative = assemble_source("100| (h)\n", Default::default()).expect("program is valid");
+    assert_eq!(negative.chunks[0].words[0], u36!(0o400_000_000_000));
+}
+
+#[test]
 fn test_division_overflow_on_constants() {
     // See the documentation for the opcode DIV (Users Handbook, page
     // 3-62) for a description of the rules around division by either

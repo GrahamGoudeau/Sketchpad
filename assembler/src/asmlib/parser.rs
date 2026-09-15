@@ -1217,8 +1217,16 @@ where
                     })
                     .labelled("parenthesised arithmetic expression");
 
+                let hold_indicator = select! {
+                    Tok::Hold if script_required == Script::Normal => ()
+                }
+                .map_with(|(), extra| {
+                    Atom::from((extra.span(), Script::Normal, u36!(1_u64 << 35)))
+                });
+
                 // Parse a literal, symbol, #, or (recursively) an expression in parentheses.
                 let naked_atom = choice((
+                    hold_indicator,
                     literal(script_required).map(Atom::from),
                     opcode().map(Atom::from),
                     here(script_required).map(Atom::SymbolOrLiteral),
