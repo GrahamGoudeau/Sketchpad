@@ -7,6 +7,15 @@ Sutherland's Sketchpad.  The listing must assemble with a documented
 cross-assembler and reproduce the printed octal words where those words
 survive.  A readable C translation is a later deliverable.
 
+## Runtime Target
+
+Run the recovered TX-2 machine image in a web browser through WebAssembly.
+The simulator already contains the `tx2-web` WASM crate and browser
+interface.  Extend that runtime with the display, light pen, switches, and
+other devices that Sketchpad requires.  Keep the recovered assembly and
+its assembled machine image authoritative.  Use the later C translation
+as a readable reference implementation and an optional second WASM build.
+
 ## Preserved Baselines
 
 | Material | Upstream commit | Local marker |
@@ -57,17 +66,17 @@ bad transcription.
 ## Current Assembly Frontier
 
 Repairs R001 through R007 and validator commits `d3d1d9b`, `4d6bf6c`,
-`81e83f9`, `5b2e5c0`, `2e15acd`, and `5e2c77b` move the first
-diagnostic to line 1152.
+`81e83f9`, `5b2e5c0`, `2e15acd`, `5e2c77b`, and `8d7b8da` move the
+first diagnostic to line 1259.
 
 ```text
-sk.tx2as:1152:33
-found `@sub_alpha@` after the normal-script macro argument `VA`
+sk.tx2as:1259:21
+found `@hamb@` after the tag `MKCN2@arr@` and macro name `MAKA`
 ```
 
-The `MOVE` call supplies `VA@sub_alpha@` as one mixed-script macro
-argument.  The scan is clear.  Extend macro parameter substitution before
-changing the source.
+The tagged line invokes `MAKA@hamb@TPVALS@arr@@gamma@`.  Untagged calls of
+the same macro already parse.  The scan is clear.  Extend tagged macro
+invocation support before changing the source.
 
 ## Validator Changes
 
@@ -78,8 +87,9 @@ adds the M4 exclusive-OR operator as `@xor@`.  Commit `81e83f9` accepts
 bare zero-parameter macros.  Commit `5b2e5c0` accepts omitted macro
 parameters and arithmetic-looking macro terminators.  Commit `2e15acd`
 accepts arithmetic expressions in origins.  Commit `5e2c77b` accepts macro
-substitution in pipe indexes and a nested macro as a parameter.  The
-assembler test suite passes.
+substitution in pipe indexes and a nested macro as a parameter.  Commit
+`8d7b8da` accepts mixed-script macro parameters.  The assembler test suite
+passes.
 
 ## Evidence Order
 
