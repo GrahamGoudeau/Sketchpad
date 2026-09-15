@@ -15,8 +15,8 @@ the assembler and this repository, containing the Sketchpad code.
 
 ## Example
 
-Here's an example terminal session in which we build the assembler
-itself and then attempt to use it to assemble Sketchpad.
+Here is an example terminal session that builds the assembler and the four
+Sketchpad compilation units.
 
 ### Building the Assembler
 
@@ -39,10 +39,23 @@ git clone https://github.com/TX-2/Sketchpad.git
 
 ```
 cd Sketchpad
-../TX-2-simulator/target/debug/tx2m4as --list --output sk.tape sk.tx2as
+./scripts/assemble.sh
 ```
 
-You will notice if you do this that the assembler cannot currently
-assemble the code, due to [limitations in the
-assembler](https://github.com/TX-2/TX-2-simulator/blob/main/docs/assembler/limitations.md).
-Because assembly did not succeed, no output file is created.
+The printed listing contains four separate M4 assembly jobs.  The script splits
+`sk.tx2as` at stable PDF metadata markers.  It writes these files:
+
+```
+build/sketchpad-2xmx.tape
+build/sketchpad-oplw.tape
+build/sketchpad-gx7a.tape
+build/sketchpad-boo7.tape
+build/SHA256SUMS
+```
+
+The script checks each generated tape against `TAPE_SHA256SUMS`.  A changed
+source file, assembler, or assembly rule can change these checksums.  Review the
+cause before you accept a new checksum.
+
+The script uses the sibling simulator checkout by default.  Set
+`SKETCHPAD_TX2_SIMULATOR_DIR` to use a different checkout.

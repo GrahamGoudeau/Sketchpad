@@ -240,13 +240,55 @@ Interpretation:
 - The prior unknown-symbol error was a transcription defect.
 - The direct scan makes this repair verified rather than inferred.
 
+## Checkpoint 9: Four Deterministic Component Tapes
+
+Date: 2026-09-14
+
+The final Unit 2 path required three changes.
+
+- Mechanical repair R013 puts `ERROR1` before the `ERROR` macro that invokes it.
+- Verified repair R014 restores the printed `≡` separator in the H3 `HEADER`
+  call.
+- Simulator commit `5c5b46f` records undefined symbols that appear inside
+  equality values.  This lets Unit 2 allocate external address `DEGEN1` by the
+  documented M4 automatic-assignment rule.
+
+All four units now assemble from one command.
+
+| Tape | Binary words | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| `sketchpad-2xmx.tape` | 3,607 | 21,858 | `cffd8122997a0d01f11a77be4fdf2cea33a2ae6f78597f0040cf7f61a7db3aa2` |
+| `sketchpad-oplw.tape` | 269 | 1,926 | `19c77f993b2fc87566ea8d4224750c22a08cadfce4f08c5cbb48ca54f076b792` |
+| `sketchpad-gx7a.tape` | 1,998 | 12,192 | `e0f34e7d727e58f2b3a4056d23a2299e3d19e52128f28cf2b97024a92857bf5c` |
+| `sketchpad-boo7.tape` | 383 | 2,490 | `5002ab9fd947d39b789a397012dfa4953b95311a5dadc2e54e4ebcd4b43fcb7b` |
+
+Reproducibility result:
+
+- Two consecutive complete builds produced identical SHA-256 values.
+- `scripts/assemble.sh` now splits on stable PDF metadata instead of mutable
+  source line numbers.
+- The script verifies generated files against committed expected checksums.
+
+Observed limitations:
+
+- Each assembler run still reports that its unit has no `PUNCH` start address.
+- Assembly success does not prove that every transcribed word matches the
+  printed octal output.
+- The project has not loaded the four tapes as one running Sketchpad system.
+
+Historical significance:
+
+- The complete surviving transcription now has deterministic modern machine
+  output.
+- The next research question changes from "Can this listing assemble?" to
+  "Does this output reproduce and run the historical program?"
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
 It contains all four assembly jobs in printed-listing order.
 
-Three of four historical units now assemble.
-The near-term goal is four reproducible machine tapes.
-The next goal is a successful load and execution in the TX-2 simulator.
+All four historical units now assemble into deterministic tapes.
+The next goal is printed-octal comparison and successful simulator loading.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.

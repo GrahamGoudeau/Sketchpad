@@ -65,13 +65,13 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R011 and the validator changes let all 6,728 source lines
-parse and expand.  The file contains four separate historical M4 assembly jobs.
-It is not one assembly job.
+Repairs R001 through R014 and the validator changes let the complete source
+parse, expand, and assemble.  The file contains four separate historical M4
+assembly jobs.  It is not one assembly job.
 
-Units 1, 3, and 4 emit machine tapes.  Unit 2 reaches one unsupported `≡`
-syntax form.  See `RESEARCH_LOG.md` for the unit boundaries, evidence, and
-current diagnostics.
+All four units emit deterministic machine tapes.  The build checks their SHA-256
+values against `TAPE_SHA256SUMS`.  The next phase compares emitted words with
+the printed octal output and loads the complete program into the simulator.
 
 ## Validator Changes
 
@@ -96,8 +96,10 @@ parameters.  Commit `d6f6c85` recognizes comment markers that follow source
 text.  Commit `e2e8fa3` accepts the M4 question-mark symex terminator.  Commit
 `fcac3ab` applies macro parameter elevation at the parameter use site.  Commit
 `e6e8cd1` completes RC allocation for equality values and evaluates macro-local
-tags in their expansion scope.  The assembler test suite passes 305 unit tests
-and 2 golden tests.
+tags in their expansion scope.  Commit `8a0a2e0` evaluates M4 multiplication as
+signed 36-bit one's-complement arithmetic.  Commit `5c5b46f` records undefined
+symbols that occur inside equality values.  The assembler test suite passes 307
+unit tests and 2 golden tests.
 
 ## Evidence Order
 
