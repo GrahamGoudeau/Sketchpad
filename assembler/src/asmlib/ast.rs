@@ -13,7 +13,7 @@
 //! might contain a macro-expansion, with another scope.
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{self, Display, Formatter, Octal, Write};
 use std::hash::Hash;
@@ -2014,6 +2014,7 @@ impl Spanned for TaggedProgramInstruction {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct InstructionSequence {
+    pub(super) global_tags: BTreeSet<SymbolName>,
     pub(super) local_symbols: Option<ExplicitSymbolTable>,
     pub(super) instructions: Vec<TaggedProgramInstruction>,
 }
@@ -2022,6 +2023,7 @@ pub(crate) struct InstructionSequence {
 impl From<Vec<TaggedProgramInstruction>> for InstructionSequence {
     fn from(v: Vec<TaggedProgramInstruction>) -> Self {
         InstructionSequence {
+            global_tags: BTreeSet::new(),
             local_symbols: None,
             instructions: v,
         }
@@ -2034,6 +2036,7 @@ impl FromIterator<TaggedProgramInstruction> for InstructionSequence {
         T: IntoIterator<Item = TaggedProgramInstruction>,
     {
         InstructionSequence {
+            global_tags: BTreeSet::new(),
             local_symbols: None,
             instructions: iter.into_iter().collect(),
         }

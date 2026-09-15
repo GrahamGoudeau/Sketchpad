@@ -578,6 +578,7 @@ fn test_manuscript_with_bare_literal() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         notags(),
@@ -634,6 +635,7 @@ fn test_manuscript_without_tag() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![
                         TaggedProgramInstruction::single(
@@ -682,6 +684,7 @@ fn test_comment_in_rc_block() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         notags(),
@@ -761,6 +764,7 @@ fn test_manuscript_with_single_syllable_tag() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         vec![Tag {
@@ -795,6 +799,7 @@ fn test_manuscript_with_multiple_tags() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         vec![
@@ -842,6 +847,7 @@ fn test_manuscript_with_origin() {
             blocks: vec![ManuscriptBlock {
                 origin: Some(Origin::Literal(span(0..5), Address::new(u18!(0o100)))),
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         notags(),
@@ -984,6 +990,7 @@ fn test_manuscript_with_multi_syllable_tag() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         vec![Tag {
@@ -1043,6 +1050,7 @@ fn test_manuscript_with_real_arrow_tag() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         vec![Tag {
@@ -1197,6 +1205,7 @@ fn test_assignment_lines() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         Vec::new(),
@@ -1239,6 +1248,7 @@ fn test_assignment_origin() {
             blocks: vec![ManuscriptBlock {
                 origin: Some(Origin::Literal(span(9..14), Address::new(u18!(0o1000)))),
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         Vec::new(),
@@ -1274,6 +1284,7 @@ fn test_symbolic_origin() {
                 // output listing.
                 origin: Some(Origin::Symbolic(span(0..6), SymbolName::from("BEGIN"))),
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction::single(
                         Vec::new(),
@@ -3240,11 +3251,13 @@ mod macro_tests {
                 sequences: vec![
                     // The first macro expansion
                     InstructionSequence {
+                        global_tags: Default::default(),
                         local_symbols: Some(symtab.clone()),
                         instructions: vec![the_instruction.clone()],
                     },
                     // The second macro expansion
                     InstructionSequence {
+                        global_tags: Default::default(),
                         local_symbols: Some(symtab.clone()),
                         instructions: vec![the_instruction.clone()],
                     },

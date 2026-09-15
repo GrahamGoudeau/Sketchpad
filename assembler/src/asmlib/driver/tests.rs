@@ -92,6 +92,7 @@ fn test_assemble_pass1() {
             blocks: vec![ManuscriptBlock {
                 origin: None,
                 sequences: vec![InstructionSequence {
+                    global_tags: Default::default(),
                     local_symbols: None,
                     instructions: vec![TaggedProgramInstruction {
                         span: span(0..2),
@@ -147,6 +148,7 @@ fn test_metacommand_dec_changes_default_base() {
             InstructionSequence {
                 local_symbols: None,
                 instructions,
+                ..
             },
         ] = sequences.as_slice()
         && let [
@@ -265,6 +267,24 @@ fn test_macro_expansion_uses_local_tags() {
     assert_eq!(program.chunks.len(), 1);
     assert_eq!(program.chunks[0].address, Address::from(u18!(0o100)));
     assert_eq!(program.chunks[0].words, vec![u36!(1), u36!(0o100)]);
+}
+
+#[test]
+fn test_tagged_macro_local_equality_can_reference_invocation_tag() {
+    let program = assemble_source(
+        concat!(
+            "☛☛DEF JUMP☛EXIT\n",
+            "TARGET=EXIT\n",
+            "hJPQ TARGET\n",
+            "☛☛EMD\n",
+            "100|\n",
+            "AFTER→JUMP☛AFTER\n",
+        ),
+        Default::default(),
+    )
+    .expect("a macro-local equality can refer to the invocation's global tag");
+
+    assert_eq!(program.chunks[0].words.len(), 1);
 }
 
 #[test]

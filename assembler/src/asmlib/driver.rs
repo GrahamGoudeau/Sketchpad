@@ -853,6 +853,7 @@ fn test_assemble_pass1() {
     let expected_block = ManuscriptBlock {
         origin: None,
         sequences: vec![InstructionSequence {
+            global_tags: Default::default(),
             local_symbols: None,
             instructions: vec![TaggedProgramInstruction {
                 span: span(0..2),

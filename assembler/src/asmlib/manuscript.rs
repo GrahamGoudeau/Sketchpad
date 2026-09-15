@@ -4,7 +4,7 @@
 //! user's input, and the interpretation of editing meta-commands in
 //! the manuscript turns it into a "directive".  This assembler doesn'
 //! implement M4's editing commands, however.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use tracing::{Level, event};
 
@@ -222,6 +222,7 @@ impl SourceFile {
 fn build_local_symbol_table<'a, I>(
     block_identifier: BlockIdentifier,
     instructions: I,
+    global_tags: &BTreeSet<SymbolName>,
 ) -> Result<ExplicitSymbolTable, OneOrMore<LocalSymbolTableBuildFailure>>
 where
     I: Iterator<Item = &'a TaggedProgramInstruction>,
@@ -235,6 +236,9 @@ where
         {
             match r {
                 Ok((symbol_name, _span, definition)) => {
+                    if global_tags.contains(&symbol_name) {
+                        continue;
+                    }
                     if let Err(e) = local_symbols.define(symbol_name.clone(), definition) {
                         errors.push(LocalSymbolTableBuildFailure::BadDefinition(e));
                     }
@@ -270,6 +274,7 @@ fn test_build_local_symbol_table_happy_case() {
 
     let seq = InstructionSequence {
         local_symbols: Some(ExplicitSymbolTable::default()),
+        global_tags: BTreeSet::new(),
         instructions: vec![
             // Two lines which are identical (hence with the same tag)
             // apart from their spans.
@@ -300,7 +305,7 @@ fn test_build_local_symbol_table_happy_case() {
         )
         .expect("symbol definition should be OK since there is no other defintion for that symbol");
     assert_eq!(
-        build_local_symbol_table(BlockIdentifier::from(0), seq.iter()),
+        build_local_symbol_table(BlockIdentifier::from(0), seq.iter(), &seq.global_tags),
         Ok(expected)
     );
 }
@@ -326,6 +331,7 @@ fn test_build_local_symbol_table_detects_tag_conflict() {
 
     let seq = InstructionSequence {
         local_symbols: Some(ExplicitSymbolTable::default()),
+        global_tags: BTreeSet::new(),
         instructions: vec![
             // Two lines which are identical (hence with the same tag)
             // apart from their spans.
@@ -335,7 +341,7 @@ fn test_build_local_symbol_table_detects_tag_conflict() {
     };
 
     assert_eq!(
-        build_local_symbol_table(BlockIdentifier::from(0), seq.iter()),
+        build_local_symbol_table(BlockIdentifier::from(0), seq.iter(), &seq.global_tags),
         Err(OneOrMore::new(LocalSymbolTableBuildFailure::BadDefinition(
             BadSymbolDefinition {
                 symbol_name: SymbolName::from("T"),
@@ -391,7 +397,11 @@ impl ManuscriptBlock {
         let mut errors: Vec<LocalSymbolTableBuildFailure> = Vec::new();
         for seq in &mut self.sequences {
             if let Some(local_symbols) = seq.local_symbols.as_mut() {
-                match build_local_symbol_table(block_identifier, seq.instructions.iter()) {
+                match build_local_symbol_table(
+                    block_identifier,
+                    seq.instructions.iter(),
+                    &seq.global_tags,
+                ) {
                     Ok(more_symbols) => match local_symbols.merge(more_symbols) {
                         Ok(()) => (),
                         Err(e) => {
@@ -435,6 +445,7 @@ impl ManuscriptBlock {
 
     pub(super) fn push_unscoped_instruction(&mut self, inst: TaggedProgramInstruction) {
         if let Some(InstructionSequence {
+            global_tags: _,
             local_symbols: None,
             instructions,
         }) = self.sequences.last_mut()
@@ -442,6 +453,7 @@ impl ManuscriptBlock {
             instructions.push(inst);
         } else {
             self.sequences.push(InstructionSequence {
+                global_tags: BTreeSet::new(),
                 local_symbols: None,
                 instructions: vec![inst],
             });
@@ -589,6 +601,7 @@ impl MacroDefinition {
             }
         }
         InstructionSequence {
+            global_tags: BTreeSet::new(),
             // build_local_symbol_tables extracts tags and propagates
             // them into the local symbol table, so this is not the
             // final version of the local symbol table.
@@ -786,6 +799,9 @@ pub(crate) fn manuscript_lines_to_source_file<'a>(
             ManuscriptLine::Macro(mut tags, invocation) => {
                 prepend_tags(&mut tags, &mut pending_tags);
                 let mut expansion = expand_macro(&invocation, &macros);
+                expansion
+                    .global_tags
+                    .extend(tags.iter().map(|tag| tag.name.clone()));
                 if let Some(first) = expansion.instructions.first_mut() {
                     prepend_tags(&mut first.tags, &mut tags);
                 } else if let Some(tag) = tags.pop() {
