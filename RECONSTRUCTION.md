@@ -86,8 +86,9 @@ The simulator runs this image through WebAssembly.  A bounded native run emits
 word `INK` from the recovered machine code.  Simulator commit `32e7961`
 connects browser pointer hits to a modeled unit-55 light pen.  Simulator commit
 `8720bb4` connects four browser shaft encoders and their metabit to Knob
-Register address `377620`.  A verified interactive response is next.  The
-external input register at `377621` remains unmodeled.
+Register address `377620`.  Simulator commit `5ef2170` connects 37 momentary
+browser buttons to External Input Register address `377621`.  A verified
+interactive response is next.
 
 ## Validator Changes
 

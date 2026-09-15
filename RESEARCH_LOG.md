@@ -1557,6 +1557,52 @@ Historical significance:
 - The implementation preserves the hardware-only write rule.
 - The unchanged idle run gives a stable baseline for interaction tests.
 
+## Checkpoint 38: Thirty-Seven External Buttons Reach Sketchpad
+
+Date: 2026-09-15
+
+The November 1963 TX-2 Users Handbook identifies address `377621` as the
+External Input Register.  The physical accessory has 37 pushbuttons.  Thirty-six
+buttons supply the value bits.  One button supplies the metabit.  A user must
+hold a button to keep its value at one.  Any number of buttons can be down at
+the same time.  The Handbook also records about 10 milliseconds of contact
+bounce.
+
+The recovered source defines this address as `SWITCH`.  The `47EIR` routine
+compares its current value with its previous value.  It puts newly pressed bits
+in `47BUT`.  Later code maps those bits to Sketchpad actions.  Other recovered
+definitions use bit `4.8` for plot and bit `4.7` for punch.
+
+Simulator commit `5ef2170` replaces the placeholder register.  Hardware can
+set its four nine-bit quarters and its metabit.  Software can read the word.
+Software cannot write the word or change its physical metabit.  A focused CPU
+test covers simultaneous value bits, release, the metabit, and the read-only
+rule.
+
+The WASM bridge accepts all four quarters and the metabit.  The browser shows
+four rows of nine momentary buttons.  It labels each row and bit with the TX-2
+quarter notation.  It also shows the `4.10` metabit button.  Pointer and
+keyboard events set a button only while the user holds it.  The state model
+supports multiple held buttons.
+
+The complete workspace passes with 84 CPU tests and six `sketchpad-web` tests.
+The release WASM build and JavaScript syntax check pass.  The changed packages
+pass strict Clippy after exclusion of one pre-existing formatter lint.  A
+repeated native run reaches 190 simulated seconds.  It executes 670,071 ticks
+and emits 63,080 scope points.  Released buttons do not change the idle display
+result.
+
+The browser input surface now contains the light pen, the shaft encoders, and
+both console input registers.  Visible responses to these controls still need
+browser verification.  Contact bounce is not yet modeled.
+
+Historical significance:
+
+- All 37 external inputs now reach the original polling code.
+- The browser preserves simultaneous momentary-button behavior.
+- The implementation uses the original TX-2 bit numbering.
+- The recovered program still decides what each input means.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -1585,7 +1631,7 @@ index operations that the startup path requires.  A bounded run emits 63,080
 Sketchpad scope points.  The WASM application runs the combined tape and shows
 `INK` in the browser.  Unit 55 now carries browser light-pen detections into
 the recovered program.  Address `377620` now carries four browser shaft
-encoders and their metabit into the recovered program.  The next goal is a
-verified light-pen or shaft-encoder response.  The external input register at
-`377621` is the next known console boundary.
+encoders and their metabit into the recovered program.  Address `377621` now
+carries 37 momentary browser buttons into the recovered program.  The next goal
+is a verified light-pen, shaft-encoder, or external-button response.
 The readable C translation will remain a separate explanatory artifact.
