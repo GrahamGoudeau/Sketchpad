@@ -16,6 +16,15 @@ const knobInputs = Array.from(document.querySelectorAll("[data-knob]"));
 const knobMeta = document.querySelector("#knob-meta");
 const externalButtonRows = document.querySelector("#external-buttons");
 const externalMeta = document.querySelector("#external-meta");
+const drawCycleToggle = document.querySelector("#draw-cycle-toggle");
+const solveToggle = document.querySelector("#solve-toggle");
+const showBlocksToggle = document.querySelector("#show-blocks-toggle");
+const showConstraintsToggle = document.querySelector("#show-constraints-toggle");
+
+const commandButtons = new Map([
+  ["1.8", { name: "DRAW", shortcut: "D" }],
+  ["2.9", { name: "TRUEUP", shortcut: "T" }],
+]);
 
 for (const quarter of [4, 3, 2, 1]) {
   const row = document.createElement("div");
@@ -27,11 +36,22 @@ for (const quarter of [4, 3, 2, 1]) {
     const button = document.createElement("button");
     button.className = "external-button";
     button.type = "button";
-    button.textContent = String(bit);
     button.dataset.externalButton = "";
     button.dataset.switchQuarter = String(quarter);
     button.dataset.switchBit = String(bit);
-    button.setAttribute("aria-label", `External input bit ${quarter}.${bit}`);
+    const command = commandButtons.get(`${quarter}.${bit}`);
+    button.textContent = command ? `${bit} ${command.shortcut}` : String(bit);
+    if (command) {
+      button.classList.add("command-button");
+      button.dataset.command = command.name;
+      button.title = `${command.name} · keyboard ${command.shortcut}`;
+    }
+    button.setAttribute(
+      "aria-label",
+      command
+        ? `External input bit ${quarter}.${bit}, ${command.name}, keyboard ${command.shortcut}`
+        : `External input bit ${quarter}.${bit}`,
+    );
     button.setAttribute("aria-pressed", "false");
     row.append(button);
   }
@@ -40,6 +60,10 @@ for (const quarter of [4, 3, 2, 1]) {
 
 const externalButtons = Array.from(document.querySelectorAll("[data-external-button]"));
 const heldExternalButtons = new Set();
+const keyboardButtons = new Map([
+  ["KeyD", externalButtons.find((button) => button.dataset.command === "DRAW")],
+  ["KeyT", externalButtons.find((button) => button.dataset.command === "TRUEUP")],
+]);
 
 let machine;
 let activeTape;
@@ -255,6 +279,25 @@ function applyExternalInputRegister() {
   );
 }
 
+function applyToggleRegisters() {
+  if (!machine) {
+    return;
+  }
+  const register20Quarter4 = drawCycleToggle.checked ? 0o400 : 0;
+  machine.set_toggle_register(
+    0o20,
+    register20Quarter4,
+    0,
+    0,
+    0,
+    solveToggle.checked,
+  );
+  let register25Quarter4 = 0;
+  if (showBlocksToggle.checked) register25Quarter4 |= 0o400;
+  if (showConstraintsToggle.checked) register25Quarter4 |= 0o200;
+  machine.set_toggle_register(0o25, register25Quarter4, 0, 0, 0, false);
+}
+
 function holdExternalButton(button, held) {
   if (held) {
     heldExternalButtons.add(button);
@@ -390,8 +433,9 @@ function loadMachine(tape) {
   machine.mount_tape(activeTape, 0);
   applyKnobRegister();
   applyExternalInputRegister();
+  applyToggleRegisters();
   machine.codabo(0);
-  setMessage("The reconstructed Sketchpad tape is mounted. The TX-2 is ready.");
+  setMessage("Sketchpad is running. Hold the light pen on the scope. Press D to draw or T to TRUEUP a selected line.");
   updateReadouts();
 }
 
@@ -464,16 +508,21 @@ for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
   });
 }
 
-for (const eventName of ["touchstart", "touchmove", "touchend", "touchcancel"]) {
-  lightPenSurface.addEventListener(eventName, (event) => event.preventDefault(), { passive: false });
-}
-
 for (const eventName of ["selectstart", "contextmenu", "dragstart"]) {
-  document.addEventListener(eventName, (event) => event.preventDefault());
+  lightPenSurface.addEventListener(eventName, (event) => event.preventDefault());
 }
 
 for (const input of [...knobInputs, knobMeta]) {
   input.addEventListener("input", applyKnobRegister);
+}
+
+for (const input of [
+  drawCycleToggle,
+  solveToggle,
+  showBlocksToggle,
+  showConstraintsToggle,
+]) {
+  input.addEventListener("input", applyToggleRegisters);
 }
 
 for (const button of externalButtons) {
@@ -502,6 +551,30 @@ for (const button of externalButtons) {
   });
   button.addEventListener("blur", () => holdExternalButton(button, false));
 }
+
+document.addEventListener("keydown", (event) => {
+  const button = keyboardButtons.get(event.code);
+  if (!button || event.repeat) {
+    return;
+  }
+  event.preventDefault();
+  holdExternalButton(button, true);
+});
+
+document.addEventListener("keyup", (event) => {
+  const button = keyboardButtons.get(event.code);
+  if (!button) {
+    return;
+  }
+  event.preventDefault();
+  holdExternalButton(button, false);
+});
+
+window.addEventListener("blur", () => {
+  for (const button of keyboardButtons.values()) {
+    holdExternalButton(button, false);
+  }
+});
 
 window.addEventListener("resize", resizeCanvas);
 

@@ -2,20 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07100d">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Sketchpad on TX-2</title>
-    <link rel="stylesheet" href="./styles.css?v=20260915-4">
+    <link rel="stylesheet" href="./styles.css?v=20260915-7">
   </head>
   <body>
     <main>
       <header>
         <p class="eyebrow">MIT Lincoln Laboratory · TX-2 reconstruction</p>
         <h1>Sketchpad</h1>
-        <p class="deck">The recovered 1960s assembly runs inside your browser.</p>
+        <p class="deck">The reconstructed 1963 TX-2 assembly executes inside your browser.</p>
       </header>
 
       <section class="machine" aria-label="TX-2 oscilloscope simulator">
@@ -46,68 +43,103 @@
             <strong id="point-count">0</strong>
           </div>
 
-            <fieldset class="knobs">
-              <legend>SHAFT ENCODERS</legend>
-              <label class="knob">
-                <span>Q4</span>
-                <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 4">
-                <output>000</output>
-              </label>
-              <label class="knob">
-                <span>Q3</span>
-                <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 3">
-                <output>000</output>
-              </label>
-              <label class="knob">
-                <span>Q2</span>
-                <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 2">
-                <output>000</output>
-              </label>
-              <label class="knob">
-                <span>Q1</span>
-                <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 1">
-                <output>000</output>
-              </label>
-              <label class="meta-control">
-                <input id="knob-meta" type="checkbox">
-                <span>KNOB META</span>
-              </label>
-            </fieldset>
+          <fieldset class="knobs">
+            <legend>SHAFT ENCODERS</legend>
+            <label class="knob">
+              <span>Q4</span>
+              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 4">
+              <output>000</output>
+            </label>
+            <label class="knob">
+              <span>Q3</span>
+              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 3">
+              <output>000</output>
+            </label>
+            <label class="knob">
+              <span>Q2</span>
+              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 2">
+              <output>000</output>
+            </label>
+            <label class="knob">
+              <span>Q1</span>
+              <input data-knob type="range" min="0" max="511" value="0" aria-label="Knob quarter 1">
+              <output>000</output>
+            </label>
+            <label class="meta-control">
+              <input id="knob-meta" type="checkbox">
+              <span>KNOB META</span>
+            </label>
+          </fieldset>
 
-            <fieldset class="external-input">
-              <legend>EXTERNAL INPUT · 377621</legend>
-              <p>Hold one or more buttons. Each row and number identifies a TX-2 bit.</p>
-              <div id="external-buttons" class="switch-rows"></div>
-              <button
-                id="external-meta"
-                class="external-button external-meta"
-                data-external-button
-                type="button"
-                aria-pressed="false"
-              >4.10 META</button>
-            </fieldset>
+          <fieldset class="toggle-input">
+            <legend>SKETCHPAD TOGGLE REGISTERS</legend>
+            <p>These switches change TX-2 hardware state. The assembly reads them directly.</p>
+            <label class="toggle-control">
+              <input id="draw-cycle-toggle" type="checkbox" checked>
+              <span><strong>DRAW CYCLE</strong><small>377720 · 4.9 · DRAWASFIX</small></span>
+            </label>
+            <label class="toggle-control">
+              <input id="solve-toggle" type="checkbox">
+              <span><strong>SOLVE</strong><small>377720 · 4.10 · FIX</small></span>
+            </label>
+            <label class="toggle-control">
+              <input id="show-blocks-toggle" type="checkbox" checked>
+              <span><strong>SELECTABLE RECORDS</strong><small>377725 · 4.9 · SHOWBLKS</small></span>
+            </label>
+            <label class="toggle-control">
+              <input id="show-constraints-toggle" type="checkbox">
+              <span><strong>CONSTRAINT MARKS</strong><small>377725 · 4.8 · SHOWCON</small></span>
+            </label>
+          </fieldset>
 
-            <div class="controls">
-              <button id="run" type="button" disabled>RUN</button>
-              <button id="reset" type="button" disabled>RESET</button>
-              <label class="file-control">
-                <span>LOAD PAPER TAPE</span>
-                <input id="tape" type="file">
-              </label>
-            </div>
+          <fieldset class="external-input">
+            <legend>EXTERNAL INPUT · 377621</legend>
+            <p>Hold one or more buttons. Each row and number identifies a TX-2 bit.</p>
+            <div id="external-buttons" class="switch-rows"></div>
+            <button
+              id="external-meta"
+              class="external-button external-meta"
+              data-external-button
+              type="button"
+              aria-pressed="false"
+            >4.10 META</button>
+          </fieldset>
 
-            <p id="message" class="message" role="status">
-              Loading the WebAssembly machine.
-            </p>
-            <p class="message">Move the mouse over the scope. Hold the mouse button to engage the TX-2 light pen.</p>
+          <div class="controls">
+            <button id="run" type="button" disabled>RUN</button>
+            <button id="reset" type="button" disabled>RESET</button>
+            <label class="file-control">
+              <span>LOAD PAPER TAPE</span>
+              <input id="tape" type="file">
+            </label>
+          </div>
+
+          <p id="message" class="message" role="status">
+            Loading the WebAssembly machine.
+          </p>
+          <p class="message">Hold the mouse button on the scope to engage the TX-2 light pen.</p>
         </aside>
       </section>
 
+      <section class="operator-guide" aria-labelledby="operator-guide-title">
+        <div>
+          <p class="eyebrow">Operator guide</p>
+          <h2 id="operator-guide-title">Use the real Sketchpad input path</h2>
+        </div>
+        <ol>
+          <li><strong>Draw.</strong> Hold the mouse on the scope. Press <kbd>D</kbd> to send external button Q1.8. Drag the light pen. The assembly creates the points and line.</li>
+          <li><strong>Select.</strong> Hold the light pen over a visible line. Wait for the assembly-drawn tracking marks to settle on it.</li>
+          <li><strong>Constrain.</strong> Press <kbd>T</kbd> to send Q2.9, the recovered <code>TRUEUP</code> command. The assembly creates a horizontal-or-vertical constraint.</li>
+          <li><strong>Solve.</strong> Turn on <em>Solve</em> after the constraint exists. This sets the metabit of register 377720. The original <code>RELAX</code> routine changes the geometry.</li>
+        </ol>
+        <p>The Q4-Q1 panel remains available for every recovered external-input bit. Keyboard shortcuts only press those emulated physical buttons. They do not create or edit geometry in JavaScript.</p>
+      </section>
+
       <footer>
-        <p>This build executes the recovered Sketchpad assembly.</p>
+        <p>This build executes the reconstructed Sketchpad assembly.</p>
         <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260915-6"></script>
+    <script type="module" src="./app.js?v=20260915-7"></script>
   </body>
 </html>

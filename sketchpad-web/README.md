@@ -36,18 +36,34 @@ not add a raster scan or a false line between positions.
 
 The bundled tape is the compatible seven-job Sketchpad reconstruction.  Its
 entry point is octal address `200140`.  Its SHA-256 is
-`18b4a0f69853faf0a60aab0c0c7943d29dcb21c98c2426250e521706953badae`.
+`4403118be008c8b4eb93b771bba537bd589df2d9bf587bb445078ee98a746e8a`.
 
 The browser runs the paper tape through the CPU and WebAssembly.  It draws the
 unit-60 output on the canvas.  A held pointer over visible scope ink acts as
 the unit-55 light pen.  Four sliders control the shaft encoders at address
 `377620`.  Thirty-seven momentary buttons control the External Input Register
-at address `377621`.  The application also accepts a local paper-tape file.
+at address `377621`.  The application models the 24 manual toggle registers at
+`377700` through `377727`.  The application also accepts a local paper-tape
+file.
+
+The desktop interface maps `D` to external button Q1.8, the recovered `DRAW`
+command.  It maps `T` to Q2.9, the recovered `TRUEUP` command.  These shortcuts
+only change the External Input Register.  The complete Q4-Q1 button panel stays
+available.
+
+`DRAWASFIX` at `377720` bit 4.9 and `SHOWBLKS` at `377725` bit 4.9 are on by
+default.  They keep interactive display and light-pen selection active.  `FIX`
+is off during boot.  Turning it on before the model is ready makes the original
+program enter `RELAX` too early and raise `OCSAL`.  Turn on `FIX` after a
+constraint exists.
 
 The browser does not create geometry.  Every visible scope point comes from a
 unit-60 event emitted by the emulated TX-2.  Pointer input drives only the
 modeled unit-55 light pen.  The shaft encoders and External Input Register are
-the program's other interactive inputs.
+the program's other interactive inputs.  A regression run now proves the full
+path from an assembly-created line, through original light-pen selection and
+`TRUEUP`, to an assembly-created HOV constraint and a residual-reducing pass of
+the original `RELAX` solver.
 
 Deploy the current release:
 

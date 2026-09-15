@@ -14,7 +14,7 @@ const machine = new SketchpadMachine();
 // Physical console switches used by the original program during interactive work.
 // DRAWASFIX returns to the display cycle after READIT. SHOWBLKS keeps selectable
 // non-drawing display records visible to the light pen.
-machine.set_toggle_register(0o20, 0o400, 0, 0, 0, false);
+machine.set_toggle_register(0o20, 0o400, 0, 0, 0, process.env.FIX_FROM_BOOT === "1");
 machine.set_toggle_register(0o25, 0o400, 0, 0, 0, false);
 machine.mount_tape(sketchpad_tape(), 0);
 machine.set_light_pen(575 / 1022, 1 - 575 / 1022, 26 / 1022, true);
