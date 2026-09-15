@@ -590,6 +590,162 @@ Interpretation:
 - Printed symex comparison is now the next decision point for RC placement and
   macro expansion semantics.
 
+## Checkpoint 18: Printed Addresses Expose Two RC-Block Rules
+
+Date: 2026-09-14
+
+The TX-2 Users Handbook and the printed `GX7A` symex table now provide an
+independent address oracle for the RC block.
+
+The handbook states two rules in section 6-2.6:
+
+- M4 places the RC block at the end of the last program block.
+- M4 uses one address wherever the same bracketed word occurs again.
+
+The word "last" means manuscript order.  It does not mean the block with the
+highest address.  `GX7A` has fixed vectors above address `200000`, but its last
+manuscript block ends at `017276`.  The historical RC block therefore starts at
+`017277`.
+
+The printed `GX7A` symex pages give these automatic assignments:
+
+| Symbol | Printed address |
+| --- | ---: |
+| `45TYPE` | `020336` |
+| `LETδ` | `020337` |
+| `LETCNT` | `020340` |
+| `LETS` | `020341` |
+| `LETT` | `020342` |
+| `LPAREN` | `020343` |
+| `NRCOS` | `020344` |
+| `NRSIN` | `020345` |
+| `NUMBER` | `020346` |
+| `NUMTT` | `020347` |
+| `NUMTS` | `020350` |
+| `RPAREN` | `020351` |
+| `TEXTPLACE` | `020352` |
+| `TEXT` | `020353` |
+| `TEXTINDEX` | `020354` |
+| `ZZLAST` | `020355` |
+
+These values appear on Part 1 PDF pages 80 through 83.  The printed page
+numbers are 78 through 81.
+
+The modern assembler previously placed the RC block after the highest fixed
+vector.  That rule started the block at `200130`.  A regression-tested repair
+now starts it at `017277`.
+
+The first complete local-macro implementation allocated every repeated RC
+expansion.  It ended the block at `041050`.  A second implementation reuses a
+complete bracketed group when its normalized symbolic content is the same.  It
+ends the block at `020270`.
+
+The new result is 53 words short of the last printed automatic assignment at
+`020355`.  This is a useful bound.  It separates the solved placement defect
+from the remaining reuse and implicit-symbol defects.
+
+Historical significance:
+
+- The scan does more than preserve source text.  It preserves exact output
+  addresses from the original M4 run.
+- The address table can reject plausible modern assembler implementations.
+- The project now has a measured target for RC-word recovery.  It no longer
+  relies only on successful parsing or deterministic tape output.
+
+## Checkpoint 19: Forward Macros Reveal the Allocation Schedule
+
+Date: 2026-09-15
+
+The 53-word shortfall in Checkpoint 18 came from an incomplete macro model.
+Several macro bodies contain RC-word calls to macros that are defined later.
+The parser had preserved those calls as ordinary symbols.
+
+The confirmed forward calls include these macros:
+
+- `TYPEβ`, which emits 18 words.
+- `ERRLOOPβ`, which emits 62 words.
+- `SCR2δ`, which emits 9 words.
+- `SCF2δ`, which emits 54 words.
+
+A late resolution pass now expands these calls after all macro definitions are
+known.  The pass preserves nested macro-local symbols.  A regression test
+covers a forward bare macro inside an RC word.
+
+The first complete forward-resolution result exposed eight false automatic
+symbols.  Five names were `A` through `E`.  Users Handbook section 6-2.3,
+rule 3, states that M4 preassigns these names to the AE register addresses
+`377604` through `377610`.  The assembler now supplies those definitions.
+
+The other three false symbols came from transcription errors:
+
+- A faint decimal point was missing after the offset `8.` on Part 1 PDF page
+  106.
+- Two pairs of faint commas on Part 1 PDF page 121 were transcribed as periods.
+
+Repairs R039 through R041 restore these marks.  The modern output now has only
+the sixteen real automatic storage symbols shown in the printed table.
+
+The remaining address difference needs a new interpretation.  The modern
+allocator assigns the first automatic symbol at `020347`.  The printed M4
+table assigns it at `020336`.  The difference is nine words.  The boundary
+falls inside the modern 15-word expansion of `SUMCHKCMP`, which occupies
+`020330` through `020346`.  The first six words precede the historical
+boundary.  The final nine words follow it.
+
+This does not prove that nine words are absent from the historical program.
+It shows that the modern allocator and M4 do not allocate RC words and
+automatic storage in the same schedule.  The earlier interpretation of these
+nine words as an excess is rejected.
+
+The investigation also found a separate allocator defect.  The allocator
+reserved one macro word and then allocated its nested RC words before it
+reserved the next macro word.  This split executable RC routines.  The
+allocator now reserves every word of an outer macro expansion first.  Nested
+RC words follow the complete outer group.  A regression test covers a
+three-word routine with a nested RC word.
+
+The current `GX7A` build emits 2,052 words.  Its RC block starts at `017277`.
+The assembler passes 321 unit tests and 2 golden tests under this model.
+
+Historical significance:
+
+- Forward references in macro definitions are part of the surviving program.
+- M4 allocation order now matters as much as RC-word identity.
+- The printed automatic addresses constrain the timing of allocation passes.
+- Rejected allocation models remain recorded instead of being hidden.
+
+## Checkpoint 20: All Eight Jobs Survive the RC Repair
+
+Date: 2026-09-15
+
+Simulator commit `2692cbd` records the new RC semantics.  The assembler passes
+321 unit tests and 2 golden tests.  A complete reconstruction build still
+assembles all eight historical jobs.
+
+| Job | Emitted words | Tape SHA-256 |
+| --- | ---: | --- |
+| `2XMX` | 2,857 | `79a4448baaa5aca1895bccc713a65104198bfeb75e5860118d0bce4c4661c2c6` |
+| `OPLW` | 269 | `9b0f6256493967790274bba47d4b33d8206be42f419ac23d11889cc1e1c2cc03` |
+| `GX7A` | 2,052 | `e460690a30e707bed1dc104cd76fbdc4bd9429fcf6540a9614f62f5f24b66f17` |
+| `BOO7` | 1,038 | `6e360d226fdea98f9101ef8800733b2062de7d1a593b091286e6cf2b6ac2a5b9` |
+| `ONLW` | 1,836 | `d794a4fc62cda1e460e3336b4eec4504e0fa7ef047fdbca521584bbf2879eb7a` |
+| `APY5` | 1,272 | `8d89cf0d66b0fa5df422e9cddc0d00b4a08c96aee9c5be5375afdbc3e00cf489` |
+| `LYUO` | 1,436 | `2909eb4ae101e7b00fd7efd193d183483802af2483cc63e4b0056a68a24bee34` |
+| `Y3HT` | 1,852 | `f237c6b599e0e8cdf808cf6cab57edb322ea6884c0336d93669a24f0e2707a75` |
+
+Seven hashes differ from the earlier deterministic baseline.  `OPLW` remains
+byte-identical.  This result is expected because the corrected RC placement
+and expansion rules change generated addresses.  The checksum gate rejects
+the seven changed tapes.  These hashes remain research evidence.  They do not
+replace `TAPE_SHA256SUMS` until the historical allocation schedule is known.
+
+Historical significance:
+
+- The RC repair does not make any recovered job unassemblable.
+- One unaffected job supplies a byte-for-byte control case.
+- The checksum gate prevents a plausible intermediate model from becoming an
+  approved reconstruction by accident.
+
 ## Current Research State
 
 The canonical historical artifact remains `sk.tx2as`.
@@ -599,8 +755,12 @@ The `sk2.tx2as` file contains a continuation and four more assembly jobs.
 All four Part 1 fragments now assemble into deterministic tapes.
 The complete cross-volume `BOO7` job also assembles into deterministic output.
 All eight recovered assembly jobs now have deterministic machine output.
-One reproducible command builds and validates all eight tapes.
-The next goal is printed-output and symex-address comparison.
+One reproducible command builds all eight tapes.  The checksum gate currently
+rejects seven changed tapes and accepts the unaffected `OPLW` control tape.
+The `GX7A` RC block now has a printed historical address oracle.
+The forward-macro shortfall and its false automatic symbols are resolved.
+The next goal is to recover the historical RC allocation schedule and the
+automatic-symbol ordering from the printed `GX7A` addresses.
 Successful simulator loading follows compatible-set identification.
 The browser target will run that simulator through WebAssembly.
 The readable C translation will remain a separate explanatory artifact.
