@@ -2909,37 +2909,3 @@ press starts the diagnostic log.  A second press stops it.  Modified shortcuts
 such as Control-R remain available to the browser.  A Chrome test started and
 stopped a complete WebM without a mouse.  Release `20260916T035208Z` contains
 this shortcut after Caddy validation.
-
-## Checkpoint 70: Agentic Instruments and Shared Semantic Memory
-
-Date: 2026-09-16
-
-The first user-created multi-line figure in the live reconstruction prompted a
-design question beyond historical emulation.  What would a modern system look
-like if it kept Sketchpad's core interaction model and applied it to agents?
-
-The answer is not only a better coding interface.  It is a shared semantic
-workspace.  Humans and agents act on the same durable objects, relations,
-constraints, proposals, and history.  Code is one kind of object in that
-workspace.  Research claims, contracts, customers, budgets, physical parts,
-and commitments can be objects too.
-
-The phrase `shared memory` is intentionally broad.  It does not claim that a
-human mind and a model use the same physical memory.  It means that both
-participants share stable referents in one persistent state space.  The screen
-shows spatial projections of that state.  An object has a canonical identity
-outside its pixels.  A person can point to it.  An agent can address the same
-identity.  Both can inspect the same constraints and accepted history.
-
-This interpretation also preserves a lesson from the reconstruction.  The
-interface must not display a semantic success that the underlying runtime did
-not produce.  Agents can propose and test state transitions.  A deterministic
-kernel owns the accepted state.  Constraint engines validate it.  Capability
-boundaries control effects outside the workspace.  An event journal records
-the cause of each accepted change.
-
-The new [Agentic Instruments](AGENTIC_INSTRUMENTS.md) document records this
-thesis, an initial object vocabulary, common operations, system layers, design
-commitments, and open research questions.  This is an interpretation derived
-from the reconstruction.  It is not a historical claim about Ivan Sutherland's
-intent.

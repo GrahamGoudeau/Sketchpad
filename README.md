@@ -56,7 +56,4 @@ software.
 
 See [Sketchpad Reconstruction](RECONSTRUCTION.md) for the evidence rules and
 source repair register.  See [Research Log](RESEARCH_LOG.md) for dated project
-checkpoints, major findings, and open interpretations.  See [Agentic
-Instruments](AGENTIC_INSTRUMENTS.md) for the design thesis that this work
-suggests: humans and agents can manipulate the same durable objects and
-constraints in a shared semantic workspace.
+checkpoints, major findings, and open interpretations.
