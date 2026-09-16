@@ -112,6 +112,9 @@ worker's hardware setter.  These values measure input transport.  They do not
 replace the original assembly timing of the visible tracking pattern.
 
 The diagnostic recorder captures the scope canvas at 30 frames per second.
+It adds a cyan recording-only input cursor and state label.  This makes a
+pointer-to-tracker offset visible without adding host geometry to the live
+scope or the emulated machine.
 `MediaRecorder` stores one-second chunks.  The operator can stop the recorder
 and download one intact, timestamped WebM file.  Recording does not change the
 machine, pen, display stream, or canvas renderer.  Attach the downloaded file

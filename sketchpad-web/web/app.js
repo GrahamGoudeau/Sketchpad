@@ -9,7 +9,7 @@ import {
   writeSharedPen,
 } from "./pen-transport.js?v=20260915-12";
 import { HeldControls, drawKeyTransitions } from "./external-input.js?v=20260915-12";
-import { captureFileName, VisualCapture } from "./visual-capture.js?v=20260915-14";
+import { captureFileName, VisualCapture } from "./visual-capture.js?v=20260915-15";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
@@ -159,7 +159,13 @@ let displayStoppedAt = null;
 let beamRateWindowStartedAt = 0;
 let beamRateWindowSpots = 0;
 const lightPen = { active: false, x: 0.5, y: 0.5, radius: 12 / 1022 };
-const visualCapture = new VisualCapture(canvas);
+const visualCapture = new VisualCapture(canvas, () => ({
+  x: lightPen.x,
+  y: lightPen.y,
+  active: lightPen.active,
+  penState: lightPenStatus(lightPen.active, machineState.lost),
+  simulatedTime: machineState.simulatedTime,
+}));
 let lightPenBounds = null;
 let penSequence = 0;
 let lastPenDispatch = null;
