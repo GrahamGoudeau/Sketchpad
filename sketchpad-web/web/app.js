@@ -1,8 +1,9 @@
 import {
   displayTime,
   lightPenStatus,
+  phosphorFade,
   scopePointPosition,
-} from "./scope-model.js?v=20260915-12";
+} from "./scope-model.js?v=20260916-18";
 import {
   PEN_STATE_LENGTH,
   readSharedPenApplication,
@@ -144,7 +145,6 @@ const MAX_CANVAS_AXIS = 1024;
 const MIN_FRAME_INTERVAL_MS = 15;
 const MAX_SAFE_FRAME_MS = 20;
 const MAX_OVERLOADED_FRAMES = 3;
-const PHOSPHOR_HALF_LIFE_SECONDS = 0.12;
 const SELECTION_BITS = [
   [0o2000000n, "POINT"],
   [0o4000000n, "LINE"],
@@ -312,10 +312,7 @@ function drawScopePoint(event) {
 }
 
 function fadePhosphor(elapsedSeconds) {
-  const fade = Math.min(
-    0.995,
-    1 - Math.pow(0.5, Math.max(0, elapsedSeconds) / PHOSPHOR_HALF_LIFE_SECONDS),
-  );
+  const fade = phosphorFade(elapsedSeconds);
   context.fillStyle = `rgb(1 5 3 / ${fade})`;
   context.fillRect(0, 0, canvas.width, canvas.height);
 }

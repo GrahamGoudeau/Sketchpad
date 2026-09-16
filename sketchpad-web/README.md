@@ -27,8 +27,10 @@ budget pause the machine.  A 2,048-point queue applies display backpressure.
 Each unit-60 event includes its emulated TX-2 time.  The browser accelerates
 the machine until the first scope event.  It then keeps execution aligned with
 the real-time display clock.  The renderer
-intensifies points in event order and applies a 120-millisecond phosphor
-half-life.  A sampled blue-white beam head marks the newest point.  The beam
+intensifies points in event order and keeps one-sixteenth of a point's light
+after the handbook's approximate two-second phosphor-persistence interval.
+This is equivalent to a 0.5-second exponential half-life.  A sampled
+blue-white beam head marks the newest point.  The beam
 stays blank between programmed positions.  This models the TX-2 point-addressed
 scope.  A one-second readout reports the displayed spot rate.  The renderer does
 not add a raster scan or a false line between positions.
@@ -121,6 +123,16 @@ machine, pen, display stream, or canvas renderer.  Attach the downloaded file
 to a defect report when a transient display fault cannot be described from a
 still image.  The `R` key starts and stops the recorder.  Modified `R` shortcuts
 remain available to the browser.
+
+Analyze a downloaded recording with:
+
+```sh
+go run tools/visual-log-analyzer/main.go sketchpad-visual-*.webm
+```
+
+The analyzer uses `ffmpeg`.  It reports large input-coordinate changes and
+large display changes away from the input crosshair.  This separates a bad
+browser input sample from a change in the emulated scope output.
 
 Run the browser-independent checks:
 
