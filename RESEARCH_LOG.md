@@ -3000,3 +3000,10 @@ keeps all settled scope output on or beyond the fixed endpoint in both axes.
 It tracks all 160 positions, keeps `LPLOST` clear, enters the original
 `STOPMOVEP` routine, and completes through Q1.6.  The interaction test now
 rejects any reflected horizontal or vertical segment on this path.
+
+Simulator commit `c21b99d` ships the corrected tape and the diagonal
+regression.  Production release `20260916T235536Z` is live after Caddy
+validation.  The live page returns HTTP 200, the TX-2 reaches `RUNNING`, and
+the browser reports no console warnings or errors.  The deployed WASM
+SHA-256 matches the local release build:
+`6f888c6a077e713516c8c13f36580354e574635398868a9070f107fe77e660dc`.
