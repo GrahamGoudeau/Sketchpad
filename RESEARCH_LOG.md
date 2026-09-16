@@ -2710,3 +2710,75 @@ The deployed WASM is 593,936 bytes.  Its SHA-256 is
 Static source checks confirm the versioned worker, shared buffer, raw pointer
 updates, Escape release, 0.25-millisecond worker budget, 16-tick batch, and
 direct `set_light_pen` call.  No graphical browser was opened on the host.
+
+## Checkpoint 67: Raw Scope Coordinates Remove False Axis Bars
+
+Date: 2026-09-15
+
+A desktop report identified three related symptoms.  Drawn geometry developed
+horizontal and vertical discontinuities.  A moving endpoint could appear to
+flip into a pathological shape.  Releasing the `D` shortcut did not always
+finish the line.
+
+The first two symptoms came from the modeled unit-60 origin circuit.  The
+emulator decoded each ten-bit one's-complement coordinate into a host signed
+integer before it applied the selected scope origin.  This destroyed the
+difference between positive zero and negative zero.  The browser and light pen
+then treated a moved origin as a multiplication by two.  Negative coordinates
+collapsed against the left or lower scope edge.
+
+The November 1963 TX-2 Users Handbook, unit 60, states that moved origin modes
+automatically complement the applicable coordinate sign bit.  The output event
+now preserves both raw ten-bit coordinates.  The hardware model applies that
+sign-bit operation before it maps the illuminated point to the physical
+1023-position scope axis.  The renderer and unit 55 consume the same physical
+coordinate.  Focused tests cover both zero encodings, both physical extremes,
+all four origin modes, and a real assembly tracker path that crosses both scope
+axes.
+
+The `D` symptom had a separate cause.  Original sequence 47 records new button
+presses with `new AND NOT old`.  It does not queue button releases.  The earlier
+guide therefore described behavior that the original program cannot perform.
+Cases that appeared to finish on `D` release had also lost the light pen.  The
+original `47LOSTPEN` path then inserted Q1.6 and called `STOPMOVEP`.
+
+The browser keyboard bridge now maps a `D` press to Q1.8 `STARTDRAW`.  It maps
+the release to the real Q1.6 `STOPMOVEP` button.  Q1.6 stays held until the next
+`D` press.  This gives sequence 47 enough time to observe the physical input.
+The original assembly still finishes the moving object.  A new integration
+test keeps the light pen active and proves that Q1.6 enters `STOPMOVEP` and
+completes the line without the lost-pen fallback.
+
+The external-input surface now tracks independent owners for pointer and
+keyboard holds.  Releasing one source no longer clears a button that another
+source still holds.  Window blur releases every source and disengages the
+physical pen.  The default modeled pickup radius changed from 40 to 12 of 1022
+scope units.  This reduces the maximum tracker-to-pointer offset.  The operator
+can still raise the radius for difficult acquisition.  The exact historical
+sensitivity setting remains unknown.
+
+Validation result:
+
+- 128 CPU tests and 6 Sketchpad Web Rust tests pass.
+- Scope mapping, input ownership, atomic pen transport, and worker tests pass.
+- A real assembly path tracks across both physical axes without losing unit 55.
+- A real Q1.6 edge completes `STOPMOVEP` while `LPLOST` remains clear.
+- Line, circle, `TRUEUP`, `RELAX`, `FIXIT`, and `UNFIX` regressions pass.
+
+No host code creates geometry, selects an object, or changes a constraint.
+
+Simulator commits `9062a00` and `b3201f8` contain this repair.  Both commits
+were pushed before the final deployment.  The first deployment attempt,
+release `20260916T024136Z`, exposed a packaging fault.  The explicit release
+manifest did not include the new `external-input.js` module.  Static checking
+returned HTTP 404 for that module, and a browser stayed at `INITIALIZING`.
+Commit `b3201f8` adds the module to the release manifest.
+
+Release `20260916T024326Z` is the corrected production release.  Caddy
+validated the complete configuration before reload.  The new module, page,
+worker, and WebAssembly return HTTP 200 with the required cross-origin
+headers.  A fresh production browser reached `RUNNING`, generated more than
+400,000 original scope points, used the 12-unit pickup radius, and acquired
+the original assembly tracker as `TRACKING`.  The failed release remains an
+immutable record, but the current symlink points only to the corrected
+release.
