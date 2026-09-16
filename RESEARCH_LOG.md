@@ -2909,3 +2909,49 @@ press starts the diagnostic log.  A second press stops it.  Modified shortcuts
 such as Control-R remain available to the browser.  A Chrome test started and
 stopped a complete WebM without a mouse.  Release `20260916T035208Z` contains
 this shortcut after Caddy validation.
+
+## Checkpoint 70: First Operator Visual Log and Scope-Persistence Repair
+
+Date: 2026-09-16
+
+The first operator recording is now retained at
+`evidence/visual/sketchpad-visual-2026-09-16T14-22-45.569Z.webm`.  Its SHA-256
+is `436d7d809e37e78941cf58223b6821ec90b25db9b5e5227824e7ad74d5ced654`.
+The VP9 stream contains 486 decoded frames at 1024 by 1024 pixels over about
+21.1 seconds.  The recording-only cyan crosshair identifies the browser input
+position.  The remaining light is the emulated unit-60 stream.
+
+The slow drawing gesture stayed in the assembly's `TRACKING` state.  It did
+not enter `LPLOST`.  Several large visual changes happened while the input
+crosshair moved only a few pixels.  Decoded frames 392, 413, and 415 changed
+more than 1,000 display pixels outside an 80-pixel area around the crosshair.
+The corresponding crosshair movements were 7.4, 1.8, and 4.5 pixels.  This
+separates the recorded flicker from a large browser-coordinate jump at those
+moments.
+
+The display model caused the dominant fault.  It used a 0.12-second
+exponential half-life.  This leaves less than 0.001 percent of the original
+intensity after two seconds.  The November 1963 TX-2 Users Handbook says that
+the scope phosphor persists for about two seconds.  The renderer therefore
+erased the completed line while it made the current tracker scan bright.  A
+valid tracker sweep then looked like a sudden replacement of the line.
+
+Simulator commit `d4a57d4` replaces that unsupported constant with a stated
+calibration.  One-sixteenth of the initial light remains after the handbook's
+two-second persistence interval.  This is a 0.5-second exponential half-life.
+The historical word `persistence` does not give a visibility threshold, so
+one-sixteenth is an explicit renderer calibration rather than a claimed
+handbook value.  A browser test now checks both the two-second threshold and
+the derived half-life.
+
+No assembly word, unit-55 behavior, unit-60 coordinate, light-pen hit test, or
+geometry record changed.  A local browser and the deployed browser both booted
+the real tape, reached `RUNNING`, acquired `TRACKING`, and left the original
+tracker sweep visible over longer-lived geometry.  Release
+`20260916T225050Z` is live after Caddy validation.  The source response and the
+page cache key both identify the new renderer.
+
+The simulator also retains `tools/visual-log-analyzer`.  It decodes a WebM
+through `ffmpeg`, measures the cyan input crosshair, and counts display changes
+away from that crosshair.  This gives later operator recordings a repeatable
+first-pass analysis.  It does not decide whether a unit-60 trace is correct.

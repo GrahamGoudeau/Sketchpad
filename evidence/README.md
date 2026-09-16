@@ -17,3 +17,13 @@ of its rows is address order.
 the printed `2XMX` symbol table.  The order of its rows is address order.  The
 table and the surviving equality sheet disagree about `COPYNUM`.  Keep that
 version difference visible during comparison.
+
+## Operator visual records
+
+`visual/sketchpad-visual-2026-09-16T14-22-45.569Z.webm` is the first retained
+operator recording from the browser diagnostic recorder.  It has 486 decoded
+VP9 frames at 1024 by 1024 pixels.  Its SHA-256 is
+`436d7d809e37e78941cf58223b6821ec90b25db9b5e5227824e7ad74d5ced654`.
+
+The cyan crosshair and bottom text are recording-only input evidence.  All
+other light comes from unit-60 output from the running Sketchpad assembly.
