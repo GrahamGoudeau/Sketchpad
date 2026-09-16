@@ -2517,3 +2517,163 @@ handoff.  The deployment script was repaired and pushed.  Static release
 checks returned HTTP 200 for the new scope-clock module and the 593,792-byte
 WebAssembly file.  The former `scratchpad.acyclic.sh` name still redirects to
 the canonical `sketchpad.acyclic.sh` host.  No graphical browser was opened.
+
+## Checkpoint 62: First Successful `DESIGNATE` Requires an Explicit Initial Sentinel
+
+Date: 2026-09-15
+
+The first complete Q1.7 probe entered the original `DESIGNATE` routine.  It
+then passed object zero to `DELETE`.  `DELETE` treated zero as a list object and
+damaged the dead-object ring.  This was not an emulator alarm or a browser
+gesture defect.
+
+The printed listing gives the relevant sequence.  `STARTS` clears
+`DESIGNATED` and `CCENT`.  `DESIGNATE` exchanges the old `CCENT` value into
+alpha.  It calls `DELETE` unless bit 1.1 of `DESTS` is one.  The printed
+`DELETE` routine has no object-zero guard.  `DESTS` is automatic storage.  The
+surviving pages do not show an initializer for it.  The relevant evidence is
+in Part 1 PDF pages 8, 23, 35, and 49-50.
+
+The reconstruction now has a separate file named
+`2xmx-runtime-init.tx2as`.  It writes one to the current reconstructed `DESTS`
+address, `011413`.  The combined tape loads this one-word file last.  The
+scanned source stays unchanged.  The emulator contains no Sketchpad-specific
+list repair.
+
+This is an inferred runtime completion.  It is not a verified transcription.
+The printed automatic-symbol table gives `DESTS` as `011444`.  The current
+reconstruction gives `011413` because automatic and RC allocation is still not
+bit-for-bit identical to the historical assembler.  The initialization tape
+must follow that address if later allocator work changes it.
+
+With the sentinel present, `DESIGNATE` returns through its original path.  It
+sets `CCENT` and the `DESIGNATED` metabit.  It does not damage the `DEADS`
+header.
+
+## Checkpoint 63: An Omitted Interior Macro Parameter Had Removed the Circle Radius
+
+Date: 2026-09-15
+
+The historical circle code calls this macro form:
+
+```text
+NORMALIZE|CMRAD/SCSZ×BSFAC=CMRAD→CMDAL
+```
+
+The definition has six parameters:
+
+```text
+NORMALIZE|P→C/S×F=R→Q
+```
+
+The call omits `C`.  The earlier cross-assembler could omit a leading
+parameter.  It could not preserve an omitted parameter in the middle of this
+terminator sequence.  It bound `CMRAD/SCSZ×BSFAC` to `P`.  The expanded code
+then loaded zero and removed the circle radius.
+
+The macro parser now records an empty parameter slot when a later terminator
+matches.  It binds `P=CMRAD`, leaves `C` empty, and binds the later parameters
+to `SCSZ`, `BSFAC`, `CMRAD`, and `CMDAL`.  A focused regression uses the exact
+terminator pattern.  All 330 assembler library tests and all assembler tool
+tests pass.
+
+This change repairs M4 source semantics in the cross-assembler.  It does not
+add circle logic to the emulator.
+
+## Checkpoint 64: One's-Complement Negative Zero Restores Real Circle Points
+
+Date: 2026-09-15
+
+The repaired radius let the circle generator run.  Unit 60 still emitted only
+the center spot.  A trace reached the circle coordinate mask:
+
+```text
+{-0,400,,-0,400}
+```
+
+The earlier evaluator implemented unary minus through a host signed integer.
+That conversion collapsed one's-complement negative zero into positive zero.
+The assembler emitted mask `000400000400`.  It removed nine of ten coordinate
+bits from each axis.
+
+In one's-complement arithmetic, negation is bitwise complement.  The evaluator
+now applies that operation directly.  The same source emits
+`777400777400`.  A regression assembles the complete comma expression and
+checks this exact word.
+
+The circle interaction test now performs the following operations through the
+real input and assembly paths:
+
+- Q1.7 enters `DESIGNATE`.
+- Q1.8 enters `STARTDRAW` and then `STARTC`.
+- The assembly allocates 77 changed picture words.
+- The display builder changes 179 display-file words.
+- `STOPMOVEP` completes the moving endpoint.
+- Unit 60 emits 44 new unique visible points.
+
+The visible result is an arc for this gesture.  It is not a complete circle.
+A least-squares circular-locus test fits those points with radius 108.61 scope
+units.  The maximum radial error is 0.73 scope units.  The root-mean-square
+error is 0.34 scope units.  This bound includes the display coordinate
+quantization.
+
+No browser or Rust geometry creates these points.  The reconstructed assembly
+builds the circle records and the unit-60 display file.
+
+## Checkpoint 65: The Physical Pen State Leaves the Browser Render Loop
+
+Date: 2026-09-15
+
+The previous browser executed up to 2.5 milliseconds of WASM CPU work inside
+one animation-frame callback.  Pointer events had to wait behind that work and
+the phosphor renderer.  The light-pen position also changed only while the
+mouse button stayed down.  This architecture caused avoidable lag.
+
+The browser now uses this input model:
+
+- Pointer motion over the scope always updates the physical pen position.
+- One click engages the light-pen sensor.
+- Mouse-button release does not remove the pen.
+- Escape disengages the sensor.
+- The original unit-55 detection path decides whether an intensified unit-60
+  point reaches the photocell.
+- The original assembly performs tracking, selection, and geometry work.
+
+The WebAssembly machine now runs in a dedicated worker.  The main thread no
+longer executes TX-2 instruction batches.  Production response headers enable
+cross-origin isolation.  The two threads then share a small atomic pen record.
+The input handler uses a cached scope rectangle, coordinate arithmetic, and
+atomic stores.  The worker reads the record before and between 16-tick batches.
+One worker task has a 0.25-millisecond work budget.  Display backpressure stops
+new machine output at 2,048 queued scope points instead of allowing an
+unbounded browser queue.
+
+The page reports two measurements.  `INPUT HANDLER` is the time from entry to
+the browser handler through publication of the physical state.  `PEN APPLY` is
+the measured time from that publication to the worker's call into the emulated
+hardware.  These values do not include mouse polling before the browser event.
+They also do not claim that the visible assembly tracking crosshair moves in
+the same interval.  That crosshair remains subject to authentic program and
+scope timing.
+
+A local Node/WASM timing probe measured a 16-tick batch over 1,000 samples.
+The median was 0.015 milliseconds.  The 95th percentile was 0.028
+milliseconds.  The 99th percentile was 0.063 milliseconds.  One maximum
+sample was 0.530 milliseconds.  This is a batch-cost measurement.  It is not a
+browser input guarantee.  The live page exposes the relevant browser values
+instead of making such a guarantee.
+
+The worker fast-forwards tape loading and machine startup until the first
+unit-60 point.  It then locks machine execution to the point-beam clock.  This
+preserves the earlier fast startup without putting CPU work back on the main
+thread.  A Node worker integration test reached 173.42 simulated seconds and
+received 50 real scope points in less than one wall-clock second.  It then
+changed the shared pen record while the machine ran.  The worker applied that
+sample in 0.027 milliseconds.  This proves the transport and worker wiring in
+the test environment.  It is still not a guarantee for all browsers or mice.
+
+The same work found one important command condition.  `FIXIT` exits if the
+`LPLOST` metabit is set.  A line-type value can remain in `ATBITS` after the
+pen is lost.  A valid test must see a current line selection and clear
+`LPLOST` at the same instant.  With that condition, Q3.3 changes the original
+`FIXEDS` links and Q2.7 restores every word.

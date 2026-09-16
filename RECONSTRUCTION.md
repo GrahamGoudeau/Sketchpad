@@ -66,41 +66,31 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R061 and the validator changes let the complete source
+Repairs R001 through R062 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
-All eight jobs emit deterministic machine tapes.  The build checks their SHA-256
-values against `TAPE_SHA256SUMS`.  The checksum gate currently rejects all
-eight tapes because the approved hashes predate the historical allocation
-repairs.
+All eight jobs emit deterministic machine tapes.  The build reports their
+SHA-256 values and compares them with the older values in `TAPE_SHA256SUMS`.
+Those older values predate later allocator and assembler corrections.  The
+comparison is a provenance record.  It is not a build or execution gate.
 
-Seven jobs form the current compatible machine image.  The load order is
+Seven historical jobs form the current compatible machine image.  The load order is
 `2XMX`, `GX7A`, `BOO7`, `ONLW`, `APY5`, `LYUO`, and `Y3HT`.  The earlier and
-shorter `OPLW` job is not in this set.  The merged tape contains 12,292 words in
-28 blocks.  It starts at octal address `200140`.  Its SHA-256 is
-`18b4a0f69853faf0a60aab0c0c7943d29dcb21c98c2426250e521706953badae`.
+shorter `OPLW` job is not in this set.  A separate one-word inferred
+initialization tape sets the no-old-designation sentinel used by `DESIGNATE`.
+The merged tape has 12,949 words in 29 blocks.  It starts at octal address
+`200140`.  It is 78,186 bytes.  Its SHA-256 is
+`866d8854d86b899a5192711a73c1925b4c80c903f01c6be8847fc06c6fb70eb5`.
 
-The simulator runs this image through WebAssembly.  A bounded native run emits
-63,080 scope points by simulated time 190 seconds.  A browser run draws the
-word `INK` from the recovered machine code.  Simulator commit `32e7961`
-connects browser pointer hits to a modeled unit-55 light pen.  Simulator commit
-`8720bb4` connects four browser shaft encoders and their metabit to Knob
-Register address `377620`.  Simulator commit `5ef2170` connects 37 momentary
-browser buttons to External Input Register address `377621`.  Simulator commit
-`47aff8b` adds adaptive mobile execution and the production deployment record.
-Simulator commit `81882dc` adds the full-viewport mobile HUD and sends its
-controls through the reconstructed input devices.  Simulator commit `b14019f`
-implements the `ITE` instruction that the first drawing gesture reached.
-Simulator commit `d4fdfb8` adds visible compatibility ink, shape tools, and
-cache-resistant production delivery.  A live mobile-size browser test draws a
-freehand stroke, a line, a circle, and a rectangle with real pointer gestures.
-The recovered program continues to draw `INK` below this explicit compatibility
-layer.  Simulator commits `381843c` and `d259d5a` bound browser CPU, WASM,
-rendering, frame rate, canvas size, and overload behavior while keeping
-auto-start.  Simulator commit `9a6639b` timestamps every scope event and renders
-the programmed point beam against a bounded real-time display clock.  The
-canonical application runs at
+The simulator runs this image through WebAssembly.  The executing assembly
+draws `INK`, creates a line, selects it with the emulated light pen, creates a
+horizontal-or-vertical constraint, and changes the line through `RELAX`.  It
+also links the line through `FIXIT` and restores it through `UNFIX`.
+`DESIGNATE` now preserves a center point.  `STARTDRAW` then creates circle
+records and emits a quantized circular arc through unit 60.  Browser code only
+sets modeled hardware inputs and renders unit-60 output.  It does not create,
+select, constrain, solve, or draw geometry.  The canonical application runs at
 `https://sketchpad.acyclic.sh/`.
 
 ## Validator Changes
@@ -272,6 +262,7 @@ file marks it clearly and the log records the alternatives.
 | R059 | `sk2.tx2as:2611` | inferred | Sketchpad part 2, PDF page 62 clips the final `COMBR` line; two earlier copies of the same macro contain the exact line | Restore `¹DPX T|XR LIST+(N)+1` before the macro end. |
 | R060 | `sk2.tx2as:6370` | verified | Sketchpad part 2, PDF page 144; the printed approximation comment reads `-.54433`; the constant ratio is `0.5443300000` | Read the comment `-.5433` as `-.54433`. |
 | R061 | 30 readings and three page boundaries in `sk.tx2as` and `sk2.tx2as` | verified | 400-600-DPI views of Part 1 PDF pages 7, 18, 23, 34, 56, 101, and 134 and Part 2 PDF pages 4-7, 11, 15-16, 34-35, 60, 62-63, 107, 118, and 144; repeated definitions and paired control flow | Remove stale uncertainty notes.  Record that the OPLW numbering skips page 011 without losing source statements. |
+| R062 | `2xmx-runtime-init.tx2as`, current `DESTS` address `011413` | inferred | Part 1 PDF pages 8, 23, 35, and 49-50; `DESTS` is automatic storage; first `DESIGNATE` exchanges zero `CCENT` into alpha and calls `DELETE`; `DELETE` has no object-zero guard; a one sentinel takes the no-old-center branch | Add a separate, explicit runtime initialization tape that writes one to `DESTS`.  Do not hide this inferred value in the emulator or alter the scanned listing. |
 
 ## Publication Gate
 

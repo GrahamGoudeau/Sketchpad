@@ -78,9 +78,15 @@ for unit in "${units[@]}"; do
   echo "Built $output"
 done
 
+"$assembler" --output "$output_dir/sketchpad-2xmx-runtime-init.tape" \
+  "$repo_dir/2xmx-runtime-init.tx2as"
+"$disassembler" "$output_dir/sketchpad-2xmx-runtime-init.tape" >/dev/null
+echo "Built $output_dir/sketchpad-2xmx-runtime-init.tape"
+
 "$merger" \
   --output "$output_dir/sketchpad-combined.tape" \
   --entry 200140 \
+  --allow-overwrite 011413 \
   --allow-overwrite 022000 \
   --relocate-input-range 3:022000:022000:032000 \
   --relocate-input-range 4:022001:022440:032001 \
@@ -91,7 +97,8 @@ done
   "$output_dir/sketchpad-onlw.tape" \
   "$output_dir/sketchpad-apy5.tape" \
   "$output_dir/sketchpad-lyuo.tape" \
-  "$output_dir/sketchpad-y3ht.tape"
+  "$output_dir/sketchpad-y3ht.tape" \
+  "$output_dir/sketchpad-2xmx-runtime-init.tape"
 "$disassembler" "$output_dir/sketchpad-combined.tape" >/dev/null
 echo "Built $output_dir/sketchpad-combined.tape"
 
@@ -100,10 +107,14 @@ echo "Built $output_dir/sketchpad-combined.tape"
   shasum -a 256 sketchpad-2xmx.tape sketchpad-oplw.tape \
     sketchpad-gx7a.tape sketchpad-boo7.tape sketchpad-onlw.tape \
     sketchpad-apy5.tape sketchpad-lyuo.tape sketchpad-y3ht.tape \
-    sketchpad-combined.tape > SHA256SUMS
-  shasum -a 256 -c "$repo_dir/TAPE_SHA256SUMS"
+    sketchpad-2xmx-runtime-init.tape sketchpad-combined.tape > SHA256SUMS
+  if shasum -a 256 -c "$repo_dir/TAPE_SHA256SUMS"; then
+    echo "Generated historical-job tapes match the recorded comparison set"
+  else
+    echo "Generated historical-job tapes differ from the recorded comparison set" >&2
+    echo "This comparison records provenance. It does not reject the build." >&2
+  fi
 )
 
 echo "Wrote $output_dir/SHA256SUMS"
 echo "Validated TX-2 reader leaders, blocks, and checksums"
-echo "Verified expected tape checksums"

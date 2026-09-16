@@ -1,0 +1,16 @@
+** Interpretive completion for the initial 2XMX interaction state.
+**
+** The surviving listing initializes DESIGNATED and CCENT to zero.  On the
+** first CIRCLE CENTER command, DESIGNATE exchanges that zero CCENT into alpha.
+** It then calls DELETE unless bit 1.1 of DESTS is one.  DELETE has no guard for
+** object zero, so the printed zero default for automatic storage corrupts the
+** DEADS ring.  The thesis says that the first CIRCLE CENTER command leaves a
+** center point.  Therefore, the no-old-center sentinel must be one initially.
+**
+** The printed automatic-symbol table puts DESTS at 011444.  The current M4
+** reconstruction puts it at 011413 because its RC/automatic interleaving is
+** not yet historically exact.  This tape targets the current assembled
+** address.  Update it when that remaining allocator difference is resolved.
+
+ 011413|
+                1

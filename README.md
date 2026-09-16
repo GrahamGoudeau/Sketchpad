@@ -39,6 +39,14 @@ hard to read in many places.  Superscripts and subscripts are
 particularly difficult to make out.  Unfortunately superscripts and
 subscripts are important features of the TX-2's assembly language.
 
+The active reconstruction now assembles all eight historical jobs.  Its
+browser runtime executes seven compatible jobs plus one separate, documented
+inferred initialization word.  Automated emulator runs prove original
+assembly paths for line creation, circle-arc creation, selection, one
+horizontal-or-vertical constraint, `RELAX`, `FIXIT`, and `UNFIX`.  Browser code
+supplies TX-2 device state.  It does not create or solve geometry.  The current
+runtime is at [sketchpad.acyclic.sh](https://sketchpad.acyclic.sh/).
+
 See [Verifying
 Listings](https://tx-2.github.io/software/verifying-listings) for an
 explanation of our general approach to verifying listings of TX-2
