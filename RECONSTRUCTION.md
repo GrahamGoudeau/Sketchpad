@@ -263,6 +263,7 @@ file marks it clearly and the log records the alternatives.
 | R060 | `sk2.tx2as:6370` | verified | Sketchpad part 2, PDF page 144; the printed approximation comment reads `-.54433`; the constant ratio is `0.5443300000` | Read the comment `-.5433` as `-.54433`. |
 | R061 | 30 readings and three page boundaries in `sk.tx2as` and `sk2.tx2as` | verified | 400-600-DPI views of Part 1 PDF pages 7, 18, 23, 34, 56, 101, and 134 and Part 2 PDF pages 4-7, 11, 15-16, 34-35, 60, 62-63, 107, 118, and 144; repeated definitions and paired control flow | Remove stale uncertainty notes.  Record that the OPLW numbering skips page 011 without losing source statements. |
 | R062 | `2xmx-runtime-init.tx2as`, current `DESTS` address `011413` | inferred | Part 1 PDF pages 8, 23, 35, and 49-50; `DESTS` is automatic storage; first `DESIGNATE` exchanges zero `CCENT` into alpha and calls `DELETE`; `DELETE` has no object-zero guard; a one sentinel takes the no-old-center branch | Add a separate, explicit runtime initialization tape that writes one to `DESTS`.  Do not hide this inferred value in the emulator or alter the scanned listing. |
+| R063 | `sk2.tx2as:6008` | verified | High-resolution view of Sketchpad part 2, PDF page 137; the printed word has the same comma pattern as the earlier `{-0,400,,-0,400}` word | Remove the extra comma before the final `400`.  M4 now reuses the earlier RC word and restores every later Y3HT RC address. |
 
 ## Publication Gate
 

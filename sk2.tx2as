@@ -6005,7 +6005,7 @@ CMDAD@arr@      NORMALIZE|CMSTART@arr@SCCEN/SCSZ=CMTS@arr@CMEXIT
                 SXL @sub_C@@sub_M@@sub_alpha@ DISPLAYFILESIZE
                 FULL@hamb@CM@alpha@@arr@CMEXIT
                 LDC CMNAME
-                LDB {-0,400,,-0,,400}
+                LDB {-0,400,,-0,400}
                 INS C
                 STC @sub_C@@sub_M@@sub_alpha@ DISPLAY FILE-1
                 DPX @sub_C@@sub_M@@sub_alpha@ NDISP

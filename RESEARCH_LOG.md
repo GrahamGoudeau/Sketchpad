@@ -2955,3 +2955,48 @@ The simulator also retains `tools/visual-log-analyzer`.  It decodes a WebM
 through `ffmpeg`, measures the cyan input crosshair, and counts display changes
 away from that crosshair.  This gives later operator recordings a repeatable
 first-pass analysis.  It does not decide whether a unit-60 trace is correct.
+
+## Checkpoint 71: Reflected Line Flash Was a One-Comma RC-Block Shift
+
+Date: 2026-09-16
+
+The operator identified a second effect in the retained recording.  During a
+slow diagonal draw, a horizontal segment sometimes extended in the opposite
+X direction from the fixed endpoint.  A one-pixel input change could make the
+segment appear or disappear.  The segment was selectable because it was real
+unit-60 output.  It was not a renderer persistence artifact.
+
+A deterministic 160-step diagonal interaction reproduced the effect without
+`LPLOST`.  The allocated line record stayed diagonal.  The malformed points
+already existed in `DISPLAY FILE` before sequence 60 scanned them.  During a
+bad build, `LMAG` received two diagonal endpoints but stored zero in `LMDY`.
+The line rasterizer then emitted a horizontal run with decreasing X and fixed
+Y.  This matches the operator's reflected-vector description.
+
+The CPU executed the surviving `HDIF` macro correctly.  The macro uses its RC
+word address to form deferred scale operands.  One earlier Y3HT source word
+had been transcribed as:
+
+```text
+{-0,400,,-0,,400}
+```
+
+The high-resolution scan on Part 2 PDF page 137 shows:
+
+```text
+{-0,400,,-0,400}
+```
+
+The extra comma prevented reuse of an identical earlier RC word.  It inserted
+one extra word before the `HDIF` constant.  Every later Y3HT RC address moved
+by one.  The second line-difference call then deferred through a live line
+record instead of the intended zero scale operand.  The line record contents
+made the vertical delta alternate between zero and a small nonzero value as
+the endpoint crossed one-pixel boundaries.
+
+Repair R063 removes the extra comma.  The Y3HT output loses one word, and the
+combined image falls from 12,949 to 12,948 words.  The same diagonal test now
+keeps all settled scope output on or beyond the fixed endpoint in both axes.
+It tracks all 160 positions, keeps `LPLOST` clear, enters the original
+`STOPMOVEP` routine, and completes through Q1.6.  The interaction test now
+rejects any reflected horizontal or vertical segment on this path.
