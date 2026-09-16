@@ -2840,3 +2840,66 @@ A fresh production browser reached `RUNNING`, generated 99,995 original scope
 points, and acquired the pen as `TRACKING`.  That live input reported 0.030
 milliseconds in the browser handler and 0.050 milliseconds to the worker
 hardware setter.  A clean reload again reached `RUNNING` with the pen `UP`.
+
+## Checkpoint 69: Timed Tracker Tests and Downloadable Visual Evidence
+
+Date: 2026-09-15
+
+A desktop report gave a more precise remaining failure.  The first moving line
+can take several attempts to acquire.  During acquisition, some displayed
+points jump toward the upper-right edge.  Horizontal and vertical motion can
+also show discontinuities.  This report is not closed by the existing slow
+tracker tests.
+
+The earlier horizontal and vertical tests were too generous.  Each test moved
+the physical pen by one scope unit and then gave the assembly up to two
+simulated seconds to find that position.  Those tests prove that the tracker
+can follow a sequence of nearby positions.  They do not model a mouse gesture
+at wall-clock speed.
+
+The interaction harness now supports a fixed duration for the complete path.
+Two real-assembly cases record the difference:
+
+- A 160-unit horizontal sweep over 50 milliseconds missed the first sample.
+  The assembly set `LPLOST` at step 72 and kept it set through step 160.
+- The same sweep over 500 milliseconds had some samples with no unit-55 hit.
+  The assembly did not set `LPLOST`.  Q1.6 entered the original `STOPMOVEP`
+  routine and completed the line.
+
+These results show that movement timing can cause a real transition into the
+original lost-pen path.  They do not explain every reported discontinuity.
+The exact threshold in a browser depends on its event timing and on how often
+the assembly illuminates the tracker pattern.
+
+The November 1963 TX-2 Users Handbook adds two important facts for the
+upper-right report.  Unit 60 uses ten-bit signed one's-complement coordinates.
+In the centered origin, positive and negative zero select the same physical
+point.  In a moved origin, the hardware complements the applicable sign bit.
+The handbook states that 0777 and 1000 then select the same physical point.
+This makes positive zero and negative zero opposite physical edges in a moved
+origin.  A negative-zero temporary coordinate can therefore appear at an edge
+even though its arithmetic magnitude is zero.  This is a diagnostic lead.  It
+does not yet prove whether the negative zero comes from the 1963 tracker,
+reconstructed code, or an emulator arithmetic error.
+
+The same handbook says that the unit-60 CRT phosphor persists for about two
+seconds.  The browser currently uses a 0.12-second exponential half-life.
+These values are not the same measurement, so a direct numeric replacement
+would need a stated visibility threshold.  The present renderer can still
+make a current tracker stroke look much stronger than an older line.  This is
+another open display-model issue.
+
+Simulator commits `69d2763` and `6168885` add an operator evidence path.  The
+page records the scope into WebM at 30 frames per second.  `MediaRecorder`
+emits one-second chunks.  Stop joins them into one intact file with a stable
+name of the form `sketchpad-visual-<recording-start>.webm`.  The recording adds
+a cyan input-position crosshair and a label with the physical sensor state,
+assembly pen state, normalized input coordinates, and TX-2 time.  This overlay
+exists only on a private recording canvas.  It does not change the live scope,
+unit 55, machine memory, or assembly execution.
+
+Chrome recorded and stopped this path on both the local and production pages.
+The production page reported a complete 0.5 MB test file and enabled its
+download button.  Release `20260916T032103Z` is current after Caddy validation.
+The page and `visual-capture.js` return HTTP 200 with the required cross-origin
+headers.
