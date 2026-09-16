@@ -2783,3 +2783,53 @@ the original assembly tracker as `TRACKING`.  A live `D` key cycle left Q1.8
 released and Q1.6 held while the machine remained `RUNNING` and the pen
 remained `TRACKING`.  The failed release remains an immutable record, but the
 current symlink points only to the corrected release.
+
+## Checkpoint 68: Fast Pen Loss and the Perpendicular Tracker Stroke
+
+Date: 2026-09-15
+
+A desktop report identified two remaining effects.  A rapid mouse movement
+changed the browser readout from `TRACKING` to `SEEKING`.  A moving line could
+also appear briefly as a short horizontal or vertical stroke.
+
+The light pen is not a coordinate device.  Unit 55 reports that its photocell
+saw a unit-60 flash.  The assembly learns the position from the scope word that
+caused the interrupt.  The original `TRACK` routine scans a small pattern
+around its predicted position.  A pen movement beyond that pattern can produce
+no interrupt.  `TRLOST` then sets `LPLOST`, and sequence 47 can enter the
+original `47LOSTPEN` path.
+
+Three new real-assembly traces separate this behavior from a coordinate or
+line-rasterization failure:
+
+- A 160-step horizontal path produced a unit-55 detection at every step.
+  Q1.6 completed `STOPMOVEP` while `LPLOST` stayed clear.  The stable output
+  extended 330 scope units horizontally and stayed inside a 31-unit vertical
+  band.
+- A 160-step vertical path produced a unit-55 detection at every step.
+  Q1.6 completed `STOPMOVEP` while `LPLOST` stayed clear.  The stable output
+  extended 176 scope units vertically and stayed inside a 31-unit horizontal
+  band.
+- One instantaneous 160-unit horizontal jump produced no unit-55 detection.
+  The assembly set `LPLOST` on that first step and completed the moving object
+  through the lost-pen path.
+
+The 31-unit perpendicular band comes from the original tracker search pattern.
+On a phosphor display, its current scan can briefly be brighter than an older
+line trace.  This can look like a moving line changed into a short
+perpendicular line.  The slow-path traces do not show a changed stored line or
+a wrong stable line locus.  This evidence does not rule out a separate visual
+fault in a gesture that the current traces do not reproduce.
+
+The browser had added a misleading state.  It displayed `SEEKING` when either
+`LPLOST` was set or no recent detection arrived within a browser-defined 400
+milliseconds.  That state did not exist in the assembly.  Simulator commit
+`4c7fb86` removes it.  The display now reports `UP`, `TRACKING`, or `LOST`
+directly from sensor engagement and the original `LPLOST` bit.
+
+The same commit sends a worker wake message after every shared pen update.
+The worker still reads the atomic physical state and calls the emulated unit-55
+setter.  A worker test applied the new state in 0.041 milliseconds.  Chrome now
+uses `pointerrawupdate` without also processing its duplicate `pointermove`
+stream.  No host code supplies coordinates to Sketchpad, edits `PREDIC`,
+creates geometry, or suppresses the original tracker pattern.
