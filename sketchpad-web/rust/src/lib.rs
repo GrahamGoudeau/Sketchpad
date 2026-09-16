@@ -468,7 +468,7 @@ mod tests {
 
     #[test]
     fn bundled_sketchpad_tape_is_present() {
-        assert_eq!(SKETCHPAD.len(), 78_186);
+        assert_eq!(SKETCHPAD.len(), 78_180);
     }
 
     #[test]

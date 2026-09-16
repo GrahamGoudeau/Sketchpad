@@ -202,19 +202,6 @@ function trackerWords() {
   return words;
 }
 
-function linePointCoordinates() {
-  return {
-    first: [
-      octal(machine.memory_word(0o024655, machine.simulated_time).value),
-      octal(machine.memory_word(0o024656, machine.simulated_time).value),
-    ],
-    second: [
-      octal(machine.memory_word(0o024677, machine.simulated_time).value),
-      octal(machine.memory_word(0o024700, machine.simulated_time).value),
-    ],
-  };
-}
-
 function raisedFlags() {
   const flags = [];
   for (let sequence = 0; sequence < 64; sequence += 1) {
@@ -253,8 +240,7 @@ function rightHalf(value) {
   return value % 0o1000000;
 }
 
-function lineGeometry(linePointerWord) {
-  const lineAddress = 0o024000 + rightHalf(linePointerWord);
+function lineGeometryAt(lineAddress) {
   const pointAddress = (fieldOffset) => (
     0o024000 + rightHalf(machine.memory_word(lineAddress + fieldOffset, machine.simulated_time).value)
   );
@@ -271,6 +257,32 @@ function lineGeometry(linePointerWord) {
     first: readPoint(firstAddress),
     second: readPoint(secondAddress),
   };
+}
+
+function lineGeometry(linePointerWord) {
+  return lineGeometryAt(0o024000 + rightHalf(linePointerWord));
+}
+
+function allocatedLineAddress(firstOffset, lastOffset) {
+  for (let offset = firstOffset; offset < lastOffset; offset += 1) {
+    const address = 0o024000 + offset;
+    if (rightHalf(machine.memory_word(address, machine.simulated_time).value) !== 0o201) {
+      continue;
+    }
+    const pointOffsets = [0o10, 0o12].map((fieldOffset) => rightHalf(
+      machine.memory_word(address + fieldOffset, machine.simulated_time).value,
+    ));
+    if (pointOffsets.some(
+      (pointOffset) => pointOffset < firstOffset || pointOffset >= lastOffset,
+    )) {
+      continue;
+    }
+    const pointTypes = pointOffsets.map((pointOffset) => rightHalf(
+      machine.memory_word(0o024000 + pointOffset, machine.simulated_time).value,
+    ));
+    if (pointTypes.every((pointType) => pointType === 0o275)) return address;
+  }
+  throw new Error("the draw command did not allocate a line record");
 }
 
 function geometryForReport(geometry) {
@@ -578,6 +590,7 @@ assert.ok(drawRoutineCompleted, "the original STARTDRAW routine must return");
 stepBatch(1);
 const queueAfter = machine.memory_word(0o004127, machine.simulated_time).value;
 const listAfter = machine.memory_word(0o024000, machine.simulated_time).value;
+const drawnLineAddress = allocatedLineAddress(listBefore, listAfter);
 const detectionsAfterDraw = Number(machine.light_pen_detection_count);
 const memoryAfterDraw = snapshot();
 const trackerAfterDraw = trackerWords();
@@ -848,9 +861,9 @@ for (let step = 1; step <= movementSteps; step += 1) {
       octal(machine.memory_word(0o200042, machine.simulated_time).value),
       octal(machine.memory_word(0o200043, machine.simulated_time).value),
     ],
-    points: linePointCoordinates(),
     penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
     movingHead: octal(machine.memory_word(0o024114, machine.simulated_time).value),
+    movingGeometry: geometryForReport(lineGeometryAt(drawnLineAddress)),
     ndisp: octal(machine.memory_word(0o200031, machine.simulated_time).value),
     sndisp: octal(machine.memory_word(0o200032, machine.simulated_time).value),
     basicFile: octal(machine.memory_word(0o200033, machine.simulated_time).value),
@@ -858,6 +871,16 @@ for (let step = 1; step <= movementSteps; step += 1) {
   });
 }
 const penLostAfterMovement = machine.memory_word(0o200042, machine.simulated_time).meta;
+if (movementPath === "diagonal" && movementDurationMilliseconds === null) {
+  const lowerBound = Math.min(575, finalPhysicalX, finalPhysicalY) - 15;
+  const settledScopes = movement.slice(39).map(({ scope }) => scope).filter(Boolean);
+  assert.ok(settledScopes.length > 0, "the diagonal move must emit scope points");
+  assert.equal(
+    settledScopes.every(({ x, y }) => x[0] >= lowerBound && y[0] >= lowerBound),
+    true,
+    "the diagonal line must not emit a reflected horizontal or vertical segment",
+  );
+}
 if (process.env.EXPECT_TRACK_LOSS !== undefined) {
   assert.equal(
     penLostAfterMovement,
@@ -866,7 +889,7 @@ if (process.env.EXPECT_TRACK_LOSS !== undefined) {
   );
 }
 
-const pointsBeforeStop = linePointCoordinates();
+const lineBeforeStop = geometryForReport(lineGeometryAt(drawnLineAddress));
 const stopWithButton = process.env.STOP_WITH_BUTTON === "1";
 if (stopWithButton) {
   machine.set_external_input_register(0, 0, 0, 0o40, false);
@@ -1029,11 +1052,11 @@ if (process.env.TRACK_ONLY === "1") {
         firstScope: movement[0]?.scope ?? null,
         lastScope: movement.at(-1)?.scope ?? null,
       },
-      pointsBeforeStop,
+      lineBeforeStop,
       stopCompleted,
       enteredStopMoving,
       penLostAfterStop,
-      points: linePointCoordinates(),
+      line: geometryForReport(lineGeometryAt(drawnLineAddress)),
       verificationByOrigin,
     }));
     process.exit(0);
@@ -1053,11 +1076,11 @@ if (process.env.TRACK_ONLY === "1") {
     penUnitAfterReacquire,
     predictionBeforeReacquire: octal(predictionBeforeReacquire),
     currentPrediction: octal(machine.memory_word(0o003574, machine.simulated_time).value),
-    pointsBeforeStop,
+    lineBeforeStop,
     stopCompleted,
     enteredStopMoving,
     penLostAfterStop,
-    points: linePointCoordinates(),
+    line: geometryForReport(lineGeometryAt(drawnLineAddress)),
     stopTrace,
     normalizationTrace,
     displayBuildTrace,
