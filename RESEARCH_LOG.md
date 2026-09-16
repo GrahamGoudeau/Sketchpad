@@ -2677,3 +2677,36 @@ The same work found one important command condition.  `FIXIT` exits if the
 pen is lost.  A valid test must see a current line selection and clear
 `LPLOST` at the same instant.  With that condition, Q3.3 changes the original
 `FIXEDS` links and Q2.7 restores every word.
+
+## Checkpoint 66: First Public Worker Build With Assembly-Generated Circle Geometry
+
+Date: 2026-09-15
+
+Reconstruction commit `f2cb278` and simulator commit `8a25961` were pushed
+before deployment.  Static release `20260916T005534Z` became the current
+production release.  Caddy validated the complete configuration before reload.
+
+The final pre-deployment run passed these checks:
+
+- all 330 assembler library tests and all assembler tool tests;
+- all six `sketchpad-web` Rust tests;
+- scope coordinate and display-clock tests;
+- atomic pen transport and machine-worker integration tests;
+- real assembly line creation;
+- real `DESIGNATE`, `STARTC`, and circle-arc display output;
+- real line selection, `TRUEUP`, constraint allocation, and `RELAX` movement;
+- real `FIXIT` and `UNFIX` list changes.
+
+Static HTTPS checks returned HTTP 200 for the page, worker, JavaScript, and
+WebAssembly.  The old `scratchpad.acyclic.sh` name returned HTTP 301 to
+`sketchpad.acyclic.sh`.  The page, worker, and WASM responses include
+`Cross-Origin-Opener-Policy: same-origin`,
+`Cross-Origin-Embedder-Policy: require-corp`, and
+`Cross-Origin-Resource-Policy: same-origin`.  These headers enable the atomic
+shared pen record in a compatible browser.
+
+The deployed WASM is 593,936 bytes.  Its SHA-256 is
+`71a51f3c4fb4afd6a00477e78281c0099af3125ec79fc504c0ada5abd0e56134`.
+Static source checks confirm the versioned worker, shared buffer, raw pointer
+updates, Escape release, 0.25-millisecond worker budget, 16-tick batch, and
+direct `set_light_pen` call.  No graphical browser was opened on the host.
