@@ -792,6 +792,17 @@ fn test_440_330_220_110_with_commas() {
 }
 
 #[test]
+fn test_negative_zero_in_comma_expression() {
+    // Sketchpad uses ones-complement negative zero to retain all nine
+    // coordinate bits on each side of its scope-coordinate mask.
+    let program = assemble_source("-0,400,,-0,400\n", Default::default())
+        .expect("negative zero is a valid M4 value");
+
+    assert_eq!(program.chunks.len(), 1);
+    assert_eq!(program.chunks[0].words[0], u36!(0o777_400_777_400));
+}
+
+#[test]
 fn test_alternate_base_with_commas() {
     assert_eq!(
         // Given a literal which uses both decimal and octal bases, when we assemble it

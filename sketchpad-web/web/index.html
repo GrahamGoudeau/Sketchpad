@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07100d">
     <title>Sketchpad on TX-2</title>
-    <link rel="stylesheet" href="./styles.css?v=20260915-9">
+    <link rel="stylesheet" href="./styles.css?v=20260915-10">
   </head>
   <body>
     <main>
@@ -48,6 +48,14 @@
           <div class="readout">
             <span class="readout-label">SELECTION</span>
             <strong id="selection-state">NONE</strong>
+          </div>
+          <div class="readout">
+            <span class="readout-label">INPUT HANDLER</span>
+            <strong id="input-latency">WAIT</strong>
+          </div>
+          <div class="readout">
+            <span class="readout-label">PEN APPLY</span>
+            <strong id="worker-latency">WAIT</strong>
           </div>
 
           <fieldset class="pen-control">
@@ -134,7 +142,7 @@
           <p id="message" class="message" role="status">
             Loading the WebAssembly machine.
           </p>
-          <p class="message">Hold the mouse button on the scope to engage the TX-2 light pen.</p>
+          <p class="message">Move over the scope to position the pen. Click once to engage its sensor. Press <kbd>Escape</kbd> to disengage it.</p>
         </aside>
       </section>
 
@@ -144,13 +152,15 @@
           <h2 id="operator-guide-title">Use the real Sketchpad input path</h2>
         </div>
         <ol>
-          <li><strong>Acquire the pen.</strong> After reset, press the mouse on a bright part of <code>INK</code>. The original photocell cannot detect blank glass. Wait until <em>Light pen</em> says <code>TRACKING</code>. Move slowly enough to keep the white tracking marks around the pointer. Later, you can acquire on any bright object.</li>
-          <li><strong>Draw.</strong> Keep the mouse pressed. Hold <kbd>D</kbd> to send external button Q1.8. Drag the tracker. Release <kbd>D</kbd> and then release the mouse. The assembly creates the points and line.</li>
-          <li><strong>Select.</strong> Press the mouse over the middle of a visible line. Wait until <em>Selection</em> says <code>LINE</code>. Keep the mouse pressed while you send the next command.</li>
+          <li><strong>Position the pen.</strong> Move the pointer anywhere over the scope. The browser continuously sends that position to the emulated light-pen hardware.</li>
+          <li><strong>Engage the sensor.</strong> Click once on a bright part of <code>INK</code>. The original photocell cannot detect blank glass. Wait until <em>Light pen</em> says <code>TRACKING</code>. Press <kbd>Escape</kbd> when you want to disengage the sensor.</li>
+          <li><strong>Draw.</strong> Hold <kbd>D</kbd> to send external button Q1.8. Move the tracker without holding the mouse button. Release <kbd>D</kbd>. The assembly creates the points and line.</li>
+          <li><strong>Select.</strong> Move over the middle of a visible line. Click once if the sensor is disengaged. Wait until <em>Selection</em> says <code>LINE</code>. Send the next command while the sensor remains engaged.</li>
           <li><strong>True up and solve.</strong> Leave <em>Solve</em> off. Tap <kbd>T</kbd> once. This sends Q2.9 to <code>TRUEUP</code>. The assembly adds one horizontal-or-vertical constraint. Then turn on <em>Solve</em>. The original <code>RELAX</code> routine changes the endpoints.</li>
           <li><strong>Fix and release.</strong> Select an object. Tap <kbd>F</kbd> once. <code>FIXIT</code> puts it in the original fixed-object list. <kbd>U</kbd> runs <code>UNFIX</code> and clears the fixed and designated lists.</li>
         </ol>
-        <p>If the pen stays on <code>SEEKING</code>, raise <em>Pickup radius</em> and acquire a bright mark again. A larger radius models a more permissive detector. It does not select objects in JavaScript.</p>
+        <p>If the pen stays on <code>SEEKING</code>, raise <em>Pickup radius</em> and move across a bright mark again. A larger radius models a more permissive detector. It does not select objects in JavaScript.</p>
+        <p><em>Input handler</em> measures browser work from one pointer event to publication of the physical pen state. <em>Pen apply</em> measures transfer of that state into the worker-owned emulator. The visible tracking marks still follow the original assembly and scope timing.</p>
         <p>The Q4-Q1 panel remains available for every external-input bit. Named buttons come from the recovered <code>READIT</code> dispatch table. Keyboard shortcuts only press those emulated physical buttons. They do not create or edit geometry in JavaScript.</p>
         <details class="advanced-guide">
           <summary>Advanced command status</summary>
@@ -161,7 +171,7 @@
               <tr><td>Q2.9 · <kbd>T</kbd></td><td><code>TRUEUP</code></td><td>Verified horizontal-or-vertical constraint</td></tr>
               <tr><td>Q3.3 · <kbd>F</kbd></td><td><code>FIXIT</code></td><td>Verified fixed-set link</td></tr>
               <tr><td>Q2.7 · <kbd>U</kbd></td><td><code>UNFIX</code></td><td>Verified fixed-set removal</td></tr>
-              <tr><td>Q1.7</td><td><code>DESIGNATE</code></td><td>Recovered route. Circle workflow is not yet verified.</td></tr>
+              <tr><td>Q1.7</td><td><code>DESIGNATE</code></td><td>Verified designation and circle-arc creation</td></tr>
               <tr><td>Q2.1</td><td><code>MOVEPOINT</code></td><td>Recovered route. Full workflow is not yet verified.</td></tr>
               <tr><td>Q2.8</td><td><code>MAKECONS</code></td><td>Requires a valid constraint template selection.</td></tr>
               <tr><td>Q2.6</td><td><code>MAKPATA</code></td><td>Recovered route. Attachment workflow is not yet verified.</td></tr>
@@ -177,6 +187,6 @@
         <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260915-9"></script>
+    <script type="module" src="./app.js?v=20260915-10"></script>
   </body>
 </html>

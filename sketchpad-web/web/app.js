@@ -1,5 +1,9 @@
-import init, { SketchpadMachine, sketchpad_tape } from "./pkg/sketchpad_web.js";
-import { displayTime, scopePointPosition } from "./scope-model.js?v=20260915-9";
+import { displayTime, scopePointPosition } from "./scope-model.js?v=20260915-10";
+import {
+  PEN_STATE_LENGTH,
+  readSharedPenApplication,
+  writeSharedPen,
+} from "./pen-transport.js?v=20260915-10";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
@@ -14,6 +18,8 @@ const timeNode = document.querySelector("#machine-time");
 const countNode = document.querySelector("#point-count");
 const penStateNode = document.querySelector("#pen-state");
 const selectionNode = document.querySelector("#selection-state");
+const inputLatencyNode = document.querySelector("#input-latency");
+const workerLatencyNode = document.querySelector("#worker-latency");
 const messageNode = document.querySelector("#message");
 const penSensitivityInput = document.querySelector("#pen-sensitivity");
 const penSensitivityOutput = document.querySelector("#pen-sensitivity-output");
@@ -100,25 +106,32 @@ const keyboardButtons = new Map([
   ["KeyU", externalButtons.find((button) => button.dataset.command === "UNFIX")],
 ]);
 
-let machine;
-let activeTape;
+const machineWorker = new Worker(new URL("./machine-worker.js?v=20260915-10", import.meta.url), {
+  type: "module",
+});
+const penBuffer = globalThis.crossOriginIsolated && typeof SharedArrayBuffer === "function"
+  ? new SharedArrayBuffer(PEN_STATE_LENGTH * Int32Array.BYTES_PER_ELEMENT)
+  : null;
+const penView = penBuffer ? new Int32Array(penBuffer) : null;
+let activeTape = null;
+let machineReady = false;
+let machineGeneration = 0;
+let machineState = {
+  simulatedTime: 0,
+  detectionCount: 0n,
+  lost: true,
+  atBits: 0n,
+};
 let running = false;
 let pointCount = 0;
-let startedAt = performance.now();
 let frameRequest;
-const MACHINE_BUDGET_MS = 2.5;
-const TICKS_PER_SLICE = 32;
-const MAX_TICKS_PER_FRAME = 2048;
 const MAX_RENDERED_POINTS_PER_FRAME = 840;
-const MAX_PENDING_SCOPE_POINTS = 2048;
 const MAX_CANVAS_AXIS = 1024;
 const MIN_FRAME_INTERVAL_MS = 15;
 const MAX_SAFE_FRAME_MS = 20;
 const MAX_OVERLOADED_FRAMES = 3;
 const PHOSPHOR_HALF_LIFE_SECONDS = 0.12;
 const LIGHT_PEN_TRACKING_HOLD_MS = 400;
-const ATBITS_ADDRESS = 0o200044;
-const LPLOST_ADDRESS = 0o200042;
 const SELECTION_BITS = [
   [0o2000000n, "POINT"],
   [0o4000000n, "LINE"],
@@ -138,7 +151,13 @@ let beamRateWindowStartedAt = 0;
 let beamRateWindowSpots = 0;
 let lastLightPenDetectionCount = 0n;
 let lastLightPenDetectionAt = 0;
-const lightPen = { active: false, pointerId: null, x: 0.5, y: 0.5, radius: 40 / 1022 };
+const lightPen = { active: false, x: 0.5, y: 0.5, radius: 40 / 1022 };
+let lightPenBounds = null;
+let penSequence = 0;
+let lastPenDispatch = null;
+let displayedPenApplicationSequence = 0;
+let latestInputHandlerMs = null;
+let latestEventQueueMs = null;
 
 function setMessage(message, error = false) {
   messageNode.textContent = message;
@@ -280,23 +299,23 @@ function updateBeamRate(realNowSeconds, renderedSpots) {
 
 function updateReadouts() {
   stateNode.textContent = running ? "RUNNING" : "STOPPED";
-  const simulatedTime = machine?.simulated_time ?? 0;
+  const simulatedTime = machineState.simulatedTime;
   timeNode.textContent = `${simulatedTime.toFixed(6)} s`;
   countNode.textContent = pointCount.toLocaleString();
   runButton.textContent = running ? "PAUSE" : "RUN";
 
-  if (!machine) {
+  if (!machineReady) {
     penStateNode.textContent = "UP";
     selectionNode.textContent = "NONE";
     return;
   }
 
-  const detectionCount = machine.light_pen_detection_count;
+  const detectionCount = machineState.detectionCount;
   if (detectionCount !== lastLightPenDetectionCount) {
     lastLightPenDetectionCount = detectionCount;
     lastLightPenDetectionAt = performance.now();
   }
-  const lost = machine.memory_word(LPLOST_ADDRESS, simulatedTime).meta;
+  const lost = machineState.lost;
   const recentlyDetected = performance.now() - lastLightPenDetectionAt
     <= LIGHT_PEN_TRACKING_HOLD_MS;
   penStateNode.textContent = !lightPen.active
@@ -305,7 +324,7 @@ function updateReadouts() {
       ? "TRACKING"
       : "SEEKING";
 
-  const atBits = machine.memory_word(ATBITS_ADDRESS, simulatedTime).value;
+  const atBits = machineState.atBits;
   const selections = SELECTION_BITS
     .filter(([mask]) => (BigInt(atBits) & mask) !== 0n)
     .map(([, label]) => label);
@@ -316,7 +335,7 @@ function applyPenSensitivity() {
   const scopeUnits = Number(penSensitivityInput.value);
   penSensitivityOutput.value = `${scopeUnits} UNITS`;
   lightPen.radius = scopeUnits / 1022;
-  machine?.set_light_pen(lightPen.x, lightPen.y, lightPen.radius, lightPen.active);
+  publishLightPen();
 }
 
 function applyKnobRegister() {
@@ -324,7 +343,10 @@ function applyKnobRegister() {
   for (const input of knobInputs) {
     input.nextElementSibling.value = Number(input.value).toString(8).padStart(3, "0");
   }
-  machine?.set_knob_register(...values, knobMeta.checked);
+  machineWorker.postMessage({
+    type: "knobs",
+    state: { values, meta: knobMeta.checked },
+  });
 }
 
 function applyExternalInputRegister() {
@@ -337,29 +359,31 @@ function applyExternalInputRegister() {
     const bit = Number(button.dataset.switchBit);
     quarters[4 - quarter] |= 1 << (bit - 1);
   }
-  machine?.set_external_input_register(
-    ...quarters,
-    heldExternalButtons.has(externalMeta),
-  );
+  machineWorker.postMessage({
+    type: "external",
+    state: { quarters, meta: heldExternalButtons.has(externalMeta) },
+  });
 }
 
-function applyToggleRegisters() {
-  if (!machine) {
-    return;
-  }
+function toggleRegisterState() {
   const register20Quarter4 = drawCycleToggle.checked ? 0o400 : 0;
-  machine.set_toggle_register(
-    0o20,
-    register20Quarter4,
-    0,
-    0,
-    0,
-    solveToggle.checked,
-  );
   let register25Quarter4 = 0;
   if (showBlocksToggle.checked) register25Quarter4 |= 0o400;
   if (showConstraintsToggle.checked) register25Quarter4 |= 0o200;
-  machine.set_toggle_register(0o25, register25Quarter4, 0, 0, 0, false);
+  return {
+    register20: {
+      quarters: [register20Quarter4, 0, 0, 0],
+      meta: solveToggle.checked,
+    },
+    register25: {
+      quarters: [register25Quarter4, 0, 0, 0],
+      meta: false,
+    },
+  };
+}
+
+function applyToggleRegisters() {
+  machineWorker.postMessage({ type: "toggles", state: toggleRegisterState() });
 }
 
 function holdExternalButton(button, held) {
@@ -377,6 +401,7 @@ function stopWithError(error) {
   running = false;
   cancelAnimationFrame(frameRequest);
   freezeScopeTimeline();
+  machineWorker.postMessage({ type: "pause" });
   const message = typeof error === "string" ? error : String(error);
   setMessage(`The TX-2 stopped: ${message}`, true);
   updateReadouts();
@@ -397,6 +422,24 @@ function frame(now = performance.now()) {
     return;
   }
   resumeScopeTimeline(now / 1000);
+  if (latestInputHandlerMs !== null) {
+    inputLatencyNode.textContent = `${latestInputHandlerMs.toFixed(3)} ms`;
+    document.documentElement.dataset.penInputHandlerMs = latestInputHandlerMs.toFixed(3);
+    latestInputHandlerMs = null;
+  }
+  if (latestEventQueueMs !== null) {
+    document.documentElement.dataset.penEventQueueMs = latestEventQueueMs.toFixed(3);
+    latestEventQueueMs = null;
+  }
+  if (penView) {
+    const application = readSharedPenApplication(penView);
+    if (application.sequence > displayedPenApplicationSequence) {
+      displayedPenApplicationSequence = application.sequence;
+      workerLatencyNode.textContent = `${application.latencyMilliseconds.toFixed(3)} ms`;
+      document.documentElement.dataset.penWorkerApplyMs =
+        application.latencyMilliseconds.toFixed(3);
+    }
+  }
   const frameStart = performance.now();
   const realNowSeconds = frameStart / 1000;
   const phosphorElapsed = lastPhosphorAt === 0
@@ -405,43 +448,17 @@ function frame(now = performance.now()) {
   lastPhosphorAt = now;
   resizeCanvas();
   fadePhosphor(phosphorElapsed);
-  const realElapsed = (frameStart - startedAt) / 1000;
-  let scopeEventCount = 0;
-  let executedTicks = 0;
-
   try {
-    while (
-      executedTicks < MAX_TICKS_PER_FRAME
-      && performance.now() - frameStart < MACHINE_BUDGET_MS
-      && pendingScopePointCount() < MAX_PENDING_SCOPE_POINTS
-      && (
-        displaySourceEpoch === null
-        || machine.simulated_time < displayTime(
-          displaySourceEpoch,
-          displayRealEpoch,
-          realNowSeconds,
-        )
-      )
-    ) {
-      const tickCount = Math.min(TICKS_PER_SLICE, MAX_TICKS_PER_FRAME - executedTicks);
-      const events = machine.step_batch(realElapsed, tickCount);
-      executedTicks += tickCount;
-      for (const event of events) {
-        if (event?.kind === "scope_point") {
-          queueScopePoint(event, realNowSeconds);
-          scopeEventCount += 1;
-        }
-      }
-    }
     const renderedSpots = renderDueScopePoints(realNowSeconds);
     updateBeamRate(realNowSeconds, renderedSpots);
+    machineWorker.postMessage({
+      type: "display-backlog",
+      points: pendingScopePointCount(),
+    });
   } catch (error) {
     stopWithError(error);
     return;
   }
-
-  document.documentElement.dataset.machineTicks = String(executedTicks);
-  document.documentElement.dataset.scopeEvents = String(scopeEventCount);
 
   updateReadouts();
   const frameDuration = performance.now() - frameStart;
@@ -452,6 +469,7 @@ function frame(now = performance.now()) {
   if (overloadedFrames >= MAX_OVERLOADED_FRAMES) {
     running = false;
     freezeScopeTimeline();
+    machineWorker.postMessage({ type: "pause" });
     setMessage("The TX-2 paused because the browser frame budget was exceeded.", true);
     updateReadouts();
     return;
@@ -460,7 +478,7 @@ function frame(now = performance.now()) {
 }
 
 function start() {
-  if (running) {
+  if (running || !machineReady) {
     return;
   }
   running = true;
@@ -468,9 +486,9 @@ function start() {
   lastFrameAt = 0;
   lastPhosphorAt = 0;
   overloadedFrames = 0;
-  startedAt = performance.now() - machine.simulated_time * 1000;
   setMessage("The TX-2 is executing the mounted paper tape.");
   updateReadouts();
+  machineWorker.postMessage({ type: "run" });
   frameRequest = requestAnimationFrame(frame);
 }
 
@@ -478,32 +496,51 @@ function pause() {
   running = false;
   cancelAnimationFrame(frameRequest);
   freezeScopeTimeline();
+  machineWorker.postMessage({ type: "pause" });
   setMessage("The TX-2 clock is paused.");
   updateReadouts();
 }
 
 function loadMachine(tape) {
   pause();
-  machine = new SketchpadMachine();
-  activeTape = tape;
+  machineGeneration += 1;
+  machineReady = false;
+  activeTape = tape ? new Uint8Array(tape) : null;
   lightPen.active = false;
-  lightPen.pointerId = null;
+  publishLightPen();
   lastLightPenDetectionCount = 0n;
   lastLightPenDetectionAt = 0;
   pointCount = 0;
   lastFrameAt = 0;
   overloadedFrames = 0;
   resetScopeTimeline();
-  startedAt = performance.now();
+  machineState = {
+    simulatedTime: 0,
+    detectionCount: 0n,
+    lost: true,
+    atBits: 0n,
+  };
   resizeCanvas();
   context.fillStyle = "#010503";
   context.fillRect(0, 0, canvas.width, canvas.height);
-  machine.mount_tape(activeTape, 0);
-  applyKnobRegister();
-  applyExternalInputRegister();
-  applyToggleRegisters();
-  machine.codabo(0);
-  setMessage("Sketchpad is running. Use the mouse as the light pen. Press D to draw. Press T on a selected line to constrain it.");
+  const tapeCopy = activeTape ? activeTape.slice() : null;
+  const message = {
+    type: "initialize",
+    generation: machineGeneration,
+    tape: tapeCopy?.buffer ?? null,
+    penBuffer,
+    pen: { ...lightPen, sequence: penSequence },
+    config: {
+      knobs: {
+        values: knobInputs.map((input) => Number(input.value)),
+        meta: knobMeta.checked,
+      },
+      external: { quarters: [0, 0, 0, 0], meta: false },
+      toggles: toggleRegisterState(),
+    },
+  };
+  machineWorker.postMessage(message, tapeCopy ? [tapeCopy.buffer] : []);
+  setMessage("The TX-2 worker is loading the mounted paper tape.");
   updateReadouts();
 }
 
@@ -518,8 +555,7 @@ function toggleRunning() {
 runButton.addEventListener("click", toggleRunning);
 
 function resetMachine() {
-  loadMachine(activeTape ?? sketchpad_tape());
-  start();
+  loadMachine(activeTape);
 }
 
 resetButton.addEventListener("click", resetMachine);
@@ -532,17 +568,43 @@ tapeInput.addEventListener("change", async () => {
   try {
     loadMachine(new Uint8Array(await file.arrayBuffer()));
     setMessage(`${file.name} is mounted on the paper-tape reader.`);
-    start();
   } catch (error) {
     stopWithError(error);
   }
 });
 
+function cacheLightPenBounds() {
+  lightPenBounds = lightPenSurface.getBoundingClientRect();
+}
+
+function publishLightPen() {
+  penSequence += 1;
+  const dispatchedAt = performance.now();
+  if (penView) {
+    writeSharedPen(
+      penView,
+      lightPen,
+      penSequence,
+      performance.timeOrigin + dispatchedAt,
+    );
+  } else {
+    const pen = { ...lightPen, sequence: penSequence };
+    machineWorker.postMessage({ type: "pen", pen });
+    lastPenDispatch = { sequence: penSequence, dispatchedAt };
+  }
+}
+
 function updateLightPen(event) {
-  const box = lightPenSurface.getBoundingClientRect();
+  const handlerStartedAt = performance.now();
+  const box = lightPenBounds ?? lightPenSurface.getBoundingClientRect();
   lightPen.x = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
   lightPen.y = Math.max(0, Math.min(1, (event.clientY - box.top) / box.height));
-  machine?.set_light_pen(lightPen.x, lightPen.y, lightPen.radius, lightPen.active);
+  publishLightPen();
+  latestInputHandlerMs = performance.now() - handlerStartedAt;
+  const queueDelay = handlerStartedAt - event.timeStamp;
+  if (queueDelay >= 0 && queueDelay < 60_000) {
+    latestEventQueueMs = queueDelay;
+  }
 }
 
 lightPenSurface.addEventListener("pointerdown", (event) => {
@@ -551,37 +613,22 @@ lightPenSurface.addEventListener("pointerdown", (event) => {
   }
   event.preventDefault();
   lightPen.active = true;
-  lightPen.pointerId = event.pointerId;
   updateLightPen(event);
-  lightPenSurface.setPointerCapture(event.pointerId);
 });
 
 lightPenSurface.addEventListener("pointermove", (event) => {
-  event.preventDefault();
-  if (lightPen.active && event.pointerId === lightPen.pointerId) {
-    updateLightPen(event);
-  }
+  if (event.cancelable) event.preventDefault();
+  updateLightPen(event);
 });
 
 if ("onpointerrawupdate" in window) {
   lightPenSurface.addEventListener("pointerrawupdate", (event) => {
-    if (lightPen.active && event.pointerId === lightPen.pointerId) {
-      updateLightPen(event);
-    }
+    if (event.cancelable) event.preventDefault();
+    updateLightPen(event);
   });
 }
 
-for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
-  lightPenSurface.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    if (lightPen.pointerId !== null && event.pointerId !== lightPen.pointerId) {
-      return;
-    }
-    lightPen.active = false;
-    lightPen.pointerId = null;
-    machine?.set_light_pen(lightPen.x, lightPen.y, lightPen.radius, false);
-  });
-}
+lightPenSurface.addEventListener("pointerenter", cacheLightPenBounds);
 
 for (const eventName of ["selectstart", "contextmenu", "dragstart"]) {
   lightPenSurface.addEventListener(eventName, (event) => event.preventDefault());
@@ -630,6 +677,14 @@ for (const button of externalButtons) {
 }
 
 document.addEventListener("keydown", (event) => {
+  if (event.code === "Escape" && lightPen.active) {
+    event.preventDefault();
+    lightPen.active = false;
+    publishLightPen();
+    setMessage("The light-pen sensor is disengaged. Click the scope to engage it again.");
+    updateReadouts();
+    return;
+  }
   const button = keyboardButtons.get(event.code);
   if (!button || event.repeat) {
     return;
@@ -653,15 +708,56 @@ window.addEventListener("blur", () => {
   }
 });
 
-window.addEventListener("resize", resizeCanvas);
-
-try {
-  await init();
-  applyPenSensitivity();
-  loadMachine(sketchpad_tape());
-  runButton.disabled = false;
-  resetButton.disabled = false;
-  start();
-} catch (error) {
-  stopWithError(error);
+function handleWorkerMessage({ data }) {
+  if (data.generation !== undefined && data.generation !== machineGeneration) return;
+  switch (data.type) {
+    case "ready":
+      machineReady = true;
+      runButton.disabled = false;
+      resetButton.disabled = false;
+      setMessage("Sketchpad is ready. Move over the scope. Click once to engage the light pen. Press Escape to disengage it.");
+      start();
+      break;
+    case "scope": {
+      const receivedAt = performance.now() / 1000;
+      for (const event of data.events) queueScopePoint(event, receivedAt);
+      document.documentElement.dataset.scopeEvents = String(data.events.length);
+      break;
+    }
+    case "status":
+      machineState = {
+        simulatedTime: data.simulatedTime,
+        detectionCount: data.detectionCount,
+        lost: data.lost,
+        atBits: data.atBits,
+      };
+      updateReadouts();
+      break;
+    case "pen-applied":
+      if (lastPenDispatch && data.sequence === lastPenDispatch.sequence) {
+        const latency = performance.now() - lastPenDispatch.dispatchedAt;
+        workerLatencyNode.textContent = `${latency.toFixed(3)} ms`;
+        document.documentElement.dataset.penWorkerRoundTripMs = latency.toFixed(3);
+      }
+      break;
+    case "error":
+      stopWithError(data.message);
+      break;
+    default:
+      stopWithError(`Unknown machine-worker message: ${data.type}`);
+  }
 }
+
+machineWorker.addEventListener("message", handleWorkerMessage);
+machineWorker.addEventListener("error", (event) => stopWithError(event.message));
+
+function resizeInterface() {
+  resizeCanvas();
+  cacheLightPenBounds();
+}
+
+window.addEventListener("resize", resizeInterface);
+new ResizeObserver(cacheLightPenBounds).observe(lightPenSurface);
+
+applyPenSensitivity();
+loadMachine(null);

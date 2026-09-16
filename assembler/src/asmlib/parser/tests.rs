@@ -2966,6 +2966,51 @@ mod macro_tests {
     }
 
     #[test]
+    fn test_parse_macro_invocation_with_omitted_interior_parameter() {
+        let parameter = |name: &str, preceding_terminator: Token| MacroParameter {
+            name: SymbolName::from(name),
+            span: span(0..0),
+            preceding_terminator,
+        };
+        let macro_definition_normalize = MacroDefinition {
+            name: SymbolName::from("NORMALIZE"),
+            params: MacroDummyParameters::OneOrMore(vec![
+                parameter("P", Token::Pipe(Script::Normal)),
+                parameter("C", Token::Arrow(Script::Normal)),
+                parameter("S", Token::Solidus(Script::Normal)),
+                parameter("F", Token::Times(Script::Normal)),
+                parameter("R", Token::Equals(Script::Normal)),
+                parameter("Q", Token::Arrow(Script::Normal)),
+            ]),
+            body: Vec::new(),
+            span: span(0..0),
+        };
+        let set_up_macro_definition = |state: &mut State| {
+            state.define_macro(macro_definition_normalize.clone());
+        };
+
+        let got = parse_successfully_with(
+            "NORMALIZE|CMRAD/SCSZ×BSFAC=CMRAD→CMDAL",
+            macro_invocation(),
+            set_up_macro_definition,
+        );
+
+        let supplied_value = |name: &str| match got.param_values.get(&SymbolName::from(name)) {
+            Some((_, Some(MacroParameterValue::Value(_, expr)))) => expr.to_string(),
+            _ => panic!("parameter {name} was not supplied"),
+        };
+        assert_eq!(supplied_value("P"), "CMRAD");
+        assert!(matches!(
+            got.param_values.get(&SymbolName::from("C")),
+            Some((_, None))
+        ));
+        assert_eq!(supplied_value("S"), "SCSZ");
+        assert_eq!(supplied_value("F"), "BSFAC");
+        assert_eq!(supplied_value("R"), "CMRAD");
+        assert_eq!(supplied_value("Q"), "CMDAL");
+    }
+
+    #[test]
     fn test_macro_parameter_in_pipe_index() {
         let mut got = parse_successfully_with(
             concat!(

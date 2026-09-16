@@ -43,6 +43,7 @@ let observedYMax = -Infinity;
 let phase = "boot";
 const phaseScope = new Map();
 const verificationScope = [];
+const circleVerificationScope = [];
 const pseudoTrace = [];
 
 function capturePseudoTrace(state) {
@@ -82,6 +83,71 @@ function phaseStats(name) {
   return phaseScope.get(name);
 }
 
+function solveThreeByThree(matrix, vector) {
+  const rows = matrix.map((row, index) => [...row, vector[index]]);
+  for (let column = 0; column < 3; column += 1) {
+    let pivot = column;
+    for (let row = column + 1; row < 3; row += 1) {
+      if (Math.abs(rows[row][column]) > Math.abs(rows[pivot][column])) {
+        pivot = row;
+      }
+    }
+    assert.ok(Math.abs(rows[pivot][column]) > 1e-9,
+      "the emitted arc must contain enough curvature for a circle fit");
+    [rows[column], rows[pivot]] = [rows[pivot], rows[column]];
+    const divisor = rows[column][column];
+    for (let entry = column; entry < 4; entry += 1) {
+      rows[column][entry] /= divisor;
+    }
+    for (let row = 0; row < 3; row += 1) {
+      if (row === column) continue;
+      const factor = rows[row][column];
+      for (let entry = column; entry < 4; entry += 1) {
+        rows[row][entry] -= factor * rows[column][entry];
+      }
+    }
+  }
+  return rows.map((row) => row[3]);
+}
+
+function fitCircularLocus(points) {
+  const meanX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+  const meanY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+  const sums = points.reduce((result, point) => {
+    const x = point.x - meanX;
+    const y = point.y - meanY;
+    const square = x * x + y * y;
+    result.xx += x * x;
+    result.xy += x * y;
+    result.yy += y * y;
+    result.x += x;
+    result.y += y;
+    result.xz -= x * square;
+    result.yz -= y * square;
+    result.z -= square;
+    return result;
+  }, { xx: 0, xy: 0, yy: 0, x: 0, y: 0, xz: 0, yz: 0, z: 0 });
+  const [a, b, c] = solveThreeByThree([
+    [sums.xx, sums.xy, sums.x],
+    [sums.xy, sums.yy, sums.y],
+    [sums.x, sums.y, points.length],
+  ], [sums.xz, sums.yz, sums.z]);
+  const center = { x: meanX - a / 2, y: meanY - b / 2 };
+  const radius = Math.sqrt((a * a + b * b) / 4 - c);
+  const errors = points.map(({ x, y }) => Math.abs(Math.hypot(
+    x - center.x,
+    y - center.y,
+  ) - radius));
+  return {
+    center,
+    radius,
+    maximumError: Math.max(...errors),
+    rootMeanSquareError: Math.sqrt(
+      errors.reduce((sum, error) => sum + error * error, 0) / errors.length,
+    ),
+  };
+}
+
 function stepBatch(ticks = 20_000) {
   const events = machine.step_batch(machine.simulated_time, ticks);
   for (const event of events) {
@@ -98,6 +164,14 @@ function stepBatch(ticks = 20_000) {
       const physicalY = physicalCoordinate(event.y, bottomOrigin);
       if (phase === "verify-line" && verificationScope.length < 100_000) {
         verificationScope.push({
+          x: physicalX,
+          y: physicalY,
+          origin: event.origin,
+          intensity: event.intensity,
+        });
+      }
+      if (phase === "verify-circle" && circleVerificationScope.length < 100_000) {
+        circleVerificationScope.push({
           x: physicalX,
           y: physicalY,
           origin: event.origin,
@@ -893,7 +967,7 @@ const penAtEnd = [
 const memoryAfterStop = snapshot();
 const trackerAfterStop = trackerWords();
 
-if (process.env.CONSTRAINT_ONLY !== "1") console.log(JSON.stringify({
+if (process.env.CONSTRAINT_ONLY !== "1" && process.env.CIRCLE_ONLY !== "1") console.log(JSON.stringify({
   simulatedSeconds: machine.simulated_time,
   scopePoints,
   lightPenDetections: Number(machine.light_pen_detection_count),
@@ -938,6 +1012,434 @@ assert.ok(machine.light_pen_detection_count > 0n, "the emulated light pen must d
 assert.equal(queueBefore, 0, "the input queue must start empty");
 assert.ok(reachedReadit || queueAfter === 0, "sequence 76 must consume the DRAW command through READIT");
 
+if (process.env.CIRCLE_ONLY === "1") {
+  phase = "designate-center";
+  const designationStateBefore = {
+    dests: octal(machine.memory_word(0o011413, machine.simulated_time).value),
+    printedDestsAddress: machine.memory_word(0o011444, machine.simulated_time),
+    ccent: octal(machine.memory_word(0o011411, machine.simulated_time).value),
+    page1: machine.memory_word(0o011425, machine.simulated_time),
+    e: octal(machine.memory_word(0o377610, machine.simulated_time).value),
+  };
+  const deadHeaderBefore = Array.from({ length: 0o10 }, (_, offset) => ({
+    address: octal(0o024067 + offset, 6),
+    word: octal(machine.memory_word(0o024067 + offset, machine.simulated_time).value),
+  }));
+  const initialPoint = phaseStats("verify-line").closestToInitialPen;
+  const centerX = initialPoint.x;
+  const centerY = initialPoint.y;
+  machine.set_light_pen(centerX / 1022, 1 - centerY / 1022, 26 / 1022, true);
+  const trace = [];
+  let commandPressed = false;
+  let commandReleased = false;
+  let commandCaptured = false;
+  let pointSelected = false;
+  let enteredDesignate = false;
+  let returnedFromDesignate = false;
+  const commandAddresses = new Set();
+  const buttonTrace = [];
+  const postDesignateStates = new Map();
+  const deleteTrace = [];
+  const deadline = machine.simulated_time + 20;
+  while (machine.simulated_time < deadline && !returnedFromDesignate) {
+    const state = machine.control_state();
+    if (commandPressed && state.sequence === 0o76) {
+      if (state.instruction_address >= 0o004100 && state.instruction_address <= 0o006200) {
+        commandAddresses.add(octal(state.instruction_address, 6));
+      }
+    }
+    if (enteredDesignate && state.sequence === 0o76) {
+      const key = `${octal(state.instruction_address, 6)} ${state.instruction}`;
+      postDesignateStates.set(key, (postDesignateStates.get(key) ?? 0) + 1);
+      if (
+        state.instruction_address >= 0o007622
+        && state.instruction_address <= 0o007710
+        && deleteTrace.length < 200
+      ) {
+        deleteTrace.push({
+          state,
+          indexes: Object.fromEntries([1, 2, 3, 7, 0o10].map((index) => [
+            octal(index, 2),
+            machine.index_register(index),
+          ])),
+          e: octal(machine.memory_word(0o377610, machine.simulated_time).value),
+          deadLink: octal(machine.memory_word(0o024072, machine.simulated_time).value),
+        });
+      }
+    }
+    if (commandPressed && !commandReleased && state.sequence === 0o47 && buttonTrace.length < 500) {
+      buttonTrace.push({
+        state,
+        externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
+        button: octal(machine.memory_word(0o011406, machine.simulated_time).value),
+        previous: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+        queueIndex: machine.index_register(0o47),
+      });
+    }
+    const atBits = machine.memory_word(0o200044, machine.simulated_time).value;
+    if (
+      !pointSelected
+      && state.sequence === 0o76
+      && state.instruction_address === 0o002320
+      && hasOctalBit(atBits, 0o2000000)
+    ) {
+      pointSelected = true;
+    }
+    if (
+      !commandPressed
+      && state.sequence === 0o47
+    ) {
+      machine.set_external_input_register(0, 0, 0, 0o100, false);
+      commandPressed = true;
+    }
+    if (
+      commandPressed
+      && !commandCaptured
+      && hasOctalBit(machine.memory_word(0o011406, machine.simulated_time).value, 0o100)
+    ) {
+      commandCaptured = true;
+    }
+    if (
+      commandCaptured
+      && !commandReleased
+    ) {
+      machine.set_external_input_register(0, 0, 0, 0, false);
+      commandReleased = true;
+    }
+    if (
+      commandPressed
+      && !enteredDesignate
+      && state.sequence === 0o76
+      && state.instruction_address === 0o005555
+    ) {
+      enteredDesignate = true;
+    }
+    if (
+      enteredDesignate
+      && state.sequence === 0o76
+      && state.instruction_address === 0o005574
+    ) {
+      returnedFromDesignate = true;
+      break;
+    }
+    if (
+      state.sequence === 0o76
+      && state.instruction_address >= 0o005555
+      && state.instruction_address <= 0o005574
+      && trace.length < 100
+    ) {
+      trace.push({
+        state,
+        atBits: octal(atBits),
+        selected: octal(machine.memory_word(0o200045, machine.simulated_time).value),
+        ccent: octal(machine.memory_word(0o011411, machine.simulated_time).value),
+        page1: machine.memory_word(0o011425, machine.simulated_time),
+        lpLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+        alpha: machine.index_register(0o01),
+        dests: octal(machine.memory_word(0o011413, machine.simulated_time).value),
+        e: octal(machine.memory_word(0o377610, machine.simulated_time).value),
+      });
+    }
+    stepBatch(1);
+    assert.equal(machine.alarm_active, false, machine.last_alarm);
+  }
+  machine.set_external_input_register(0, 0, 0, 0, false);
+  machine.set_light_pen(centerX / 1022, 1 - centerY / 1022, 4 / 1022, false);
+
+  if (
+    !enteredDesignate
+    || !returnedFromDesignate
+    || !machine.memory_word(0o011425, machine.simulated_time).meta
+  ) {
+    console.error(JSON.stringify({
+      failure: "Q1.7 did not complete DESIGNATE",
+      commandPressed,
+      commandCaptured,
+      commandReleased,
+      pointSelected,
+      enteredDesignate,
+      returnedFromDesignate,
+      commandAddresses: [...commandAddresses],
+      center: { x: centerX, y: centerY },
+      buttonTrace,
+      trace,
+      control: machine.control_state(),
+      button: octal(machine.memory_word(0o011406, machine.simulated_time).value),
+      previous: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+    }, null, 2));
+  }
+
+  assert.equal(designationStateBefore.dests, "000000000001",
+    "the reconstruction must supply the no-old-center sentinel");
+  assert.equal(enteredDesignate, true, "Q1.7 must enter the original DESIGNATE routine");
+  assert.equal(returnedFromDesignate, true, "the original DESIGNATE routine must return");
+  assert.equal(machine.memory_word(0o011425, machine.simulated_time).meta, true,
+    "DESIGNATE must set the original DESIGNATED metabit");
+  assert.notEqual(machine.memory_word(0o011411, machine.simulated_time).value, 0,
+    "DESIGNATE must store the assembly-created center point in CCENT");
+  assert.deepEqual(
+    Array.from({ length: 0o10 }, (_, offset) =>
+      octal(machine.memory_word(0o024067 + offset, machine.simulated_time).value)),
+    deadHeaderBefore.map(({ word }) => word),
+    "first designation must not damage the DEADS ring",
+  );
+
+  phase = "circle-radius";
+  machine.set_light_pen(centerX / 1022, 1 - centerY / 1022, 26 / 1022, true);
+  assert.ok(
+    runUntil(() => !machine.memory_word(0o200042, machine.simulated_time).meta, 100),
+    "the original tracker must reacquire the designated center",
+  );
+  const radius = 120;
+  for (let offset = 2; offset <= radius; offset += 2) {
+    const detectionsBeforeStep = Number(machine.light_pen_detection_count);
+    machine.set_light_pen((centerX + offset) / 1022, 1 - centerY / 1022, 26 / 1022, true);
+    assert.ok(
+      runUntil(() => Number(machine.light_pen_detection_count) > detectionsBeforeStep, 3),
+      `the original tracker must follow circle-radius step ${offset / 2}`,
+    );
+  }
+
+  const listBeforeCircle = machine.memory_word(0o024000, machine.simulated_time).value;
+  const memoryBeforeCircle = snapshot();
+  const displayBeforeCircle = snapshot(0o100000, 0o101000);
+  const ndispBeforeCircle = machine.memory_word(0o200031, machine.simulated_time).value;
+  let drawPressed = false;
+  let drawCaptured = false;
+  let drawReleased = false;
+  let enteredStartDraw = false;
+  let enteredStartC = false;
+  let returnedFromStartDraw = false;
+  const circleCommandAddresses = new Set();
+  const circleDeadline = machine.simulated_time + 40;
+  while (machine.simulated_time < circleDeadline && !returnedFromStartDraw) {
+    const state = machine.control_state();
+    if (!drawPressed && state.sequence === 0o47) {
+      machine.set_external_input_register(0, 0, 0, 0o200, false);
+      drawPressed = true;
+    }
+    if (
+      drawPressed
+      && !drawCaptured
+      && hasOctalBit(machine.memory_word(0o011406, machine.simulated_time).value, 0o200)
+    ) {
+      drawCaptured = true;
+    }
+    if (state.sequence === 0o76) {
+      circleCommandAddresses.add(octal(state.instruction_address, 6));
+      enteredStartDraw ||= (
+        state.instruction_address === 0o005455
+        || state.instruction_address === 0o005456
+      );
+      enteredStartC ||= state.instruction_address === 0o005477;
+      returnedFromStartDraw ||= enteredStartDraw && state.instruction_address === 0o005553;
+    }
+    if (enteredStartDraw && !drawReleased) {
+      machine.set_external_input_register(0, 0, 0, 0, false);
+      drawReleased = true;
+    }
+    stepBatch(1);
+    assert.equal(machine.alarm_active, false, machine.last_alarm);
+  }
+  machine.set_external_input_register(0, 0, 0, 0, false);
+
+  const listAfterCircle = machine.memory_word(0o024000, machine.simulated_time).value;
+  if (!enteredStartDraw) {
+    console.error(JSON.stringify({
+      failure: "Q1.8 did not enter STARTDRAW",
+      drawPressed,
+      drawCaptured,
+      drawReleased,
+      circleCommandAddresses: [...circleCommandAddresses],
+      externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
+      button: octal(machine.memory_word(0o011406, machine.simulated_time).value),
+      previous: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+      queue: octal(machine.memory_word(0o004127, machine.simulated_time).value),
+      flags: raisedFlags(),
+      control: machine.control_state(),
+    }, null, 2));
+  }
+  assert.equal(drawCaptured, true, "the original sequence-47 reader must capture Q1.8");
+  assert.equal(enteredStartDraw, true, "Q1.8 must enter the original STARTDRAW routine");
+  assert.equal(enteredStartC, true, "DESIGNATED must route STARTDRAW through original STARTC");
+  assert.equal(returnedFromStartDraw, true, "the original circle creation routine must return");
+  assert.ok(listAfterCircle > listBeforeCircle,
+    "original circle creation must allocate Sketchpad records");
+
+  phase = "move-circle-endpoint";
+  const circleStartX = centerX + radius;
+  const circleStartY = centerY;
+  machine.set_light_pen(circleStartX / 1022, 1 - circleStartY / 1022, 26 / 1022, true);
+  assert.ok(
+    runUntil(() => !machine.memory_word(0o200042, machine.simulated_time).meta, 100),
+    "the original tracker must reacquire the moving circle endpoint",
+  );
+  const arcSteps = 180;
+  const arcRadians = Math.PI * 1.5;
+  for (let step = 1; step <= arcSteps; step += 1) {
+    const angle = arcRadians * step / arcSteps;
+    const targetX = centerX + radius * Math.cos(angle);
+    const targetY = centerY + radius * Math.sin(angle);
+    const detectionsBeforeStep = Number(machine.light_pen_detection_count);
+    machine.set_light_pen(targetX / 1022, 1 - targetY / 1022, 26 / 1022, true);
+    assert.ok(
+      runUntil(() => Number(machine.light_pen_detection_count) > detectionsBeforeStep, 3),
+      `the original tracker must follow circle-arc step ${step}`,
+    );
+  }
+  runUntilTime(machine.simulated_time + 0.5);
+  machine.set_light_pen(centerX / 1022, 1 - (centerY - radius) / 1022, 26 / 1022, false);
+  assert.ok(
+    runUntil(() => (
+      octal(machine.memory_word(0o024114, machine.simulated_time).value) === "000114000114"
+    ), 200),
+    "the original STOPMOVEP path must finish the circle endpoint movement",
+  );
+  assert.ok(
+    runUntil(() => (
+      machine.control_state().sequence === 0o76
+      && machine.control_state().instruction_address === 0o205304
+    ), 20, 1),
+    "the original display builder must publish its file after circle movement",
+  );
+
+  phase = "verify-circle";
+  runUntilTime(machine.simulated_time + 2);
+  const circleScope = phaseStats("verify-circle");
+  assert.ok(circleScope.points > 0, "the executing assembly must emit scope points after circle creation");
+  const uniqueCirclePoints = [...new Map(circleVerificationScope.map((point) => [
+    `${point.x},${point.y}`,
+    point,
+  ])).values()];
+  const linePointKeys = new Set(verificationScope.map(({ x, y }) => `${x},${y}`));
+  const newCirclePoints = uniqueCirclePoints.filter(({ x, y }) =>
+    !linePointKeys.has(`${x},${y}`));
+  const newCircleBounds = newCirclePoints.reduce((bounds, { x, y }) => ({
+    x: [Math.min(bounds.x[0], x), Math.max(bounds.x[1], x)],
+    y: [Math.min(bounds.y[0], y), Math.max(bounds.y[1], y)],
+  }), { x: [Infinity, -Infinity], y: [Infinity, -Infinity] });
+  const circleFit = fitCircularLocus(newCirclePoints);
+  const arcSpan = {
+    x: newCircleBounds.x[1] - newCircleBounds.x[0],
+    y: newCircleBounds.y[1] - newCircleBounds.y[0],
+  };
+  const startCaWord = machine.memory_word(0o005517, machine.simulated_time).value;
+  const circleIndex = rightHalf(startCaWord);
+  const circleAddress = 0o024000 + circleIndex;
+  const circlePointIndexes = {
+    start: rightHalf(machine.memory_word(circleAddress + 0o10, machine.simulated_time).value),
+    end: rightHalf(machine.memory_word(circleAddress + 0o12, machine.simulated_time).value),
+    center: rightHalf(machine.memory_word(circleAddress + 0o14, machine.simulated_time).value),
+  };
+  const circlePointRecords = Object.fromEntries(Object.entries(circlePointIndexes).map(
+    ([name, index]) => [name, {
+      index: octal(index, 6),
+      record: Array.from({ length: 0o22 }, (_, offset) =>
+        octal(machine.memory_word(0o024000 + index + offset, machine.simulated_time).value)),
+    }],
+  ));
+  if (
+    newCirclePoints.length < 32
+    || arcSpan.x < 30
+    || arcSpan.y < 10
+    || circleFit.radius < 30
+    || circleFit.maximumError > 3
+  ) {
+    console.error(JSON.stringify({
+      newCirclePointCount: newCirclePoints.length,
+      newCircleBounds,
+      arcSpan,
+      circleFit,
+      uniqueCirclePointCount: uniqueCirclePoints.length,
+    }, null, 2));
+  }
+  assert.ok(newCirclePoints.length >= 32,
+    "unit 60 must emit at least 32 new points for the reconstructed arc");
+  assert.ok(arcSpan.x >= 30 && arcSpan.y >= 10,
+    "the assembly-created arc must have visible length and curvature");
+  assert.ok(circleFit.radius >= 30,
+    "the assembly-created arc must have a nontrivial fitted radius");
+  assert.ok(circleFit.maximumError <= 3,
+    "the new unit-60 points must follow a circular locus within display quantization");
+  machine.set_light_pen((centerX + radius) / 1022, 1 - centerY / 1022, 26 / 1022, false);
+
+  console.log(JSON.stringify({
+    designationStateBefore,
+    commandPressed,
+    commandReleased,
+    commandCaptured,
+    pointSelected,
+    centerX,
+    centerY,
+    enteredDesignate,
+    returnedFromDesignate,
+    atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+    selected: octal(machine.memory_word(0o200045, machine.simulated_time).value),
+    ccent: octal(machine.memory_word(0o011411, machine.simulated_time).value),
+    page1: machine.memory_word(0o011425, machine.simulated_time),
+    externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
+    buttonQueue: [0o004127, 0o011406, 0o011407, 0o011410].map((address) => ({
+      address: octal(address, 6),
+      word: octal(machine.memory_word(address, machine.simulated_time).value),
+    })),
+    commandAddressCount: commandAddresses.size,
+    buttonTraceCount: buttonTrace.length,
+    postDesignateStateCount: postDesignateStates.size,
+    deleteTraceCount: deleteTrace.length,
+    sequence76Flag: machine.sequence_flag(0o76),
+    sequence76Index: machine.index_register(0o76),
+    raisedFlags: raisedFlags(),
+    deadHeader: Array.from({ length: 0o10 }, (_, offset) => ({
+      address: octal(0o024067 + offset, 6),
+      word: octal(machine.memory_word(0o024067 + offset, machine.simulated_time).value),
+    })),
+    deadHeaderBefore,
+    deleteIndexes: Object.fromEntries([1, 2, 7, 0o10].map((index) => [
+      octal(index, 2),
+      machine.index_register(index),
+    ])),
+    designationTraceCount: trace.length,
+    circle: {
+      radius,
+      arcSteps,
+      drawPressed,
+      drawCaptured,
+      drawReleased,
+      enteredStartDraw,
+      enteredStartC,
+      returnedFromStartDraw,
+      listBefore: octal(listBeforeCircle),
+      listAfter: octal(listAfterCircle),
+      changedWords: changes(memoryBeforeCircle, snapshot()).length,
+      ndispBefore: octal(ndispBeforeCircle, 6),
+      ndispAfter: octal(machine.memory_word(0o200031, machine.simulated_time).value, 6),
+      changedDisplayWords: changes(
+        displayBeforeCircle,
+        snapshot(0o100000, 0o101000),
+      ).length,
+      commandAddressCount: circleCommandAddresses.size,
+      scopePointCount: circleScope.points,
+      fittedCenter: circleFit.center,
+      fittedRadius: circleFit.radius,
+      maximumRadiusError: circleFit.maximumError,
+      rootMeanSquareRadiusError: circleFit.rootMeanSquareError,
+      arcSpan,
+      newCircleBounds,
+      uniqueScopePointCount: uniqueCirclePoints.length,
+      newScopePointCount: newCirclePoints.length,
+      newScopePointSample: newCirclePoints.slice(0, 12),
+      startCaWord: octal(startCaWord),
+      circleIndex: octal(circleIndex, 6),
+      circleAddress: octal(circleAddress, 6),
+      circlePointIndexes,
+      circleMaster: octal(machine.memory_word(0o024201, machine.simulated_time).value),
+      displayBuildPublished: true,
+    },
+    control: machine.control_state(),
+  }, null, 2));
+  process.exit(0);
+}
+
 if (process.env.CONSTRAINT_ONLY === "1") {
   phase = "select-line";
   const lineStats = phaseScope.get("verify-line");
@@ -949,7 +1451,7 @@ if (process.env.CONSTRAINT_ONLY === "1") {
   }, { x: null, y: null, distanceSquared: Infinity });
   const midpointX = selectionPoint.x;
   const midpointY = selectionPoint.y;
-  machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 2 / 1022, true);
+  machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 26 / 1022, true);
   const beforeAtBits = octal(machine.memory_word(0o200044, machine.simulated_time).value);
   const beforeConstraintList = machine.memory_word(0o024000, machine.simulated_time).value;
   const memoryBeforeSelectedCommand = snapshot();
@@ -962,6 +1464,7 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       state.sequence === 0o76
       && state.instruction_address === 0o002320
       && hasOctalBit(atBitsAtInstruction, 0o4000000)
+      && !machine.memory_word(0o200042, machine.simulated_time).meta
     ) {
       setSelectedCommand(true);
       trueupPressed = true;
@@ -980,6 +1483,7 @@ if (process.env.CONSTRAINT_ONLY === "1") {
   const trueupStart = machine.simulated_time;
   let enteredTrueup = false;
   const commandEntryAddresses = new Set();
+  const fixitTrace = [];
   const commandWaitSeconds = selectedCommand === "2.9" ? 200 : 20;
   while (
     machine.simulated_time < trueupStart + commandWaitSeconds
@@ -987,12 +1491,30 @@ if (process.env.CONSTRAINT_ONLY === "1") {
   ) {
     const state = machine.control_state();
     if (state.sequence === 0o76) commandEntryAddresses.add(octal(state.instruction_address, 6));
+    if (
+      selectedCommand === "3.3"
+      && state.sequence === 0o76
+      && state.instruction_address >= 0o005277
+      && state.instruction_address <= 0o005325
+      && fixitTrace.length < 80
+    ) {
+      fixitTrace.push({
+        state,
+        indexes: Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map(
+          (index) => [octal(index, 2), machine.index_register(index)],
+        )),
+        lpLost: machine.memory_word(0o200042, machine.simulated_time),
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        selected: octal(machine.memory_word(0o200045, machine.simulated_time).value),
+        fixedHeader: octal(machine.memory_word(0o024100, machine.simulated_time).value),
+      });
+    }
     enteredTrueup ||= state.sequence === 0o76 && state.instruction_address === 0o005421;
     stepBatch(1);
     assert.equal(machine.alarm_active, false, machine.last_alarm);
   }
   setSelectedCommand(false);
-  machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 2 / 1022, false);
+  machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 26 / 1022, false);
   if (selectedCommand !== "2.9") {
     const probeStart = machine.simulated_time;
     const enteredAddresses = new Set();
@@ -1004,11 +1526,29 @@ if (process.env.CONSTRAINT_ONLY === "1") {
     }
     const fixedListChanges = changes(memoryBeforeSelectedCommand, snapshot());
     if (selectedCommand === "3.3") {
+      const selectedLineVordChanged = fixedListChanges.some(
+        ({ address }) => address === "025267",
+      );
+      if (!selectedLineVordChanged) {
+        console.error(JSON.stringify({
+          failure: "FIXIT did not change the expected selected-line VORD link",
+          selectedObject,
+          commandEntryAddresses: [...commandEntryAddresses],
+          enteredAddresses: [...enteredAddresses],
+          vordBefore: octal(memoryBeforeSelectedCommand.get(0o025267)),
+          vordAfter: octal(machine.memory_word(0o025267, machine.simulated_time).value),
+          fixedHeaderBefore: octal(memoryBeforeSelectedCommand.get(0o024100)),
+          fixedHeaderAfter: octal(machine.memory_word(0o024100, machine.simulated_time).value),
+          fixedListChanges,
+          fixitTrace,
+          control: machine.control_state(),
+        }, null, 2));
+      }
       assert.ok(commandEntryAddresses.has("005277"),
         "Q3.3 must enter the original FIXIT routine");
       assert.equal(machine.memory_word(0o024000, machine.simulated_time).value, beforeConstraintList,
         "FIXIT must link the selected object without allocating a new block");
-      assert.ok(fixedListChanges.some(({ address }) => address === "025267"),
+      assert.ok(selectedLineVordChanged,
         "FIXIT must change the selected line's VORD link");
 
       const unfixAddresses = new Set();

@@ -632,24 +632,24 @@ fn split_macro_argument(
     script: Script,
     expr: ArithmeticExpression,
     later_params: &[MacroParameter],
-) -> Vec<ArithmeticExpression> {
-    let mut later_params = later_params.iter();
-    let mut next_param = later_params.next();
+) -> Vec<Option<ArithmeticExpression>> {
+    let mut later_param_index = 0;
     let mut current = ArithmeticExpression::from(expr.first);
     let mut result = Vec::new();
 
     for (operator, atom) in expr.tail {
-        if next_param.is_some_and(|param| {
+        if let Some(matched_offset) = later_params[later_param_index..].iter().position(|param| {
             macro_terminator_operator(&param.preceding_terminator, script) == Some(operator)
         }) {
-            result.push(current);
+            result.push(Some(current));
+            result.extend((0..matched_offset).map(|_| None));
             current = ArithmeticExpression::from(atom);
-            next_param = later_params.next();
+            later_param_index += matched_offset + 1;
         } else {
             current.tail.push((operator, atom));
         }
     }
-    result.push(current);
+    result.push(Some(current));
     result
 }
 
@@ -833,27 +833,31 @@ where
                             let split_expressions =
                                 split_macro_argument(script, expr, &param_defs[param_index + 1..]);
                             let split_count = split_expressions.len();
-                            let mut argument_values: Vec<(
-                                HoldBit,
-                                Option<Span>,
-                                Vec<(Script, ArithmeticExpression)>,
-                            )> = split_expressions
+                            let mut argument_values: Vec<
+                                Option<(
+                                    HoldBit,
+                                    Option<Span>,
+                                    Vec<(Script, ArithmeticExpression)>,
+                                )>,
+                            > = split_expressions
                                 .into_iter()
                                 .enumerate()
                                 .map(|(index, expr)| {
-                                    (
-                                        if index == 0 {
-                                            argument_holdbit
-                                        } else {
-                                            HoldBit::Unspecified
-                                        },
-                                        if index + 1 == split_count {
-                                            argument_defer_span
-                                        } else {
-                                            None
-                                        },
-                                        vec![(script, expr)],
-                                    )
+                                    expr.map(|expr| {
+                                        (
+                                            if index == 0 {
+                                                argument_holdbit
+                                            } else {
+                                                HoldBit::Unspecified
+                                            },
+                                            if index + 1 == split_count {
+                                                argument_defer_span
+                                            } else {
+                                                None
+                                            },
+                                            vec![(script, expr)],
+                                        )
+                                    })
                                 })
                                 .collect();
                             let next_param_index = param_index + argument_values.len();
@@ -871,7 +875,8 @@ where
                                     (_, Some(MacroParameterValue::Value(script, expr))) => {
                                         argument_values
                                             .last_mut()
-                                            .expect("there is at least one argument")
+                                            .and_then(Option::as_mut)
+                                            .expect("the last argument is supplied")
                                             .2
                                             .push((script, expr));
                                     }
@@ -885,7 +890,8 @@ where
                                     ) => {
                                         let current = argument_values
                                             .last_mut()
-                                            .expect("there is at least one argument");
+                                            .and_then(Option::as_mut)
+                                            .expect("the last argument is supplied");
                                         current.0 = match (current.0, holdbit) {
                                             (HoldBit::Unspecified, supplied) => supplied,
                                             (body, HoldBit::Unspecified) => body,
@@ -903,7 +909,16 @@ where
                                     }
                                 }
                             }
-                            for (holdbit, defer_span, fragments) in argument_values {
+                            for argument in argument_values {
+                                let Some((holdbit, defer_span, fragments)) = argument else {
+                                    param_values.insert(
+                                        param_defs[param_index].name.clone(),
+                                        inp.span_since(&before),
+                                        None,
+                                    );
+                                    param_index += 1;
+                                    continue;
+                                };
                                 let argument_start = fragments
                                     .first()
                                     .expect("argument is not empty")

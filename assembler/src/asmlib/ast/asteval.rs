@@ -5,7 +5,7 @@ use super::{
     Address, ArithmeticExpression, Atom, CommaDelimitedFragment, Commas, ConfigValue, DEFER_BIT,
     EqualityValue, EvaluationContext, EvaluationFailure, HereValue, HoldBit, InstructionFragment,
     LiteralValue, Operator, Origin, RcUpdater, RegisterContaining, RegistersContaining, Script,
-    Shl, Shr, Signed36Bit, SignedAtom, SymbolOrLiteral, TaggedProgramInstruction, Unsigned36Bit,
+    Shl, Shr, SignedAtom, SymbolOrLiteral, TaggedProgramInstruction, Unsigned36Bit,
     UntaggedProgramInstruction, evaluate_elevated_symbol, u36,
 };
 
@@ -25,15 +25,11 @@ impl Evaluate for SignedAtom {
         ctx: &mut EvaluationContext<R>,
         scope: ScopeIdentifier,
     ) -> Result<Unsigned36Bit, EvaluationFailure> {
-        self.magnitude.evaluate(ctx, scope).map(|magnitude| {
-            if self.negated {
-                let s36 = magnitude.reinterpret_as_signed();
-                let signed_result = Signed36Bit::ZERO.wrapping_sub(s36);
-                signed_result.reinterpret_as_unsigned()
-            } else {
-                magnitude
-            }
-        })
+        self.magnitude.evaluate(ctx, scope).map(
+            |magnitude| {
+                if self.negated { !magnitude } else { magnitude }
+            },
+        )
     }
 }
 
