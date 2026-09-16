@@ -2903,3 +2903,9 @@ The production page reported a complete 0.5 MB test file and enabled its
 download button.  Release `20260916T032340Z` is current after Caddy validation.
 The page and `visual-capture.js` return HTTP 200 with the required cross-origin
 headers.
+
+Simulator commit `a52c7cc` maps the unmodified `R` key to the recorder.  One
+press starts the diagnostic log.  A second press stops it.  Modified shortcuts
+such as Control-R remain available to the browser.  A Chrome test started and
+stopped a complete WebM without a mouse.  Release `20260916T035208Z` contains
+this shortcut after Caddy validation.
