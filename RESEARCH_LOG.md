@@ -2779,6 +2779,7 @@ validated the complete configuration before reload.  The new module, page,
 worker, and WebAssembly return HTTP 200 with the required cross-origin
 headers.  A fresh production browser reached `RUNNING`, generated more than
 400,000 original scope points, used the 12-unit pickup radius, and acquired
-the original assembly tracker as `TRACKING`.  The failed release remains an
-immutable record, but the current symlink points only to the corrected
-release.
+the original assembly tracker as `TRACKING`.  A live `D` key cycle left Q1.8
+released and Q1.6 held while the machine remained `RUNNING` and the pen
+remained `TRACKING`.  The failed release remains an immutable record, but the
+current symlink points only to the corrected release.
