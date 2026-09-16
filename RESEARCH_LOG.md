@@ -2889,8 +2889,8 @@ would need a stated visibility threshold.  The present renderer can still
 make a current tracker stroke look much stronger than an older line.  This is
 another open display-model issue.
 
-Simulator commits `69d2763` and `6168885` add an operator evidence path.  The
-page records the scope into WebM at 30 frames per second.  `MediaRecorder`
+Simulator commits `69d2763`, `6168885`, and `d64fb59` add an operator evidence
+path.  The page records the scope into WebM at 30 frames per second.  `MediaRecorder`
 emits one-second chunks.  Stop joins them into one intact file with a stable
 name of the form `sketchpad-visual-<recording-start>.webm`.  The recording adds
 a cyan input-position crosshair and a label with the physical sensor state,
@@ -2900,6 +2900,6 @@ unit 55, machine memory, or assembly execution.
 
 Chrome recorded and stopped this path on both the local and production pages.
 The production page reported a complete 0.5 MB test file and enabled its
-download button.  Release `20260916T032103Z` is current after Caddy validation.
+download button.  Release `20260916T032340Z` is current after Caddy validation.
 The page and `visual-capture.js` return HTTP 200 with the required cross-origin
 headers.
