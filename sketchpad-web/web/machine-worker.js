@@ -2,7 +2,7 @@ import init, { SketchpadMachine, sketchpad_tape } from "./pkg/sketchpad_web.js";
 import {
   readSharedPen,
   recordSharedPenApplication,
-} from "./pen-transport.js?v=20260915-11";
+} from "./pen-transport.js?v=20260915-12";
 
 const SLICE_BUDGET_MS = 0.25;
 const TICKS_PER_BATCH = 16;
@@ -235,6 +235,9 @@ async function handleMessage(message) {
       break;
     case "pen":
       fallbackPen = message.pen;
+      applyPen();
+      break;
+    case "pen-update":
       applyPen();
       break;
     case "knobs":

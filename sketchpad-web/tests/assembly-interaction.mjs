@@ -642,10 +642,20 @@ while (!reacquired && machine.simulated_time < reacquireDeadline) {
 }
 const penUnitAfterReacquire = machine.unit_status(0o55, machine.simulated_time);
 const executionTraceAfterReacquire = traceTicks(0);
-const crossScopeAxes = process.env.CROSS_SCOPE_AXES === "1";
-const movementSteps = crossScopeAxes ? 270 : 160;
-const finalPhysicalX = crossScopeAxes ? 440 : 575 + movementSteps;
-const finalPhysicalY = crossScopeAxes ? 440 : 575 + movementSteps;
+const movementPath = process.env.MOVEMENT_PATH
+  ?? (process.env.CROSS_SCOPE_AXES === "1" ? "axis-cross" : "diagonal");
+const movementProfiles = {
+  diagonal: { steps: 160, x: 735, y: 735 },
+  horizontal: { steps: 160, x: 735, y: 575 },
+  vertical: { steps: 160, x: 575, y: 735 },
+  "axis-cross": { steps: 270, x: 440, y: 440 },
+  jump: { steps: 1, x: 735, y: 575 },
+};
+const movementProfile = movementProfiles[movementPath];
+assert.ok(movementProfile, `unknown MOVEMENT_PATH ${movementPath}`);
+const movementSteps = movementProfile.steps;
+const finalPhysicalX = movementProfile.x;
+const finalPhysicalY = movementProfile.y;
 const finalX = finalPhysicalX / 1022;
 const finalY = 1 - finalPhysicalY / 1022;
 const movement = [];
@@ -654,6 +664,25 @@ for (let step = 1; step <= movementSteps; step += 1) {
   phase = `move-${step}`;
   const fraction = step / movementSteps;
   const detectionsBeforeStep = Number(machine.light_pen_detection_count);
+  const movementScope = {
+    points: 0,
+    x: [Infinity, -Infinity],
+    y: [Infinity, -Infinity],
+    origins: {},
+  };
+  const recordMovementScope = (event) => {
+    if (event?.kind !== "scope_point" || event.unit !== 0o60) return;
+    movementScope.points += 1;
+    movementScope.x = [
+      Math.min(movementScope.x[0], event.physical_x),
+      Math.max(movementScope.x[1], event.physical_x),
+    ];
+    movementScope.y = [
+      Math.min(movementScope.y[0], event.physical_y),
+      Math.max(movementScope.y[1], event.physical_y),
+    ];
+    movementScope.origins[event.origin] = (movementScope.origins[event.origin] ?? 0) + 1;
+  };
   machine.set_light_pen(
     firstX + (finalX - firstX) * fraction,
     firstY + (finalY - firstY) * fraction,
@@ -700,6 +729,7 @@ for (let step = 1; step <= movementSteps; step += 1) {
         const alphaBefore = machine.index_register(0o01);
         const sBefore = machine.index_register(0o07);
         const event = machine.step(machine.simulated_time);
+        recordMovementScope(event);
         const alphaAfter = machine.index_register(0o01);
         const sAfter = machine.index_register(0o07);
         if (
@@ -749,7 +779,7 @@ for (let step = 1; step <= movementSteps; step += 1) {
         }
         const alphaBefore = machine.index_register(0o01);
         const sBefore = machine.index_register(0o07);
-        machine.step(machine.simulated_time);
+        recordMovementScope(machine.step(machine.simulated_time));
         const alphaAfter = machine.index_register(0o01);
         const sAfter = machine.index_register(0o07);
         if (
@@ -809,7 +839,7 @@ for (let step = 1; step <= movementSteps; step += 1) {
     ndisp: octal(machine.memory_word(0o200031, machine.simulated_time).value),
     sndisp: octal(machine.memory_word(0o200032, machine.simulated_time).value),
     basicFile: octal(machine.memory_word(0o200033, machine.simulated_time).value),
-    scope: phaseScope.get(phase) ?? null,
+    scope: movementScope.points > 0 ? movementScope : null,
   });
 }
 
@@ -900,13 +930,35 @@ const displayBuildTrace = traceNextDisplayBuild();
 phase = "verify-line";
 runUntilTime(machine.simulated_time + 1);
 
-if (crossScopeAxes) {
+const verificationX = verificationScope.map(({ x }) => x);
+const verificationY = verificationScope.map(({ y }) => y);
+const verificationWidth = Math.max(...verificationX) - Math.min(...verificationX);
+const verificationHeight = Math.max(...verificationY) - Math.min(...verificationY);
+
+if (movementPath === "horizontal") {
+  assert.ok(verificationWidth >= 120, "the horizontal line must retain its length");
+  assert.ok(verificationHeight <= 40,
+    "the horizontal line and tracker must remain in their narrow vertical band");
+}
+if (movementPath === "vertical") {
+  assert.ok(verificationHeight >= 120, "the vertical line must retain its length");
+  assert.ok(verificationWidth <= 40,
+    "the vertical line and tracker must remain in their narrow horizontal band");
+}
+if (movementPath === "jump") {
+  assert.equal(movement.some(({ detected }) => !detected), true,
+    "a jump beyond the tracker search pattern must miss the optical pen");
+  assert.equal(penLostAfterStop, true,
+    "the original assembly must record LPLOST after a missed jump");
+}
+
+if (movementPath !== "jump") {
   assert.equal(
     movement.every(({ detected }) => detected),
     true,
-    "the original tracker must keep detecting the pen across both physical scope axes",
+    `the original tracker must keep detecting the pen on the ${movementPath} path`,
   );
-  assert.equal(stopCompleted, true, "STOPMOVEP must finish the axis-crossing line");
+  assert.equal(stopCompleted, true, `STOPMOVEP must finish the ${movementPath} line`);
 }
 if (stopWithButton) {
   if (!enteredStopMoving) {
@@ -925,7 +977,39 @@ if (stopWithButton) {
 }
 
 if (process.env.TRACK_ONLY === "1") {
+  if (process.env.SUMMARY_ONLY === "1") {
+    const verificationByOrigin = {};
+    for (const point of verificationScope) {
+      const stats = verificationByOrigin[point.origin] ??= {
+        points: 0,
+        x: [Infinity, -Infinity],
+        y: [Infinity, -Infinity],
+      };
+      stats.points += 1;
+      stats.x = [Math.min(stats.x[0], point.x), Math.max(stats.x[1], point.x)];
+      stats.y = [Math.min(stats.y[0], point.y), Math.max(stats.y[1], point.y)];
+    }
+    console.log(JSON.stringify({
+      movementPath,
+      movement: {
+        steps: movement.length,
+        allDetected: movement.every(({ detected }) => detected),
+        firstMissedStep: movement.find(({ detected }) => !detected)?.step ?? null,
+        lostSteps: movement.filter(({ penLost }) => penLost).map(({ step }) => step),
+        firstScope: movement[0]?.scope ?? null,
+        lastScope: movement.at(-1)?.scope ?? null,
+      },
+      pointsBeforeStop,
+      stopCompleted,
+      enteredStopMoving,
+      penLostAfterStop,
+      points: linePointCoordinates(),
+      verificationByOrigin,
+    }));
+    process.exit(0);
+  }
   console.log(JSON.stringify({
+    movementPath,
     commandCompleted,
     commandSeconds,
     penLostAfterDraw,

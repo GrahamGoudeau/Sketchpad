@@ -74,6 +74,7 @@ writeSharedPen(
   2,
   performance.timeOrigin + performance.now(),
 );
+worker.postMessage({ type: "pen-update" });
 const penDeadline = performance.now() + 1000;
 while (Atomics.load(penView, PEN_INDEX.appliedSequence) !== 2 && performance.now() < penDeadline) {
   await delay(1);

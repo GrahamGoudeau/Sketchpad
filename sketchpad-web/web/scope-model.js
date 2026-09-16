@@ -18,3 +18,8 @@ export function scopePointPosition(event, width, height) {
     y: lastCanvasRow - axisPosition(event.physical_y, height),
   };
 }
+
+export function lightPenStatus(active, lost) {
+  if (!active) return "UP";
+  return lost ? "LOST" : "TRACKING";
+}

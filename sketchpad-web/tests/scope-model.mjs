@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   axisPosition,
   displayTime,
+  lightPenStatus,
   scopePointPosition,
 } from "../web/scope-model.js";
 
@@ -17,6 +18,10 @@ assert.deepEqual(
   scopePointPosition({ physical_x: 0, physical_y: 0 }, 1024, 768),
   { x: 0, y: 767 },
 );
+
+assert.equal(lightPenStatus(false, true), "UP");
+assert.equal(lightPenStatus(true, true), "LOST");
+assert.equal(lightPenStatus(true, false), "TRACKING");
 assert.deepEqual(
   scopePointPosition({ physical_x: 1022, physical_y: 1022 }, 1024, 768),
   { x: 1023, y: 0 },

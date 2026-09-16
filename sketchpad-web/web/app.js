@@ -1,10 +1,14 @@
-import { displayTime, scopePointPosition } from "./scope-model.js?v=20260915-11";
+import {
+  displayTime,
+  lightPenStatus,
+  scopePointPosition,
+} from "./scope-model.js?v=20260915-12";
 import {
   PEN_STATE_LENGTH,
   readSharedPenApplication,
   writeSharedPen,
-} from "./pen-transport.js?v=20260915-11";
-import { HeldControls, drawKeyTransitions } from "./external-input.js?v=20260915-11";
+} from "./pen-transport.js?v=20260915-12";
+import { HeldControls, drawKeyTransitions } from "./external-input.js?v=20260915-12";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
@@ -108,7 +112,7 @@ const keyboardButtons = new Map([
   ["KeyU", externalButtons.find((button) => button.dataset.command === "UNFIX")],
 ]);
 
-const machineWorker = new Worker(new URL("./machine-worker.js?v=20260915-11", import.meta.url), {
+const machineWorker = new Worker(new URL("./machine-worker.js?v=20260915-12", import.meta.url), {
   type: "module",
 });
 const penBuffer = globalThis.crossOriginIsolated && typeof SharedArrayBuffer === "function"
@@ -133,7 +137,6 @@ const MIN_FRAME_INTERVAL_MS = 15;
 const MAX_SAFE_FRAME_MS = 20;
 const MAX_OVERLOADED_FRAMES = 3;
 const PHOSPHOR_HALF_LIFE_SECONDS = 0.12;
-const LIGHT_PEN_TRACKING_HOLD_MS = 400;
 const SELECTION_BITS = [
   [0o2000000n, "POINT"],
   [0o4000000n, "LINE"],
@@ -151,8 +154,6 @@ let displayRealEpoch = null;
 let displayStoppedAt = null;
 let beamRateWindowStartedAt = 0;
 let beamRateWindowSpots = 0;
-let lastLightPenDetectionCount = 0n;
-let lastLightPenDetectionAt = 0;
 const lightPen = { active: false, x: 0.5, y: 0.5, radius: 12 / 1022 };
 let lightPenBounds = null;
 let penSequence = 0;
@@ -312,19 +313,7 @@ function updateReadouts() {
     return;
   }
 
-  const detectionCount = machineState.detectionCount;
-  if (detectionCount !== lastLightPenDetectionCount) {
-    lastLightPenDetectionCount = detectionCount;
-    lastLightPenDetectionAt = performance.now();
-  }
-  const lost = machineState.lost;
-  const recentlyDetected = performance.now() - lastLightPenDetectionAt
-    <= LIGHT_PEN_TRACKING_HOLD_MS;
-  penStateNode.textContent = !lightPen.active
-    ? "UP"
-    : recentlyDetected && !lost
-      ? "TRACKING"
-      : "SEEKING";
+  penStateNode.textContent = lightPenStatus(lightPen.active, machineState.lost);
 
   const atBits = machineState.atBits;
   const selections = SELECTION_BITS
@@ -528,8 +517,6 @@ function loadMachine(tape) {
   activeTape = tape ? new Uint8Array(tape) : null;
   lightPen.active = false;
   publishLightPen();
-  lastLightPenDetectionCount = 0n;
-  lastLightPenDetectionAt = 0;
   pointCount = 0;
   lastFrameAt = 0;
   overloadedFrames = 0;
@@ -607,6 +594,7 @@ function publishLightPen() {
       penSequence,
       performance.timeOrigin + dispatchedAt,
     );
+    machineWorker.postMessage({ type: "pen-update" });
   } else {
     const pen = { ...lightPen, sequence: penSequence };
     machineWorker.postMessage({ type: "pen", pen });
@@ -636,13 +624,13 @@ lightPenSurface.addEventListener("pointerdown", (event) => {
   updateLightPen(event);
 });
 
-lightPenSurface.addEventListener("pointermove", (event) => {
-  if (event.cancelable) event.preventDefault();
-  updateLightPen(event);
-});
-
 if ("onpointerrawupdate" in window) {
   lightPenSurface.addEventListener("pointerrawupdate", (event) => {
+    if (event.cancelable) event.preventDefault();
+    updateLightPen(event);
+  });
+} else {
+  lightPenSurface.addEventListener("pointermove", (event) => {
     if (event.cancelable) event.preventDefault();
     updateLightPen(event);
   });

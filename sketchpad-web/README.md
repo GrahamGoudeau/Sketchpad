@@ -56,7 +56,7 @@ assembly-drawn `INK` label.  The photocell cannot detect blank glass.  After
 the assembly draws its tracking pattern, the operator can move the pen into
 blank space while the tracking pattern remains under it.
 
-The light-pen readout reports pointer state and recent unit-55 detection.  The
+The light-pen readout reports the original `LPLOST` state.  The
 selection readout decodes Sketchpad's own `ATBITS` word at `200044`.  These are
 read-only diagnostics.  They do not change assembly state.  A pickup control
 sets the modeled detector radius.  The original hardware had a manual
@@ -64,6 +64,13 @@ sensitivity dial whose correct setting depended on scope intensity and was set
 by trial and error.  No exact historical dial setting is known.  The browser
 starts at a 12-unit modeled radius.  This keeps the assembly tracker close to
 the pointer.  The operator can raise it when acquisition is difficult.
+
+Unit 55 reports a light detection.  It does not report pen coordinates.  The
+assembly learns a coordinate from the unit-60 point that caused the detection.
+A fast mouse jump can move beyond the assembly's tracker search pattern and
+set `LPLOST`.  The original `47LOSTPEN` path can then complete a moving object.
+The short perpendicular stroke at a moving endpoint is the original tracker
+search pattern.  It is not a browser-drawn replacement line.
 
 The desktop interface maps a `D` press to external button Q1.8 and the
 recovered `STARTDRAW` routine.  A `D` release removes Q1.8 and holds Q1.6 for
@@ -108,6 +115,9 @@ Run the browser-independent checks:
 
 ```sh
 npm run test:display
+npm run test:horizontal
+npm run test:vertical
+npm run test:jump-loss
 npm run test:pen
 npm run test:worker
 npm run test:assembly

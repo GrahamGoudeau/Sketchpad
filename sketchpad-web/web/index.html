@@ -159,7 +159,8 @@
           <li><strong>True up and solve.</strong> Leave <em>Solve</em> off. Tap <kbd>T</kbd> once. This sends Q2.9 to <code>TRUEUP</code>. The assembly adds one horizontal-or-vertical constraint. Then turn on <em>Solve</em>. The original <code>RELAX</code> routine changes the endpoints.</li>
           <li><strong>Fix and release.</strong> Select an object. Tap <kbd>F</kbd> once. <code>FIXIT</code> puts it in the original fixed-object list. <kbd>U</kbd> runs <code>UNFIX</code> and clears the fixed and designated lists.</li>
         </ol>
-        <p>If the pen stays on <code>SEEKING</code>, raise <em>Pickup radius</em> and move across a bright mark again. A larger radius models a more permissive detector. It does not select objects in JavaScript.</p>
+        <p><em>Light pen</em> now reports the assembly's own <code>LPLOST</code> state. Unit 55 reports only an optical hit. It does not report coordinates. A fast jump can outrun the original tracker search pattern and show <code>LOST</code>. Move back across a bright tracker mark to reacquire it. A larger <em>Pickup radius</em> models a more permissive detector.</p>
+        <p>The short perpendicular stroke at a moving endpoint is the original tracker search pattern. Phosphor timing can make that stroke briefly appear brighter than the line.</p>
         <p><em>Input handler</em> measures browser work from one pointer event to publication of the physical pen state. <em>Pen apply</em> measures transfer of that state into the worker-owned emulator. The visible tracking marks still follow the original assembly and scope timing.</p>
         <p>The Q4-Q1 panel remains available for every external-input bit. Named buttons come from the recovered <code>READIT</code> dispatch table. Keyboard shortcuts only press those emulated physical buttons. They do not create or edit geometry in JavaScript.</p>
         <details class="advanced-guide">
@@ -188,6 +189,6 @@
         <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260915-11"></script>
+    <script type="module" src="./app.js?v=20260915-12"></script>
   </body>
 </html>
