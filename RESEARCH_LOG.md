@@ -2833,3 +2833,10 @@ setter.  A worker test applied the new state in 0.041 milliseconds.  Chrome now
 uses `pointerrawupdate` without also processing its duplicate `pointermove`
 stream.  No host code supplies coordinates to Sketchpad, edits `PREDIC`,
 creates geometry, or suppresses the original tracker pattern.
+
+Simulator commit `4c7fb86` was pushed before deployment.  Release
+`20260916T025940Z` became the current production release after Caddy validation.
+A fresh production browser reached `RUNNING`, generated 99,995 original scope
+points, and acquired the pen as `TRACKING`.  That live input reported 0.030
+milliseconds in the browser handler and 0.050 milliseconds to the worker
+hardware setter.  A clean reload again reached `RUNNING` with the pen `UP`.
