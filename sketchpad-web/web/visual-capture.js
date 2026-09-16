@@ -13,6 +13,14 @@ export function supportedCaptureType(mediaRecorder = globalThis.MediaRecorder) {
   return MIME_TYPES.find((type) => mediaRecorder.isTypeSupported(type)) ?? "video/webm";
 }
 
+export function isCaptureShortcut(event) {
+  return event.code === "KeyR"
+    && !event.repeat
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey;
+}
+
 export class VisualCapture {
   constructor(canvas, overlayState = () => null, mediaRecorder = globalThis.MediaRecorder) {
     this.canvas = canvas;

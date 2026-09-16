@@ -119,7 +119,8 @@ scope or the emulated machine.
 and download one intact, timestamped WebM file.  Recording does not change the
 machine, pen, display stream, or canvas renderer.  Attach the downloaded file
 to a defect report when a transient display fault cannot be described from a
-still image.
+still image.  The `R` key starts and stops the recorder.  Modified `R` shortcuts
+remain available to the browser.
 
 Run the browser-independent checks:
 

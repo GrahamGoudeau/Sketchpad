@@ -143,7 +143,7 @@
             <legend>VISUAL DIAGNOSTIC LOG</legend>
             <p>This records the scope plus a cyan input cursor and state label. The overlay exists only in the diagnostic video. The recorder stores one-second media chunks. Stop it before you download one intact WebM file.</p>
             <div class="capture-buttons">
-              <button id="capture-toggle" type="button">START VISUAL LOG</button>
+              <button id="capture-toggle" type="button" aria-keyshortcuts="R">START VISUAL LOG · R</button>
               <button id="capture-download" type="button" disabled>DOWNLOAD VISUAL LOG</button>
             </div>
             <output id="capture-status">READY</output>
@@ -168,6 +168,7 @@
           <li><strong>Select.</strong> Move over the middle of a visible line. Click once if the sensor is disengaged. Wait until <em>Selection</em> says <code>LINE</code>. Send the next command while the sensor remains engaged.</li>
           <li><strong>True up and solve.</strong> Leave <em>Solve</em> off. Tap <kbd>T</kbd> once. This sends Q2.9 to <code>TRUEUP</code>. The assembly adds one horizontal-or-vertical constraint. Then turn on <em>Solve</em>. The original <code>RELAX</code> routine changes the endpoints.</li>
           <li><strong>Fix and release.</strong> Select an object. Tap <kbd>F</kbd> once. <code>FIXIT</code> puts it in the original fixed-object list. <kbd>U</kbd> runs <code>UNFIX</code> and clears the fixed and designated lists.</li>
+          <li><strong>Record a fault.</strong> Tap <kbd>R</kbd> to start the visual log. Tap <kbd>R</kbd> again to stop it. Then use the download button when the drawing is complete.</li>
         </ol>
         <p><em>Light pen</em> now reports the assembly's own <code>LPLOST</code> state. Unit 55 reports only an optical hit. It does not report coordinates. A fast jump can outrun the original tracker search pattern and show <code>LOST</code>. Move back across a bright tracker mark to reacquire it. A larger <em>Pickup radius</em> models a more permissive detector.</p>
         <p>The short perpendicular stroke at a moving endpoint can be the original tracker search pattern. Use <em>Visual diagnostic log</em> when a discontinuity does not look like that pattern. Stop the recorder, download the WebM file, and attach it to the project report.</p>
@@ -199,6 +200,6 @@
         <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260915-16"></script>
+    <script type="module" src="./app.js?v=20260915-17"></script>
   </body>
 </html>

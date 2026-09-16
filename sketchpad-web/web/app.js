@@ -9,7 +9,11 @@ import {
   writeSharedPen,
 } from "./pen-transport.js?v=20260915-12";
 import { HeldControls, drawKeyTransitions } from "./external-input.js?v=20260915-12";
-import { captureFileName, VisualCapture } from "./visual-capture.js?v=20260915-16";
+import {
+  captureFileName,
+  isCaptureShortcut,
+  VisualCapture,
+} from "./visual-capture.js?v=20260915-17";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
@@ -194,7 +198,7 @@ async function toggleVisualCapture() {
   if (!visualCapture.recording) {
     try {
       visualCapture.start();
-      captureButton.textContent = "STOP VISUAL LOG";
+      captureButton.textContent = "STOP VISUAL LOG · R";
       captureDownloadButton.disabled = true;
       updateCaptureClock();
       captureClock = setInterval(updateCaptureClock, 250);
@@ -210,7 +214,7 @@ async function toggleVisualCapture() {
   clearInterval(captureClock);
   captureClock = null;
   captureButton.disabled = false;
-  captureButton.textContent = "START NEW VISUAL LOG";
+  captureButton.textContent = "START NEW VISUAL LOG · R";
   captureDownloadButton.disabled = false;
   captureStatus.value = `READY · ${formatCaptureDuration(duration)} · ${(blob.size / 1_048_576).toFixed(1)} MB · ${captureFileName(visualCapture.startedOn)}`;
 }
@@ -758,6 +762,11 @@ for (const button of externalButtons) {
 }
 
 document.addEventListener("keydown", (event) => {
+  if (isCaptureShortcut(event)) {
+    event.preventDefault();
+    if (!captureButton.disabled) void toggleVisualCapture();
+    return;
+  }
   if (event.code === "Escape" && lightPen.active) {
     event.preventDefault();
     lightPen.active = false;

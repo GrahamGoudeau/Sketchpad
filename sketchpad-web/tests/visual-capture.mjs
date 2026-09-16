@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   captureFileName,
+  isCaptureShortcut,
   supportedCaptureType,
   VisualCapture,
 } from "../web/visual-capture.js";
@@ -14,6 +15,10 @@ const fakeRecorder = {
 
 assert.equal(supportedCaptureType(null), null);
 assert.equal(supportedCaptureType(fakeRecorder), "video/webm;codecs=vp8");
+assert.equal(isCaptureShortcut({ code: "KeyR" }), true);
+assert.equal(isCaptureShortcut({ code: "KeyR", repeat: true }), false);
+assert.equal(isCaptureShortcut({ code: "KeyR", ctrlKey: true }), false);
+assert.equal(isCaptureShortcut({ code: "KeyD" }), false);
 assert.equal(
   captureFileName(new Date("2026-09-16T03:12:34.567Z")),
   "sketchpad-visual-2026-09-16T03-12-34.567Z.webm",
