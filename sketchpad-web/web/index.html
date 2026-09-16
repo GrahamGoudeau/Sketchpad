@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07100d">
     <title>Sketchpad on TX-2</title>
-    <link rel="stylesheet" href="./styles.css?v=20260915-10">
+    <link rel="stylesheet" href="./styles.css?v=20260915-13">
   </head>
   <body>
     <main>
@@ -139,6 +139,16 @@
             </label>
           </div>
 
+          <fieldset class="capture-control">
+            <legend>VISUAL DIAGNOSTIC LOG</legend>
+            <p>This records the scope canvas exactly as shown. The recorder stores one-second media chunks. Stop it before you download one intact WebM file.</p>
+            <div class="capture-buttons">
+              <button id="capture-toggle" type="button">START VISUAL LOG</button>
+              <button id="capture-download" type="button" disabled>DOWNLOAD VISUAL LOG</button>
+            </div>
+            <output id="capture-status">READY</output>
+          </fieldset>
+
           <p id="message" class="message" role="status">
             Loading the WebAssembly machine.
           </p>
@@ -160,7 +170,7 @@
           <li><strong>Fix and release.</strong> Select an object. Tap <kbd>F</kbd> once. <code>FIXIT</code> puts it in the original fixed-object list. <kbd>U</kbd> runs <code>UNFIX</code> and clears the fixed and designated lists.</li>
         </ol>
         <p><em>Light pen</em> now reports the assembly's own <code>LPLOST</code> state. Unit 55 reports only an optical hit. It does not report coordinates. A fast jump can outrun the original tracker search pattern and show <code>LOST</code>. Move back across a bright tracker mark to reacquire it. A larger <em>Pickup radius</em> models a more permissive detector.</p>
-        <p>The short perpendicular stroke at a moving endpoint is the original tracker search pattern. Phosphor timing can make that stroke briefly appear brighter than the line.</p>
+        <p>The short perpendicular stroke at a moving endpoint can be the original tracker search pattern. Use <em>Visual diagnostic log</em> when a discontinuity does not look like that pattern. Stop the recorder, download the WebM file, and attach it to the project report.</p>
         <p><em>Input handler</em> measures browser work from one pointer event to publication of the physical pen state. <em>Pen apply</em> measures transfer of that state into the worker-owned emulator. The visible tracking marks still follow the original assembly and scope timing.</p>
         <p>The Q4-Q1 panel remains available for every external-input bit. Named buttons come from the recovered <code>READIT</code> dispatch table. Keyboard shortcuts only press those emulated physical buttons. They do not create or edit geometry in JavaScript.</p>
         <details class="advanced-guide">
@@ -189,6 +199,6 @@
         <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260915-12"></script>
+    <script type="module" src="./app.js?v=20260915-14"></script>
   </body>
 </html>

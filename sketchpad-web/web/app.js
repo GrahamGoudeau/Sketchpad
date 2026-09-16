@@ -9,6 +9,7 @@ import {
   writeSharedPen,
 } from "./pen-transport.js?v=20260915-12";
 import { HeldControls, drawKeyTransitions } from "./external-input.js?v=20260915-12";
+import { captureFileName, VisualCapture } from "./visual-capture.js?v=20260915-14";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
@@ -36,6 +37,9 @@ const drawCycleToggle = document.querySelector("#draw-cycle-toggle");
 const solveToggle = document.querySelector("#solve-toggle");
 const showBlocksToggle = document.querySelector("#show-blocks-toggle");
 const showConstraintsToggle = document.querySelector("#show-constraints-toggle");
+const captureButton = document.querySelector("#capture-toggle");
+const captureDownloadButton = document.querySelector("#capture-download");
+const captureStatus = document.querySelector("#capture-status");
 
 const commandButtons = new Map([
   ["1.1", { name: "MOVEPIC" }],
@@ -155,12 +159,70 @@ let displayStoppedAt = null;
 let beamRateWindowStartedAt = 0;
 let beamRateWindowSpots = 0;
 const lightPen = { active: false, x: 0.5, y: 0.5, radius: 12 / 1022 };
+const visualCapture = new VisualCapture(canvas);
 let lightPenBounds = null;
 let penSequence = 0;
 let lastPenDispatch = null;
 let displayedPenApplicationSequence = 0;
 let latestInputHandlerMs = null;
 let latestEventQueueMs = null;
+let captureClock = null;
+
+function captureDuration() {
+  if (visualCapture.startedAt === null) return 0;
+  return Math.max(0, performance.now() - visualCapture.startedAt);
+}
+
+function formatCaptureDuration(milliseconds) {
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function updateCaptureClock() {
+  captureStatus.value = `RECORDING ${formatCaptureDuration(captureDuration())} · ${visualCapture.chunks.length} CHUNKS`;
+}
+
+async function toggleVisualCapture() {
+  if (!visualCapture.recording) {
+    try {
+      visualCapture.start();
+      captureButton.textContent = "STOP VISUAL LOG";
+      captureDownloadButton.disabled = true;
+      updateCaptureClock();
+      captureClock = setInterval(updateCaptureClock, 250);
+    } catch (error) {
+      captureStatus.value = String(error);
+    }
+    return;
+  }
+
+  captureButton.disabled = true;
+  const duration = captureDuration();
+  const blob = await visualCapture.stop();
+  clearInterval(captureClock);
+  captureClock = null;
+  captureButton.disabled = false;
+  captureButton.textContent = "START NEW VISUAL LOG";
+  captureDownloadButton.disabled = false;
+  captureStatus.value = `READY · ${formatCaptureDuration(duration)} · ${(blob.size / 1_048_576).toFixed(1)} MB · ${captureFileName(visualCapture.startedOn)}`;
+}
+
+captureButton.addEventListener("click", toggleVisualCapture);
+captureDownloadButton.addEventListener("click", () => {
+  try {
+    visualCapture.download();
+  } catch (error) {
+    captureStatus.value = String(error);
+  }
+});
+
+if (!visualCapture.supported) {
+  captureButton.disabled = true;
+  captureDownloadButton.disabled = true;
+  captureStatus.value = "VISUAL RECORDING IS NOT AVAILABLE IN THIS BROWSER";
+}
 
 function setMessage(message, error = false) {
   messageNode.textContent = message;

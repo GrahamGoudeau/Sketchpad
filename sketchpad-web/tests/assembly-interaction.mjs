@@ -654,12 +654,19 @@ const movementProfiles = {
 const movementProfile = movementProfiles[movementPath];
 assert.ok(movementProfile, `unknown MOVEMENT_PATH ${movementPath}`);
 const movementSteps = movementProfile.steps;
+const movementDurationMilliseconds = process.env.MOVEMENT_DURATION_MS === undefined
+  ? null
+  : Number(process.env.MOVEMENT_DURATION_MS);
+assert.ok(movementDurationMilliseconds === null
+  || Number.isFinite(movementDurationMilliseconds) && movementDurationMilliseconds > 0,
+"MOVEMENT_DURATION_MS must be a positive number");
 const finalPhysicalX = movementProfile.x;
 const finalPhysicalY = movementProfile.y;
 const finalX = finalPhysicalX / 1022;
 const finalY = 1 - finalPhysicalY / 1022;
 const movement = [];
 const trackerDebug = [];
+const movementStartedAt = machine.simulated_time;
 for (let step = 1; step <= movementSteps; step += 1) {
   phase = `move-${step}`;
   const fraction = step / movementSteps;
@@ -690,7 +697,15 @@ for (let step = 1; step <= movementSteps; step += 1) {
     true,
   );
   let detected;
-  {
+  if (movementDurationMilliseconds !== null) {
+    const deadline = movementStartedAt
+      + movementDurationMilliseconds / 1000 * step / movementSteps;
+    while (machine.simulated_time < deadline) {
+      recordMovementScope(machine.step(machine.simulated_time));
+      assert.equal(machine.alarm_active, false, machine.last_alarm);
+    }
+    detected = Number(machine.light_pen_detection_count) > detectionsBeforeStep;
+  } else {
     const instructionRing = [];
     const stateCounts = new Map();
     const detections = [];
@@ -842,6 +857,14 @@ for (let step = 1; step <= movementSteps; step += 1) {
     scope: movementScope.points > 0 ? movementScope : null,
   });
 }
+const penLostAfterMovement = machine.memory_word(0o200042, machine.simulated_time).meta;
+if (process.env.EXPECT_TRACK_LOSS !== undefined) {
+  assert.equal(
+    penLostAfterMovement,
+    process.env.EXPECT_TRACK_LOSS === "1",
+    "the timed path must have the expected assembly LPLOST state",
+  );
+}
 
 const pointsBeforeStop = linePointCoordinates();
 const stopWithButton = process.env.STOP_WITH_BUTTON === "1";
@@ -935,12 +958,12 @@ const verificationY = verificationScope.map(({ y }) => y);
 const verificationWidth = Math.max(...verificationX) - Math.min(...verificationX);
 const verificationHeight = Math.max(...verificationY) - Math.min(...verificationY);
 
-if (movementPath === "horizontal") {
+if (movementPath === "horizontal" && movementDurationMilliseconds === null) {
   assert.ok(verificationWidth >= 120, "the horizontal line must retain its length");
   assert.ok(verificationHeight <= 40,
     "the horizontal line and tracker must remain in their narrow vertical band");
 }
-if (movementPath === "vertical") {
+if (movementPath === "vertical" && movementDurationMilliseconds === null) {
   assert.ok(verificationHeight >= 120, "the vertical line must retain its length");
   assert.ok(verificationWidth <= 40,
     "the vertical line and tracker must remain in their narrow horizontal band");
@@ -952,7 +975,7 @@ if (movementPath === "jump") {
     "the original assembly must record LPLOST after a missed jump");
 }
 
-if (movementPath !== "jump") {
+if (movementPath !== "jump" && movementDurationMilliseconds === null) {
   assert.equal(
     movement.every(({ detected }) => detected),
     true,
@@ -991,6 +1014,13 @@ if (process.env.TRACK_ONLY === "1") {
     }
     console.log(JSON.stringify({
       movementPath,
+      movementDurationMilliseconds,
+      penLostAfterDraw,
+      penLostAfterMovement,
+      reacquired,
+      predictionBeforeReacquire: octal(predictionBeforeReacquire),
+      currentPrediction: octal(machine.memory_word(0o003574, machine.simulated_time).value),
+      drawScope: phaseScope.get("draw") ?? null,
       movement: {
         steps: movement.length,
         allDetected: movement.every(({ detected }) => detected),

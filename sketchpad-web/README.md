@@ -111,10 +111,18 @@ page reports the browser handler cost and the time from publication to the
 worker's hardware setter.  These values measure input transport.  They do not
 replace the original assembly timing of the visible tracking pattern.
 
+The diagnostic recorder captures the scope canvas at 30 frames per second.
+`MediaRecorder` stores one-second chunks.  The operator can stop the recorder
+and download one intact, timestamped WebM file.  Recording does not change the
+machine, pen, display stream, or canvas renderer.  Attach the downloaded file
+to a defect report when a transient display fault cannot be described from a
+still image.
+
 Run the browser-independent checks:
 
 ```sh
 npm run test:display
+npm run test:capture
 npm run test:horizontal
 npm run test:vertical
 npm run test:jump-loss
