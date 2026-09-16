@@ -9,7 +9,7 @@ import {
   writeSharedPen,
 } from "./pen-transport.js?v=20260915-12";
 import { HeldControls, drawKeyTransitions } from "./external-input.js?v=20260915-12";
-import { captureFileName, VisualCapture } from "./visual-capture.js?v=20260915-15";
+import { captureFileName, VisualCapture } from "./visual-capture.js?v=20260915-16";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });

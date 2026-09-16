@@ -126,7 +126,9 @@ export class VisualCapture {
     const link = document.createElement("a");
     link.href = url;
     link.download = captureFileName(date);
+    document.body.append(link);
     link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 }
