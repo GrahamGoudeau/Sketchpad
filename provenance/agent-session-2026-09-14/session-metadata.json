@@ -1,0 +1,40 @@
+{
+  "session_id": "01a0a218-34bd-7b81-9c36-dfff1cd53265",
+  "started_at": "2026-09-14T22:44:51.451Z",
+  "initial_cwd": "/Users/grahamgoudeau/code/g-lang",
+  "cli_version": "0.148.0",
+  "source": "vscode",
+  "originator": "codex_chatgpt_ios_remote",
+  "model_provider": "openai",
+  "export_scope": {
+    "starts_at": "2026-09-14T22:44:53.193Z",
+    "ends_before": "2026-09-16T04:29:31.174Z",
+    "reason_for_cutoff": "The next user message moved the session to unrelated G-language work."
+  },
+  "models": [
+    "gpt-5.6-sol"
+  ],
+  "reasoning_efforts": [
+    "high"
+  ],
+  "working_directories": [
+    "/Users/grahamgoudeau/code/g-lang"
+  ],
+  "raw_log": {
+    "basename": "rollout-2026-09-14T18-44-50-01a0a218-34bd-7b81-9c36-dfff1cd53265.jsonl",
+    "bytes": 913007339,
+    "sha256": "d273a8aad312ead573bd90b7bf0b40c418a58a0f0f9477aec48d7c761b2ac777",
+    "committed": false
+  },
+  "source_slice": {
+    "bytes": 877812843,
+    "sha256": "593b1ffce58f2a397f63e272637cfe7305905288dde0dd18f0eaacf9a8541a71",
+    "committed": false
+  },
+  "export_counts": {
+    "conversation_messages": 710,
+    "tool_calls": 6006,
+    "tool_output_digests": 6006,
+    "records_with_public_transformations": 4
+  }
+}

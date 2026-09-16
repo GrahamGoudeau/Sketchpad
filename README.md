@@ -57,3 +57,6 @@ software.
 See [Sketchpad Reconstruction](RECONSTRUCTION.md) for the evidence rules and
 source repair register.  See [Research Log](RESEARCH_LOG.md) for dated project
 checkpoints, major findings, and open interpretations.
+
+The public archival export of the Codex reconstruction session is in [Agent
+Session Provenance](provenance/agent-session-2026-09-14/README.md).
