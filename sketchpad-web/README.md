@@ -61,12 +61,18 @@ selection readout decodes Sketchpad's own `ATBITS` word at `200044`.  These are
 read-only diagnostics.  They do not change assembly state.  A pickup control
 sets the modeled detector radius.  The original hardware had a manual
 sensitivity dial whose correct setting depended on scope intensity and was set
-by trial and error.  No exact historical dial setting is known.
+by trial and error.  No exact historical dial setting is known.  The browser
+starts at a 12-unit modeled radius.  This keeps the assembly tracker close to
+the pointer.  The operator can raise it when acquisition is difficult.
 
-The desktop interface maps `D` to external button Q1.8 and the recovered
-`STARTDRAW` routine.  It maps `T` to Q2.9 and `TRUEUP`.  It maps `F` to Q3.3
-and `FIXIT`.  It maps `U` to Q2.7 and `UNFIX`.  These shortcuts only change
-the External Input Register.  The complete Q4-Q1 button panel stays available.
+The desktop interface maps a `D` press to external button Q1.8 and the
+recovered `STARTDRAW` routine.  A `D` release removes Q1.8 and holds Q1.6 for
+the recovered `STOPMOVEP` routine.  The next `D` press removes Q1.6 before it
+sets Q1.8 again.  This latch makes a keyboard release into two physical console
+button states.  The original assembly still creates and completes the object.
+The interface maps `T` to Q2.9 and `TRUEUP`.  It maps `F` to Q3.3 and `FIXIT`.
+It maps `U` to Q2.7 and `UNFIX`.  These shortcuts only change the External
+Input Register.  The complete Q4-Q1 button panel stays available.
 Its button titles name every routine found in the recovered `READIT` dispatch
 table.
 

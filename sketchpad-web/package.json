@@ -8,8 +8,11 @@
     "dev": "python3 -m http.server 8082 --directory web",
     "test:display": "node tests/scope-model.mjs",
     "test:pen": "node tests/pen-transport.mjs",
+    "test:input": "node tests/external-input.mjs",
     "test:worker": "node tests/machine-worker.mjs",
     "test:assembly": "node tests/assembly-interaction.mjs",
+    "test:axes": "TRACK_ONLY=1 CROSS_SCOPE_AXES=1 node tests/assembly-interaction.mjs",
+    "test:draw-release": "TRACK_ONLY=1 CROSS_SCOPE_AXES=1 STOP_WITH_BUTTON=1 node tests/assembly-interaction.mjs",
     "test:circle": "CIRCLE_ONLY=1 node tests/assembly-interaction.mjs",
     "test:constraint": "CONSTRAINT_ONLY=1 node tests/assembly-interaction.mjs",
     "test:fix": "CONSTRAINT_ONLY=1 SELECT_COMMAND=3.3 node tests/assembly-interaction.mjs"

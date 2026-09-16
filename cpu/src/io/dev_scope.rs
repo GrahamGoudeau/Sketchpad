@@ -62,11 +62,16 @@ impl ScopeDisplay {
         }
     }
 
-    fn decode_point(source: Unsigned36Bit) -> (i16, i16) {
+    fn decode_point(source: Unsigned36Bit) -> (u16, u16, i16, i16) {
         let bits = u64::from(source);
-        let x = ((bits >> 26) & 0o1777) as u16;
-        let y = ((bits >> 8) & 0o1777) as u16;
-        (Self::decode_coordinate(x), Self::decode_coordinate(y))
+        let raw_x = ((bits >> 26) & 0o1777) as u16;
+        let raw_y = ((bits >> 8) & 0o1777) as u16;
+        (
+            raw_x,
+            raw_y,
+            Self::decode_coordinate(raw_x),
+            Self::decode_coordinate(raw_y),
+        )
     }
 }
 
@@ -136,9 +141,11 @@ impl Unit for ScopeDisplay {
             return Err(TransferFailed::BufferNotFree);
         }
         self.transmit_will_be_finished_at = Some(ctx.simulated_time + self.spot_duration());
-        let (x, y) = Self::decode_point(source);
+        let (raw_x, raw_y, x, y) = Self::decode_point(source);
         Ok(Some(OutputEvent::ScopePoint {
             unit: UNIT,
+            raw_x,
+            raw_y,
             x,
             y,
             intensity: self.intensity(),
@@ -185,7 +192,10 @@ mod tests {
         let x = 0o1776_u64;
         let y = 0o123_u64;
         let source = Unsigned36Bit::try_from((x << 26) | (y << 8)).unwrap();
-        assert_eq!(ScopeDisplay::decode_point(source), (-1, 0o123));
+        assert_eq!(
+            ScopeDisplay::decode_point(source),
+            (0o1776, 0o123, -1, 0o123),
+        );
     }
 
     #[test]
@@ -204,6 +214,8 @@ mod tests {
             event,
             Some(OutputEvent::ScopePoint {
                 unit: UNIT,
+                raw_x: 2,
+                raw_y: 2,
                 x: 2,
                 y: 2,
                 intensity: 3,

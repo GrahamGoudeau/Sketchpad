@@ -62,8 +62,8 @@
             <legend>LIGHT-PEN HARDWARE</legend>
             <label class="knob">
               <span>PICKUP RADIUS</span>
-              <input id="pen-sensitivity" type="range" min="8" max="72" value="40" aria-label="Light-pen pickup radius">
-              <output id="pen-sensitivity-output">40 UNITS</output>
+              <input id="pen-sensitivity" type="range" min="4" max="72" value="12" aria-label="Light-pen pickup radius">
+              <output id="pen-sensitivity-output">12 UNITS</output>
             </label>
             <p>This model maps sensitivity to a detection radius. The original pen had a manual sensitivity dial. Its exact setting is unknown.</p>
           </fieldset>
@@ -154,7 +154,7 @@
         <ol>
           <li><strong>Position the pen.</strong> Move the pointer anywhere over the scope. The browser continuously sends that position to the emulated light-pen hardware.</li>
           <li><strong>Engage the sensor.</strong> Click once on a bright part of <code>INK</code>. The original photocell cannot detect blank glass. Wait until <em>Light pen</em> says <code>TRACKING</code>. Press <kbd>Escape</kbd> when you want to disengage the sensor.</li>
-          <li><strong>Draw.</strong> Hold <kbd>D</kbd> to send external button Q1.8. Move the tracker without holding the mouse button. Release <kbd>D</kbd>. The assembly creates the points and line.</li>
+          <li><strong>Draw.</strong> Hold <kbd>D</kbd> to send Q1.8 <code>STARTDRAW</code>. Move the tracker without holding the mouse button. Release <kbd>D</kbd>. The browser then holds Q1.6 <code>STOPMOVEP</code>. The original assembly finalizes the line. The next <kbd>D</kbd> press releases Q1.6 before it sends Q1.8 again.</li>
           <li><strong>Select.</strong> Move over the middle of a visible line. Click once if the sensor is disengaged. Wait until <em>Selection</em> says <code>LINE</code>. Send the next command while the sensor remains engaged.</li>
           <li><strong>True up and solve.</strong> Leave <em>Solve</em> off. Tap <kbd>T</kbd> once. This sends Q2.9 to <code>TRUEUP</code>. The assembly adds one horizontal-or-vertical constraint. Then turn on <em>Solve</em>. The original <code>RELAX</code> routine changes the endpoints.</li>
           <li><strong>Fix and release.</strong> Select an object. Tap <kbd>F</kbd> once. <code>FIXIT</code> puts it in the original fixed-object list. <kbd>U</kbd> runs <code>UNFIX</code> and clears the fixed and designated lists.</li>
@@ -167,7 +167,8 @@
           <table>
             <thead><tr><th>Input</th><th>Routine</th><th>Status</th></tr></thead>
             <tbody>
-              <tr><td>Q1.8 · <kbd>D</kbd></td><td><code>STARTDRAW</code></td><td>Verified line creation</td></tr>
+              <tr><td>Q1.8 · <kbd>D</kbd> down</td><td><code>STARTDRAW</code></td><td>Verified line creation</td></tr>
+              <tr><td>Q1.6 · <kbd>D</kbd> up</td><td><code>STOPMOVEP</code></td><td>Verified moving-object completion</td></tr>
               <tr><td>Q2.9 · <kbd>T</kbd></td><td><code>TRUEUP</code></td><td>Verified horizontal-or-vertical constraint</td></tr>
               <tr><td>Q3.3 · <kbd>F</kbd></td><td><code>FIXIT</code></td><td>Verified fixed-set link</td></tr>
               <tr><td>Q2.7 · <kbd>U</kbd></td><td><code>UNFIX</code></td><td>Verified fixed-set removal</td></tr>
@@ -187,6 +188,6 @@
         <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260915-10"></script>
+    <script type="module" src="./app.js?v=20260915-11"></script>
   </body>
 </html>

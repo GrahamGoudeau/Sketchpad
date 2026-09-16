@@ -66,10 +66,6 @@ function capturePseudoTrace(state) {
   }
 }
 
-function physicalCoordinate(value, movedOrigin) {
-  return movedOrigin ? value * 2 : value + 511;
-}
-
 function phaseStats(name) {
   if (!phaseScope.has(name)) {
     phaseScope.set(name, {
@@ -158,10 +154,8 @@ function stepBatch(ticks = 20_000) {
       observedYMin = Math.min(observedYMin, event.y);
       observedYMax = Math.max(observedYMax, event.y);
       const stats = phaseStats(phase);
-      const leftOrigin = event.origin === "left_center" || event.origin === "lower_left";
-      const bottomOrigin = event.origin === "bottom_center" || event.origin === "lower_left";
-      const physicalX = physicalCoordinate(event.x, leftOrigin);
-      const physicalY = physicalCoordinate(event.y, bottomOrigin);
+      const physicalX = event.physical_x;
+      const physicalY = event.physical_y;
       if (phase === "verify-line" && verificationScope.length < 100_000) {
         verificationScope.push({
           x: physicalX,
@@ -648,9 +642,12 @@ while (!reacquired && machine.simulated_time < reacquireDeadline) {
 }
 const penUnitAfterReacquire = machine.unit_status(0o55, machine.simulated_time);
 const executionTraceAfterReacquire = traceTicks(0);
-const movementSteps = 160;
-const finalX = firstX + movementSteps / 1022;
-const finalY = firstY - movementSteps / 1022;
+const crossScopeAxes = process.env.CROSS_SCOPE_AXES === "1";
+const movementSteps = crossScopeAxes ? 270 : 160;
+const finalPhysicalX = crossScopeAxes ? 440 : 575 + movementSteps;
+const finalPhysicalY = crossScopeAxes ? 440 : 575 + movementSteps;
+const finalX = finalPhysicalX / 1022;
+const finalY = 1 - finalPhysicalY / 1022;
 const movement = [];
 const trackerDebug = [];
 for (let step = 1; step <= movementSteps; step += 1) {
@@ -817,15 +814,24 @@ for (let step = 1; step <= movementSteps; step += 1) {
 }
 
 const pointsBeforeStop = linePointCoordinates();
-machine.set_light_pen(finalX, finalY, 26 / 1022, false);
+const stopWithButton = process.env.STOP_WITH_BUTTON === "1";
+if (stopWithButton) {
+  machine.set_external_input_register(0, 0, 0, 0o40, false);
+} else {
+  machine.set_light_pen(finalX, finalY, 26 / 1022, false);
+}
 const stopTrace = [];
 const normalizationTrace = [];
+let enteredStopMoving = false;
 const stopDeadline = machine.simulated_time + 200;
 while (
   octal(machine.memory_word(0o024114, machine.simulated_time).value) !== "000114000114"
   && machine.simulated_time < stopDeadline
 ) {
   const state = machine.control_state();
+  enteredStopMoving ||= state.sequence === 0o76 && (
+    state.instruction_address === 0o006040 || state.instruction_address === 0o006041
+  );
   if (
     state.sequence === 0o76
     && state.program_counter >= 0o201767
@@ -887,10 +893,36 @@ while (
   machine.step(machine.simulated_time);
   assert.equal(machine.alarm_active, false, machine.last_alarm);
 }
+if (stopWithButton) machine.set_external_input_register(0, 0, 0, 0, false);
 const stopCompleted = octal(machine.memory_word(0o024114, machine.simulated_time).value) === "000114000114";
+const penLostAfterStop = machine.memory_word(0o200042, machine.simulated_time).meta;
 const displayBuildTrace = traceNextDisplayBuild();
 phase = "verify-line";
 runUntilTime(machine.simulated_time + 1);
+
+if (crossScopeAxes) {
+  assert.equal(
+    movement.every(({ detected }) => detected),
+    true,
+    "the original tracker must keep detecting the pen across both physical scope axes",
+  );
+  assert.equal(stopCompleted, true, "STOPMOVEP must finish the axis-crossing line");
+}
+if (stopWithButton) {
+  if (!enteredStopMoving) {
+    console.error(JSON.stringify({
+      stopCompleted,
+      penLostAfterStop,
+      control: machine.control_state(),
+    }, null, 2));
+  }
+  assert.equal(penLostAfterStop, false,
+    "the Q1.6 regression must not complete through the lost-pen fallback");
+  assert.equal(enteredStopMoving, true,
+    "Q1.6 must enter the original STOPMOVEP routine while the light pen remains active");
+  assert.equal(stopCompleted, true,
+    "the original STOPMOVEP routine must complete the line after the D-release input");
+}
 
 if (process.env.TRACK_ONLY === "1") {
   console.log(JSON.stringify({
@@ -909,6 +941,8 @@ if (process.env.TRACK_ONLY === "1") {
     currentPrediction: octal(machine.memory_word(0o003574, machine.simulated_time).value),
     pointsBeforeStop,
     stopCompleted,
+    enteredStopMoving,
+    penLostAfterStop,
     points: linePointCoordinates(),
     stopTrace,
     normalizationTrace,

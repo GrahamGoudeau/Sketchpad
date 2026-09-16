@@ -2,7 +2,7 @@ import init, { SketchpadMachine, sketchpad_tape } from "./pkg/sketchpad_web.js";
 import {
   readSharedPen,
   recordSharedPenApplication,
-} from "./pen-transport.js?v=20260915-10";
+} from "./pen-transport.js?v=20260915-11";
 
 const SLICE_BUDGET_MS = 0.25;
 const TICKS_PER_BATCH = 16;
@@ -26,7 +26,7 @@ let lastScopeFlushAt = 0;
 let lastStatusAt = 0;
 let penView = null;
 let lastPenSequence = -1;
-let fallbackPen = { sequence: 0, x: 0.5, y: 0.5, radius: 40 / 1022, active: false };
+let fallbackPen = { sequence: 0, x: 0.5, y: 0.5, radius: 12 / 1022, active: false };
 let knobState = { values: [0, 0, 0, 0], meta: false };
 let externalState = { quarters: [0, 0, 0, 0], meta: false };
 let toggleState = {

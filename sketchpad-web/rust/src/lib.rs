@@ -22,6 +22,8 @@ enum BrowserOutput {
     ScopePoint {
         at_seconds: f64,
         unit: u8,
+        physical_x: u16,
+        physical_y: u16,
         x: i16,
         y: i16,
         intensity: u8,
@@ -74,6 +76,7 @@ fn scope_origin_name(origin: ScopeOrigin) -> &'static str {
 
 impl BrowserOutput {
     fn from_timed(event: OutputEvent, at: Duration) -> Self {
+        let physical_position = event.scope_physical_position();
         match event {
             OutputEvent::ScopePoint {
                 unit,
@@ -81,14 +84,21 @@ impl BrowserOutput {
                 y,
                 intensity,
                 origin,
-            } => BrowserOutput::ScopePoint {
-                at_seconds: at.as_secs_f64(),
-                unit: unit.into(),
-                x,
-                y,
-                intensity,
-                origin: scope_origin_name(origin),
-            },
+                ..
+            } => {
+                let (physical_x, physical_y) =
+                    physical_position.expect("a scope point has a physical position");
+                BrowserOutput::ScopePoint {
+                    at_seconds: at.as_secs_f64(),
+                    unit: unit.into(),
+                    physical_x,
+                    physical_y,
+                    x,
+                    y,
+                    intensity,
+                    origin: scope_origin_name(origin),
+                }
+            }
             OutputEvent::LincolnWriterPrint { unit, ch } => {
                 let text = ch.unicode_representation.or(match ch.base_char {
                     LincolnChar::UnicodeBaseChar(c) => Some(c),
@@ -423,6 +433,8 @@ mod tests {
         let event = BrowserOutput::from_timed(
             OutputEvent::ScopePoint {
                 unit: u6!(0o60),
+                raw_x: 0o1763,
+                raw_y: 0o42,
                 x: -12,
                 y: 34,
                 intensity: 3,
@@ -433,6 +445,8 @@ mod tests {
         let BrowserOutput::ScopePoint {
             at_seconds,
             unit,
+            physical_x,
+            physical_y,
             x,
             y,
             intensity,
@@ -442,6 +456,7 @@ mod tests {
             panic!("expected a scope point")
         };
         assert_eq!((unit, x, y, intensity), (0o60, -12, 34, 3));
+        assert_eq!((physical_x, physical_y), (1010, 34));
         assert_eq!(origin, "lower_left");
         assert_eq!(at_seconds, 0.000_020);
     }

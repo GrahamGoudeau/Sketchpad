@@ -48,34 +48,15 @@ struct LightPenPosition {
 }
 
 impl LightPenPosition {
-    fn axis_position(value: i16, moved_origin: bool) -> i32 {
-        if moved_origin {
-            i32::from(value) * 2
-        } else {
-            i32::from(value) + 511
-        }
-    }
-
     fn sees(&self, event: &OutputEvent) -> bool {
-        let OutputEvent::ScopePoint { x, y, origin, .. } = event else {
+        let Some((scope_x, scope_y)) = event.scope_physical_position() else {
             return false;
         };
         if !self.active {
             return false;
         }
-
-        let left_origin = matches!(
-            origin,
-            super::event::ScopeOrigin::LeftCenter | super::event::ScopeOrigin::LowerLeft
-        );
-        let bottom_origin = matches!(
-            origin,
-            super::event::ScopeOrigin::BottomCenter | super::event::ScopeOrigin::LowerLeft
-        );
-        let scope_x = Self::axis_position(*x, left_origin);
-        let scope_y = Self::axis_position(*y, bottom_origin);
-        let dx = scope_x - i32::from(self.x);
-        let dy = scope_y - i32::from(self.y);
+        let dx = i32::from(scope_x) - i32::from(self.x);
+        let dy = i32::from(scope_y) - i32::from(self.y);
         let radius = i32::from(self.radius);
         dx * dx + dy * dy <= radius * radius
     }
@@ -675,8 +656,17 @@ mod tests {
     use base::u6;
 
     fn scope_point(x: i16, y: i16, origin: ScopeOrigin) -> OutputEvent {
+        let encode = |value: i16| {
+            if value < 0 {
+                (!(value.unsigned_abs())) & 0o1777
+            } else {
+                value as u16
+            }
+        };
         OutputEvent::ScopePoint {
             unit: u6!(0o60),
+            raw_x: encode(x),
+            raw_y: encode(y),
             x,
             y,
             intensity: 1,
@@ -693,9 +683,9 @@ mod tests {
             radius: 2,
         };
         assert!(pen.sees(&scope_point(0, 0, ScopeOrigin::Center)));
-        assert!(pen.sees(&scope_point(0, 256, ScopeOrigin::BottomCenter)));
-        assert!(pen.sees(&scope_point(256, 0, ScopeOrigin::LeftCenter)));
-        assert!(pen.sees(&scope_point(256, 256, ScopeOrigin::LowerLeft)));
+        assert!(pen.sees(&scope_point(0, 511, ScopeOrigin::BottomCenter)));
+        assert!(pen.sees(&scope_point(511, 0, ScopeOrigin::LeftCenter)));
+        assert!(pen.sees(&scope_point(511, 511, ScopeOrigin::LowerLeft)));
         assert!(!pen.sees(&scope_point(0, 0, ScopeOrigin::LowerLeft)));
 
         let lower_left_pen = LightPenPosition {
@@ -705,6 +695,14 @@ mod tests {
             radius: 0,
         };
         assert!(lower_left_pen.sees(&scope_point(0, 0, ScopeOrigin::LowerLeft)));
+
+        let upper_right_pen = LightPenPosition {
+            active: true,
+            x: 1021,
+            y: 1021,
+            radius: 0,
+        };
+        assert!(upper_right_pen.sees(&scope_point(-1, -1, ScopeOrigin::LowerLeft)));
     }
 
     #[test]

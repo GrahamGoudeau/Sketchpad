@@ -1,9 +1,10 @@
-import { displayTime, scopePointPosition } from "./scope-model.js?v=20260915-10";
+import { displayTime, scopePointPosition } from "./scope-model.js?v=20260915-11";
 import {
   PEN_STATE_LENGTH,
   readSharedPenApplication,
   writeSharedPen,
-} from "./pen-transport.js?v=20260915-10";
+} from "./pen-transport.js?v=20260915-11";
+import { HeldControls, drawKeyTransitions } from "./external-input.js?v=20260915-11";
 
 const canvas = document.querySelector("#scope");
 const context = canvas.getContext("2d", { alpha: false });
@@ -98,7 +99,8 @@ for (const quarter of [4, 3, 2, 1]) {
 }
 
 const externalButtons = Array.from(document.querySelectorAll("[data-external-button]"));
-const heldExternalButtons = new Set();
+const heldExternalButtons = new HeldControls();
+const heldShortcutCodes = new Set();
 const keyboardButtons = new Map([
   ["KeyD", externalButtons.find((button) => button.dataset.command === "STARTDRAW")],
   ["KeyT", externalButtons.find((button) => button.dataset.command === "TRUEUP")],
@@ -106,7 +108,7 @@ const keyboardButtons = new Map([
   ["KeyU", externalButtons.find((button) => button.dataset.command === "UNFIX")],
 ]);
 
-const machineWorker = new Worker(new URL("./machine-worker.js?v=20260915-10", import.meta.url), {
+const machineWorker = new Worker(new URL("./machine-worker.js?v=20260915-11", import.meta.url), {
   type: "module",
 });
 const penBuffer = globalThis.crossOriginIsolated && typeof SharedArrayBuffer === "function"
@@ -151,7 +153,7 @@ let beamRateWindowStartedAt = 0;
 let beamRateWindowSpots = 0;
 let lastLightPenDetectionCount = 0n;
 let lastLightPenDetectionAt = 0;
-const lightPen = { active: false, x: 0.5, y: 0.5, radius: 40 / 1022 };
+const lightPen = { active: false, x: 0.5, y: 0.5, radius: 12 / 1022 };
 let lightPenBounds = null;
 let penSequence = 0;
 let lastPenDispatch = null;
@@ -351,7 +353,7 @@ function applyKnobRegister() {
 
 function applyExternalInputRegister() {
   const quarters = [0, 0, 0, 0];
-  for (const button of heldExternalButtons) {
+  for (const button of heldExternalButtons.values()) {
     if (button === externalMeta) {
       continue;
     }
@@ -386,15 +388,33 @@ function applyToggleRegisters() {
   machineWorker.postMessage({ type: "toggles", state: toggleRegisterState() });
 }
 
-function holdExternalButton(button, held) {
-  if (held) {
-    heldExternalButtons.add(button);
-  } else {
-    heldExternalButtons.delete(button);
-  }
-  button.classList.toggle("held", held);
-  button.setAttribute("aria-pressed", String(held));
+function holdExternalButton(button, owner, held) {
+  heldExternalButtons.set(button, owner, held);
+  const effectiveHeld = heldExternalButtons.has(button);
+  button.classList.toggle("held", effectiveHeld);
+  button.setAttribute("aria-pressed", String(effectiveHeld));
   applyExternalInputRegister();
+}
+
+function releaseAllExternalButtons() {
+  heldExternalButtons.clear();
+  heldShortcutCodes.clear();
+  for (const button of externalButtons) {
+    button.classList.remove("held");
+    button.setAttribute("aria-pressed", "false");
+  }
+  externalMeta.classList.remove("held");
+  externalMeta.setAttribute("aria-pressed", "false");
+  applyExternalInputRegister();
+}
+
+function applyDrawKey(held) {
+  for (const transition of drawKeyTransitions(held)) {
+    const button = externalButtons.find(
+      (candidate) => candidate.dataset.command === transition.command,
+    );
+    holdExternalButton(button, "shortcut:KeyD", transition.held);
+  }
 }
 
 function stopWithError(error) {
@@ -656,24 +676,29 @@ for (const button of externalButtons) {
     }
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    holdExternalButton(button, true);
+    holdExternalButton(button, `pointer:${event.pointerId}`, true);
   });
   for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
-    button.addEventListener(eventName, () => holdExternalButton(button, false));
+    button.addEventListener(eventName, (event) => {
+      holdExternalButton(button, `pointer:${event.pointerId}`, false);
+    });
   }
   button.addEventListener("keydown", (event) => {
     if ((event.key === " " || event.key === "Enter") && !event.repeat) {
       event.preventDefault();
-      holdExternalButton(button, true);
+      holdExternalButton(button, `control-key:${event.key}`, true);
     }
   });
   button.addEventListener("keyup", (event) => {
     if (event.key === " " || event.key === "Enter") {
       event.preventDefault();
-      holdExternalButton(button, false);
+      holdExternalButton(button, `control-key:${event.key}`, false);
     }
   });
-  button.addEventListener("blur", () => holdExternalButton(button, false));
+  button.addEventListener("blur", () => {
+    holdExternalButton(button, "control-key: ", false);
+    holdExternalButton(button, "control-key:Enter", false);
+  });
 }
 
 document.addEventListener("keydown", (event) => {
@@ -686,26 +711,36 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   const button = keyboardButtons.get(event.code);
-  if (!button || event.repeat) {
+  if (!button || event.repeat || heldShortcutCodes.has(event.code)) {
     return;
   }
   event.preventDefault();
-  holdExternalButton(button, true);
+  heldShortcutCodes.add(event.code);
+  if (event.code === "KeyD") {
+    applyDrawKey(true);
+  } else {
+    holdExternalButton(button, `shortcut:${event.code}`, true);
+  }
 });
 
 document.addEventListener("keyup", (event) => {
   const button = keyboardButtons.get(event.code);
-  if (!button) {
+  if (!button || !heldShortcutCodes.has(event.code)) {
     return;
   }
   event.preventDefault();
-  holdExternalButton(button, false);
+  heldShortcutCodes.delete(event.code);
+  if (event.code === "KeyD") {
+    applyDrawKey(false);
+  } else {
+    holdExternalButton(button, `shortcut:${event.code}`, false);
+  }
 });
 
 window.addEventListener("blur", () => {
-  for (const button of keyboardButtons.values()) {
-    holdExternalButton(button, false);
-  }
+  releaseAllExternalButtons();
+  lightPen.active = false;
+  publishLightPen();
 });
 
 function handleWorkerMessage({ data }) {
