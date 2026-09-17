@@ -13,7 +13,7 @@ const penBuffer = new SharedArrayBuffer(PEN_STATE_LENGTH * Int32Array.BYTES_PER_
 const penView = new Int32Array(penBuffer);
 writeSharedPen(
   penView,
-  { x: 0.5, y: 0.5, radius: 40 / 1022, active: false },
+  { x: 0.5, y: 0.5, radius: 12 / 1022, active: false },
   1,
   performance.timeOrigin + performance.now(),
 );
@@ -76,7 +76,7 @@ assert.ok(scopePoints > 0, "the worker must forward real unit-60 points");
 
 writeSharedPen(
   penView,
-  { x: 0.9, y: 0.9, radius: 40 / 1022, active: true },
+  { x: 0.9, y: 0.9, radius: 12 / 1022, active: true },
   2,
   performance.timeOrigin + performance.now(),
 );
@@ -95,7 +95,7 @@ assert.equal(penInitialized, false,
 
 writeSharedPen(
   penView,
-  { x: 575 / 1022, y: 1 - 575 / 1022, radius: 40 / 1022, active: true },
+  { x: 575 / 1022, y: 1 - 575 / 1022, radius: 12 / 1022, active: true },
   3,
   performance.timeOrigin + performance.now(),
 );

@@ -1,10 +1,9 @@
 import {
   displayTime,
-  lightPenDetectionRadius,
   lightPenStatus,
   phosphorFade,
   scopePointPosition,
-} from "./scope-model.js?v=20260917-21";
+} from "./scope-model.js?v=20260917-22";
 import {
   PEN_STATE_LENGTH,
   readSharedPenApplication,
@@ -14,7 +13,7 @@ import {
   HeldControls,
   drawCanStart,
   drawKeyTransitions,
-} from "./external-input.js?v=20260917-21";
+} from "./external-input.js?v=20260917-22";
 import {
   captureFileName,
   isCaptureShortcut,
@@ -126,7 +125,7 @@ const keyboardButtons = new Map([
   ["KeyU", externalButtons.find((button) => button.dataset.command === "UNFIX")],
 ]);
 
-const machineWorker = new Worker(new URL("./machine-worker.js?v=20260917-21", import.meta.url), {
+const machineWorker = new Worker(new URL("./machine-worker.js?v=20260917-22", import.meta.url), {
   type: "module",
 });
 const penBuffer = globalThis.crossOriginIsolated && typeof SharedArrayBuffer === "function"
@@ -716,13 +715,7 @@ function cacheLightPenBounds() {
 function publishLightPen() {
   penSequence += 1;
   const dispatchedAt = performance.now();
-  const pen = {
-    ...lightPen,
-    radius: lightPenDetectionRadius(
-      lightPen.radius,
-      machineState.lost || !machineState.penInitialized,
-    ),
-  };
+  const pen = { ...lightPen };
   if (penView) {
     writeSharedPen(
       penView,

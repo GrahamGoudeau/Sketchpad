@@ -6172,7 +6172,7 @@ LMAG4@arr@      HDIF|LMSTART+1,SCCEN+1  **X@delta@Y-Y@delta@X
                 HDIF|LMSTART,SCCEN
                 MUL LMDY
                 DIV LMDENOM
-                NORMALIZE@arr@LMTS/SCSZ=LMSKEY@arr@LMAGEXIT
+                NORMALIZE@arr@LMTS/SCSZ=LMSKEY@arr@LMAG5 **TEST VISIBLE ENDS AFTER KEY OVERFLOW
                 MUL LMTT
                 @sup_1@STA LMSKEY
 

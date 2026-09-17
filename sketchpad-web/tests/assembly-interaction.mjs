@@ -685,6 +685,17 @@ const movementProfiles = {
   vertical: { steps: 160, x: 575, y: 735 },
   "vertical-down": { steps: 160, x: 575, y: 415 },
   "axis-cross": { steps: 270, x: 440, y: 440 },
+  sweep: {
+    steps: 520,
+    position(step) {
+      if (step <= 160) return { x: 575 + step, y: 575 };
+      const angle = 2 * Math.PI * (step - 160) / 360;
+      return {
+        x: 575 + 160 * Math.cos(angle),
+        y: 575 + 160 * Math.sin(angle),
+      };
+    },
+  },
   jump: { steps: 1, x: 735, y: 575 },
 };
 const movementProfile = movementProfiles[movementPath];
@@ -696,8 +707,13 @@ const movementDurationMilliseconds = process.env.MOVEMENT_DURATION_MS === undefi
 assert.ok(movementDurationMilliseconds === null
   || Number.isFinite(movementDurationMilliseconds) && movementDurationMilliseconds > 0,
 "MOVEMENT_DURATION_MS must be a positive number");
-const finalPhysicalX = movementProfile.x;
-const finalPhysicalY = movementProfile.y;
+const positionAt = (step) => movementProfile.position?.(step) ?? {
+  x: 575 + (movementProfile.x - 575) * step / movementSteps,
+  y: 575 + (movementProfile.y - 575) * step / movementSteps,
+};
+const finalPosition = positionAt(movementSteps);
+const finalPhysicalX = finalPosition.x;
+const finalPhysicalY = finalPosition.y;
 const finalX = finalPhysicalX / 1022;
 const finalY = 1 - finalPhysicalY / 1022;
 const movement = [];
@@ -705,7 +721,7 @@ const trackerDebug = [];
 const movementStartedAt = machine.simulated_time;
 for (let step = 1; step <= movementSteps; step += 1) {
   phase = `move-${step}`;
-  const fraction = step / movementSteps;
+  const target = positionAt(step);
   const detectionsBeforeStep = Number(machine.light_pen_detection_count);
   const movementScope = {
     points: 0,
@@ -727,8 +743,8 @@ for (let step = 1; step <= movementSteps; step += 1) {
     movementScope.origins[event.origin] = (movementScope.origins[event.origin] ?? 0) + 1;
   };
   machine.set_light_pen(
-    firstX + (finalX - firstX) * fraction,
-    firstY + (finalY - firstY) * fraction,
+    target.x / 1022,
+    1 - target.y / 1022,
     26 / 1022,
     true,
   );
@@ -878,6 +894,7 @@ for (let step = 1; step <= movementSteps; step += 1) {
   }
   movement.push({
     step,
+    target,
     detected,
     detections: Number(machine.light_pen_detection_count),
     pspl: [
@@ -920,6 +937,13 @@ if (
       && finalScope.y[0] >= lowerY
       && finalScope.y[1] <= upperY,
     `the axis-aligned line must not emit a reflected segment: ${JSON.stringify(finalScope)}`,
+  );
+}
+if (movementPath === "sweep" && movementDurationMilliseconds === null) {
+  assert.equal(
+    movement.slice(160).every(({ sndisp }) => sndisp !== "000000000000"),
+    true,
+    "the moving line display file must survive the lower-left sweep",
   );
 }
 if (process.env.EXPECT_TRACK_LOSS !== undefined) {

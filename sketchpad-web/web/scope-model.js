@@ -12,14 +12,6 @@ export function phosphorFade(elapsedSeconds, persistenceSeconds = 2) {
   return Math.min(0.995, 1 - Math.pow(visibleAtPersistence, elapsed / persistence));
 }
 
-export function lightPenDetectionRadius(
-  configuredRadius,
-  lost,
-  acquisitionRadius = 40 / 1022,
-) {
-  return lost ? Math.max(configuredRadius, acquisitionRadius) : configuredRadius;
-}
-
 export function axisPosition(physicalCoordinate, extent) {
   const normalized = physicalCoordinate / 1022;
   const lastPixel = Math.max(0, extent - 1);

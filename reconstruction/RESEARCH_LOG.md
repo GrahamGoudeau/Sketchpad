@@ -3164,3 +3164,40 @@ reproduces the 12,947-word combined tape and builds the release WASM.  A local
 Chrome run clicked blank glass and stayed at `ACQUIRING`.  The same active pen
 then moved to `INK` and reached `TRACKING` without another click.  The browser
 reported no warnings or errors.
+
+## Checkpoint 75: Exact Pickup Radius and Lower-Left Line Sweep
+
+Date: 2026-09-17
+
+The operator recording is retained at
+`evidence/visual/sketchpad-visual-2026-09-17T04-02-12.293Z.webm`.  Its SHA-256
+is `893a34e886e453a7457bf5d593ea501829121dde38f970ef85e7df9f96bf799a`.
+The VP9 stream contains 616 packets at 1024 by 1024 pixels.  Its last packet
+time is 27.154 seconds.
+
+The recording shows two separate defects.  The tracking cross acquires a
+displayed line before the real pointer reaches it.  This came from the
+browser-only 40-unit acquisition radius added in Checkpoint 72.  The original
+moving-acquisition state from Checkpoint 74 remains.  The browser now sends the
+configured radius without expansion during acquisition or loss.  The worker
+regression uses the default 12-unit radius for blank-glass acquisition and the
+subsequent move to `INK`.
+
+The same recording shows a moving line disappear just below the leftward
+horizontal direction.  A 520-position assembly regression reproduced the
+complete circular sweep.  Every physical light-pen position was detected.
+`LPLOST` remained clear.  The line display count still fell from octal `241`
+to zero in the lower-left sector.
+
+The instruction trace found the exact exit.  `LMAG4` built the boundary key at
+the printed `NORMALIZE` call.  Its `DIV SCSZ` raised the documented divide
+overflow for a key outside the normalized range.  The printed overflow target
+was `LMAGEXIT`.  That branch discarded the complete secondary line display
+file before `LMAG5` tested either real endpoint.  Both endpoints were visible
+in this case, so the early exit was invalid for the moving segment.
+
+Inferred source repair R065 sends this overflow to `LMAG5`.  The normal path is
+unchanged.  The original endpoint tests now decide whether the line is visible.
+The complete sweep keeps a nonzero line display file through the reported
+sector.  The regression also requires every pointer position to remain
+detected and requires `STOPMOVEP` to complete after D is released.

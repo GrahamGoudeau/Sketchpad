@@ -265,6 +265,7 @@ file marks it clearly and the log records the alternatives.
 | R062 | `2xmx-runtime-init.tx2as`, current `DESTS` address `011413` | inferred | Part 1 PDF pages 8, 23, 35, and 49-50; `DESTS` is automatic storage; first `DESIGNATE` exchanges zero `CCENT` into alpha and calls `DELETE`; `DELETE` has no object-zero guard; a one sentinel takes the no-old-center branch | Add a separate, explicit runtime initialization tape that writes one to `DESTS`.  Do not hide this inferred value in the emulator or alter the scanned listing. |
 | R063 | `sk2.tx2as:6008` | verified | High-resolution view of Sketchpad part 2, PDF page 137; the printed word has the same comma pattern as the earlier `{-0,400,,-0,400}` word | Remove the extra comma before the final `400`.  M4 now reuses the earlier RC word and restores every later Y3HT RC address. |
 | R064 | `sk2.tx2as:6099` | verified | High-resolution view of Sketchpad part 2, PDF page 139; the printed operand clearly reads `LMEND+1`; adjacent calls use the same coordinate-pair form | Read `LMEND1` as `LMEND+1`.  This removes the false automatic symbol and one Y3HT RC word. |
+| R065 | `sk2.tx2as:6175` | inferred | Operator recording; complete unit-60 sweep; `LMAG4` trace; TX-2 Users Handbook pages 3-62 and 3-63 | Send a boundary-key divide overflow to `LMAG5`, which tests the real endpoints, instead of discarding the display file before those tests. |
 
 ## Publication Gate
 

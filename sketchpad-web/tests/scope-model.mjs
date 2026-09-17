@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   axisPosition,
   displayTime,
-  lightPenDetectionRadius,
   lightPenStatus,
   phosphorFade,
   scopePointPosition,
@@ -14,10 +13,6 @@ assert.equal(displayTime(100, 5, 5.025), 100.025);
 assert.equal(phosphorFade(0), 0);
 assert.equal(phosphorFade(2), 63 / 64);
 assert.ok(Math.abs((1 - phosphorFade(1 / 3)) - 0.5) < 1e-12);
-
-assert.equal(lightPenDetectionRadius(12 / 1022, false), 12 / 1022);
-assert.equal(lightPenDetectionRadius(12 / 1022, true), 40 / 1022);
-assert.equal(lightPenDetectionRadius(48 / 1022, true), 48 / 1022);
 
 assert.equal(axisPosition(0, 1024), 0);
 assert.equal(axisPosition(511, 1024), 511.5);
