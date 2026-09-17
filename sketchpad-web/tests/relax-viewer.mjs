@@ -11,7 +11,16 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const trace = JSON.parse(await readFile(join(here, "..", "evidence", "relax-hov-trace.json"), "utf8"));
+const mainPage = await readFile(join(here, "..", "web", "index.html"), "utf8");
+const researchPage = await readFile(join(here, "..", "web", "relax.html"), "utf8");
 const model = createTraceModel(trace);
+
+assert.doesNotMatch(mainPage, /relax-viewer|relax-instrument|Watch RELAX/,
+  "the simulator page must not contain the research instrument");
+assert.match(researchPage, /relax-viewer\.js/,
+  "the separate research page must load the viewer");
+assert.match(researchPage, /Watch RELAX solve one constraint/,
+  "the separate research page must contain the instrument");
 
 assert.equal(model.samples.length, 104, "the viewer must expose every checked-in trace sample");
 assert.equal(model.maxPass, 2, "the viewer must expose both endpoint passes");

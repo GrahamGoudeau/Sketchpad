@@ -3476,3 +3476,42 @@ Commit `fc36cd0` was pushed to `main`. Production release
 `20260917T200816Z` deployed to `https://sketchpad.acyclic.sh/`. Caddy validated
 and reloaded. The deployed viewer and trace hashes match the local reviewed
 files. GitHub Actions run `35268990962` passed.
+
+## Checkpoint 79: Perpendicular-Flange Capability Audit
+
+Date: 2026-09-17
+
+The flange operation shown in the historical film is not the one-line `TRUEUP`
+workflow. It requires the general constraint path.
+
+Appendix A of Sutherland's thesis identifies atomic constraint code octal `37`,
+letter `P`. It relates four point variables. The implied line from the first
+pair must be parallel or perpendicular to the implied line from the second
+pair. The reconstructed BOO7 master `CN10` contains the same letter, four
+changeable variables, and comparison selector `6`. Its `PRLCOMP` routine calls
+`EITHER` with `PPDERR` and `PARAERR`. The existing rough geometry therefore
+selects the nearer perpendicular or parallel variation.
+
+Appendix B identifies Q2.8 as `Constraint`. It creates the type selected in
+toggle register 25, creates dummy variables, and leaves the new constraint
+moving. Q2.9 `Horv` is a separate shortcut that applies only a horizontal-or-
+vertical constraint to one aimed-at line. The current public controls expose
+the Q2.8 button, but toggle register 25 exposes only its display flags. It does
+not expose the constraint-letter field needed to select code `37`.
+
+A current end-to-end Q2.8 probe reaches the recovered `MAKECONS` path with a
+selected line. With the unexposed constraint-letter field still zero, it makes
+no allocation and changes no list word. This confirms that the famous
+perpendicular-flange operation is not already available to the browser
+operator.
+
+The recovered assembly already contains the required constraint master,
+error routines, dummy-variable mechanism, merge machinery, and solver. The
+remaining deliverable is one complete operator workflow: draw and merge a
+connected polyline, select code `37`, attach each four-point constraint to an
+adjacent line pair, run `RELAX`, and verify the final right angles. Each stage
+needs an assembly-level regression before it becomes a named browser control.
+
+The RELAX trace instrument no longer appears on the simulator page. It now
+lives at the separate `/relax.html` research route. The simulator page contains
+only the running machine, its console, and its operator guide.

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#07100d">
+    <title>Sketchpad RELAX trace</title>
+    <link rel="stylesheet" href="./styles.css?v=20260917-24">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Sketchpad research</p>
+        <h1>RELAX trace</h1>
+        <p class="deck">A deterministic trace from the reconstructed 1963 assembly.</p>
+      </header>
+
+      <section class="relax-instrument" aria-labelledby="relax-title">
+        <div class="relax-heading">
+          <div>
+            <p class="eyebrow">Research instrument</p>
+            <h2 id="relax-title">Watch RELAX solve one constraint</h2>
+          </div>
+          <p>The controls replay machine states recorded from the reconstructed program.</p>
+        </div>
+
+        <div class="relax-status" aria-live="polite">
+          <span><small>PHASE</small><strong id="relax-phase">LOADING</strong></span>
+          <span><small>PASS</small><strong id="relax-pass">—</strong></span>
+          <span><small>X RESIDUAL</small><strong id="relax-residual">—</strong></span>
+          <span><small>TX-2 TICK</small><strong id="relax-tick">—</strong></span>
+        </div>
+
+        <svg
+          id="relax-plot"
+          class="relax-plot"
+          viewBox="0 0 1000 520"
+          role="img"
+          aria-labelledby="relax-plot-title relax-plot-description"
+        >
+          <title id="relax-plot-title">Sketchpad constraint solver trace</title>
+          <desc id="relax-plot-description">The line endpoints move as the original RELAX routine measures and solves a horizontal-or-vertical constraint. The lower strip shows residual error across the trace.</desc>
+          <g class="relax-grid" aria-hidden="true">
+            <line x1="70" y1="50" x2="70" y2="390"></line>
+            <line x1="70" y1="390" x2="940" y2="390"></line>
+            <line x1="70" y1="220" x2="940" y2="220"></line>
+            <line x1="505" y1="50" x2="505" y2="390"></line>
+          </g>
+          <path id="relax-first-trail" class="relax-trail relax-first" d=""></path>
+          <path id="relax-second-trail" class="relax-trail relax-second" d=""></path>
+          <line id="relax-initial-line" class="relax-initial-line" x1="0" y1="0" x2="0" y2="0"></line>
+          <line id="relax-current-line" class="relax-current-line" x1="0" y1="0" x2="0" y2="0"></line>
+          <circle id="relax-first-point" class="relax-point relax-first" cx="0" cy="0" r="9"></circle>
+          <circle id="relax-second-point" class="relax-point relax-second" cx="0" cy="0" r="9"></circle>
+          <text id="relax-first-label" class="relax-label" x="0" y="0">P1</text>
+          <text id="relax-second-label" class="relax-label" x="0" y="0">P2</text>
+          <g id="relax-residual-strip" class="relax-residual-strip" aria-hidden="true"></g>
+          <line id="relax-cursor" class="relax-cursor" x1="70" y1="420" x2="70" y2="470"></line>
+          <text class="relax-axis-label" x="70" y="502">RELAX CALL</text>
+          <text class="relax-axis-label" x="940" y="502" text-anchor="end">RETURN</text>
+        </svg>
+
+        <div class="relax-controls">
+          <button id="relax-previous" type="button" disabled>PREVIOUS</button>
+          <button id="relax-play" type="button" disabled>PLAY</button>
+          <button id="relax-next" type="button" disabled>NEXT</button>
+          <label for="relax-step"><span>TRACE STEP</span><output id="relax-step-output">—</output></label>
+          <input id="relax-step" type="range" min="0" max="0" value="0" disabled>
+        </div>
+        <p id="relax-detail" class="relax-detail">Loading the checked-in machine trace.</p>
+      </section>
+
+      <footer>
+        <p><a href="./">Return to Sketchpad</a></p>
+      </footer>
+    </main>
+    <script type="module" src="./relax-viewer.js?v=20260917-24"></script>
+  </body>
+</html>

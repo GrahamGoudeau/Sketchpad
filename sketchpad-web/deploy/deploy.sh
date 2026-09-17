@@ -19,7 +19,7 @@ cd "$project_dir"
 "$repo_dir/build.sh"
 npm test
 COPYFILE_DISABLE=1 tar -h --no-xattrs -C web -czf "$archive" \
-	LICENSE-MIT app.js external-input.js index.html machine-worker.js pen-transport.js relax-hov-trace.json relax-viewer.js scope-model.js styles.css visual-capture.js pkg
+	LICENSE-MIT app.js external-input.js index.html machine-worker.js pen-transport.js relax-hov-trace.json relax-viewer.js relax.html scope-model.js styles.css visual-capture.js pkg
 
 scp -i "$deploy_key" "$archive" \
 	"$deploy_host:/tmp/scratchpad-$release.tar.gz"

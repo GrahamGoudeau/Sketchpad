@@ -125,9 +125,10 @@ behaviour.  One complete invocation runs two endpoint passes.  Each pass
 performs one initial elimination, one `SLVAD` degeneracy repair, one repaired
 elimination, and two answer stores.  The full call returns without an alarm.
 The final x residual is zero.  The unconstrained y coordinates remain stable
-within fixed-point rounding.  The web page loads the same artifact through the
-`relax-hov-trace.json` deployment link and provides a small step, scrub, and
-playback instrument.
+within fixed-point rounding.  The separate `/relax.html` research page loads
+the same artifact through the `relax-hov-trace.json` deployment link and
+provides a small step, scrub, and playback instrument.  The simulator page
+contains only the running machine and its operator controls.
 
 `npm run test:relax-trace` regenerates the trace from the checked-in tape,
 validates its structure and provenance, and requires a byte-identical match.
