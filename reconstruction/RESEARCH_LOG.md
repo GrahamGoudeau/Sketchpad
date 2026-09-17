@@ -3471,3 +3471,8 @@ The repaired APY5 tape SHA-256 is
 `983a49e926fb3ebb2465698210146b86dba7220b31d1283e1039d8d7b81f1ee4`.
 The merged image has 12,946 words in 28 blocks and 78,156 bytes. Its SHA-256 is
 `5d78aba492c87a7e3a6935c785bff1437e6a29ef03ff151f2083de1172066fcf`.
+
+Commit `fc36cd0` was pushed to `main`. Production release
+`20260917T200816Z` deployed to `https://sketchpad.acyclic.sh/`. Caddy validated
+and reloaded. The deployed viewer and trace hashes match the local reviewed
+files. GitHub Actions run `35268990962` passed.
