@@ -16,6 +16,7 @@ trap cleanup EXIT
 
 cd "$project_dir"
 npm run build
+npm test
 COPYFILE_DISABLE=1 tar --no-xattrs -C web -czf "$archive" \
 	LICENSE-MIT app.js external-input.js index.html machine-worker.js pen-transport.js scope-model.js styles.css visual-capture.js pkg
 

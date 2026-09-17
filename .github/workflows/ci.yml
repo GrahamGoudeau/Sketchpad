@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked --version 0.15.0
+      - name: Test simulator
+        run: cargo test --locked --workspace
+      - name: Rebuild recovered tape
+        run: |
+          cargo build --locked --workspace
+          ./reconstruction/scripts/assemble.sh
+          cmp reconstruction/build/sketchpad-combined.tape sketchpad-web/rust/assets/sketchpad-combined.tape
+      - name: Build browser release
+        working-directory: sketchpad-web
+        run: npm run build
+      - name: Test Sketchpad interactions
+        working-directory: sketchpad-web
+        run: npm test

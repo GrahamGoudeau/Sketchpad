@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" role="img" aria-labelledby="title description">
+  <title id="title">Play Sketchpad</title>
+  <desc id="description">Open the live Sketchpad reconstruction.</desc>
+  <rect width="960" height="480" rx="24" fill="#07100c"/>
+  <rect x="32" y="32" width="896" height="416" rx="120" fill="#020504" stroke="#8fb9a1" stroke-width="3"/>
+  <g fill="none" stroke="#d8ffe3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M208 302V180"/>
+    <path d="M286 302V180L366 302V180"/>
+    <path d="M444 302V180M444 244L530 180M476 220L536 302"/>
+  </g>
+  <circle cx="706" cy="240" r="58" fill="#b7ffcb"/>
+  <path d="M687 204V276L741 240Z" fill="#07100c"/>
+  <text x="706" y="338" fill="#b7ffcb" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24" text-anchor="middle" letter-spacing="3">PLAY SKETCHPAD</text>
+</svg>

@@ -1,52 +1,17 @@
-# TX-2 Simulator
+# Sketchpad
 
-We are trying to create a simulator for Lincoln Lab's historic TX-2
-computer. Notably, this is the computer on which Ivan Sutherland's
-Sketchpad program ran. If we can get the simulator working, we may be
-able to run Sketchpad once again.
+A working reconstruction of Ivan Sutherland's 1963 Sketchpad.
 
-From [the Wikipedia entry for the TX-2](https://en.wikipedia.org/wiki/TX-2):
+<a href="https://sketchpad.acyclic.sh/"><img src="docs/play-sketchpad.svg" alt="Play Sketchpad" width="720"></a>
 
-> The MIT Lincoln Laboratory TX-2 computer was the successor to the
-> Lincoln TX-0 and was known for its role in advancing both artificial
-> intelligence and human–computer interaction. Wesley A. Clark was the
-> chief architect of the TX-2.
+[Play Sketchpad](https://sketchpad.acyclic.sh/)
 
-## Trying It Out
+This repository contains the recovered TX-2 source, reconstruction record,
+simulator, and browser build. See [the reconstruction](reconstruction/) and
+[runtime notes](sketchpad-web/).
 
-You can [try out an online demo](https://tx-2.github.io/demo/).  This
-runs locally in your browser.
+The work began from `TX-2/Sketchpad@1263829` and
+`TX-2/TX-2-simulator@8757845`. Thank you to the TX-2 Project contributors for
+that foundation.
 
-You can also check out a copy of the source code, and build and run
-the emulator yourself; to get started with using the emulator, please
-read [Getting Started](docs/getting-started.md).
-
-## Browsing the code
-
-- The git repository (https://github.com/TX-2/TX-2-simulator)
-  contains the source code itself.
-- We also generate
-  [rustdoc](https://doc.rust-lang.org/rustdoc/what-is-rustdoc.html)
-  documentation from the source and serve it at
-  https://tx-2.github.io/TX-2-simulator/.
-
-## For More Information
-
-There is [more documentation about the emulator and its tools](docs),
-including a [Design Overview](docs/OVERVIEW.md). See also the [TX-2
-Project's website](https://tx-2.github.io/), which includes
-information about the TX-2 computer, the software which ran on it, and
-our effort to make ti run again.
-
-## Contributing
-
-If you are considering contributing, first of all, thanks!
-
-We have quite a lot of [documentation about the operation and
-programming of the TX-2](https://tx-2.github.io/documentation.html).
-This is what our implementation is based on.
-
-Please see our [Contributor's Guide](CONTRIBUTING.md) for information
-on what we need and how you can help. The Guide also explains what
-non-coding contributions are needed and how to identify a good "first
-issue" to pick up.
+MIT licensed.

@@ -1,16 +1,19 @@
 cff-version: 1.2.0
-title: TX-2 Simulator
+title: Sketchpad Reconstruction
 message: 'If you use this software, please cite it as below.'
 type: software
 authors:
+  - family-names: Goudeau
+    given-names: Graham
   - family-names: Youngman
     given-names: James
   - name: TX-2 Project Contributors
-repository-code: 'https://github.com/TX-2/TX-2-simulator'
-url: 'https://tx-2.github.io/'
+repository-code: 'https://github.com/GrahamGoudeau/Sketchpad'
+url: 'https://sketchpad.acyclic.sh/'
 abstract: >-
-  The TX-2 Simaulator is a software implementation of MIT
-  Linoln Lab's historic TX-2 computer.
+  A working reconstruction of Ivan Sutherland's 1963 Sketchpad program,
+  including its recovered TX-2 source, reconstruction record, simulator,
+  and browser runtime.
 keywords:
   - retrocomputing
   - emulator

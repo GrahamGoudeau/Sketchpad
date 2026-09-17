@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-simulator_dir=${SKETCHPAD_TX2_SIMULATOR_DIR:-"$repo_dir/../TX-2-simulator"}
+simulator_dir=${SKETCHPAD_TX2_SIMULATOR_DIR:-"$repo_dir/.."}
 assembler="$simulator_dir/target/debug/tx2m4as"
 disassembler="$simulator_dir/target/debug/tx2dis"
 merger="$simulator_dir/target/debug/tx2mergetape"
