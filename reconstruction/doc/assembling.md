@@ -4,52 +4,29 @@
 
 We do not have a copy of the TX-2's assembler, "M4".
 
-The TX-2 project is in the process of writing a compatible
-cross-assembler ("tx2m4as") which runs on modern computer which
-generates binaries suitable for running on the TX-2 (or at least an
-emulator, since the original TX-2 machine no longer exists).
+This repository contains the compatible `tx2m4as` cross-assembler and the
+recovered Sketchpad source.
 
-To assemble the Sketchpad code, you will need two git repositories
-checked out at the same time: the TX-2-Simulator repository containing
-the assembler and this repository, containing the Sketchpad code.
+From the repository root, run:
 
-## Example
-
-Here is an example terminal session that builds the assembler and the four
-Sketchpad compilation units.
-
-### Building the Assembler
-
-The assembler's [Getting
-Started](https://github.com/TX-2/TX-2-simulator/blob/main/docs/assembler/getting-started.md)
-guide gives more detailed instructions on how to build it, but here we
-will simply show an example of doing so.
-
-
-```
-mkdir assembling-sketchpad
-cd assembling-sketchpad
-git clone https://github.com/TX-2/TX-2-simulator.git
-git clone https://github.com/TX-2/Sketchpad.git
-( cd TX-2-simulator && cargo build --workspace )
+```sh
+./build.sh
 ```
 
-
-### Running the Assembler
-
-```
-cd Sketchpad
-./scripts/assemble.sh
-```
-
-The printed listing contains four separate M4 assembly jobs.  The script splits
-`sk.tx2as` at stable PDF metadata markers.  It writes these files:
+The command builds the assembler, assembles all eight historical jobs, checks
+the combined runtime tape, and builds the browser release. The assembly script
+splits `sk.tx2as` and `sk2.tx2as` at stable PDF metadata markers. It writes:
 
 ```
 build/sketchpad-2xmx.tape
 build/sketchpad-oplw.tape
 build/sketchpad-gx7a.tape
 build/sketchpad-boo7.tape
+build/sketchpad-onlw.tape
+build/sketchpad-apy5.tape
+build/sketchpad-lyuo.tape
+build/sketchpad-y3ht.tape
+build/sketchpad-combined.tape
 build/SHA256SUMS
 ```
 
@@ -60,6 +37,3 @@ cause before you accept a new checksum.
 The script also runs `tx2dis` on each tape.  This check validates the standard
 reader leader, every TX-2 block checksum, the final-block marker, and the end of
 the file.
-
-The script uses the sibling simulator checkout by default.  Set
-`SKETCHPAD_TX2_SIMULATOR_DIR` to use a different checkout.

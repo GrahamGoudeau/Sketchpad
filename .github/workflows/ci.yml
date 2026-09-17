@@ -21,18 +21,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Install wasm-pack
-        run: cargo install wasm-pack --locked --version 0.15.0
       - name: Test simulator
         run: cargo test --locked --workspace
-      - name: Rebuild recovered tape
-        run: |
-          cargo build --locked --workspace
-          ./reconstruction/scripts/assemble.sh
-          cmp reconstruction/build/sketchpad-combined.tape sketchpad-web/rust/assets/sketchpad-combined.tape
-      - name: Build browser release
-        working-directory: sketchpad-web
-        run: npm run build
+      - name: Build Sketchpad
+        run: ./build.sh
       - name: Test Sketchpad interactions
         working-directory: sketchpad-web
         run: npm test

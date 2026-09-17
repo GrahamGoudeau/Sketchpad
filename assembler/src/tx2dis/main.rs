@@ -11,15 +11,11 @@ use std::io::{BufReader, ErrorKind, Read};
 use tracing::{Level, span};
 use tracing_subscriber::prelude::*;
 
-// Thanks to Google for allowing this code to be open-sourced.  I
-// generally prefer to correspond about this project using my
-// personal email address rather than my work one, though.
-const AUTHOR: &str = "James Youngman <james@youngman.org>";
 const ABOUT: &str = "Disassembler for TX-2 punched-tape image files";
 
 /// Disassembler for punched-tape binaries for the historical TX-2 computer
 #[derive(Parser, Debug)]
-#[clap(author = AUTHOR, version, about=ABOUT, long_about = None)]
+#[clap(version, about=ABOUT, long_about = None)]
 struct Cli {
     /// File from which the binary program (punched-tape image) is
     /// read

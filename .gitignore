@@ -1,4 +1,5 @@
 /target
+/.tools/
 *~
 /*.tape
 /.dir-locals.el

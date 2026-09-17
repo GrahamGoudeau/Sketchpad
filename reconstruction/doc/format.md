@@ -18,8 +18,7 @@ which there is no character in Unicode).
 
 The script `sub.py` can be used to convert a markup file into HTML.
 
-The [TX-2 Project's
-assembler](https://github.com/TX-2/TX-2-simulator/tree/main/assembler)
+The repository's [TX-2 assembler](../../assembler)
 accepts the same input format.  There are markup symbols which the
 assembler understands but which are missing from `sub.py` because
 Sketchpad happens not to use them.

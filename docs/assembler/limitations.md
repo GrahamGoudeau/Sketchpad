@@ -44,10 +44,10 @@ implemented.
 The Users Handbook mentions the ☛☛DEMO metacommand but doesn't explain
 what it does, so this is not implemented.
 
-## TX-2 Simulator Project Issues
+## Project Issues
 
-See the [TX-2 Simulator project's
-issues](https://github.com/TX-2/TX-2-simulator/issues) for a full list
+See the [project
+issues](https://github.com/GrahamGoudeau/Sketchpad/issues) for a full list
 of the limitations of both the assembler and the TX-2 emulator.
 
 ## Documentation

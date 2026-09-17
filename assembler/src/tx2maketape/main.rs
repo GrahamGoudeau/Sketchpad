@@ -29,14 +29,9 @@ impl Display for Fail {
 }
 impl Error for Fail {}
 
-// Thanks to Google for allowing this code to be open-sourced.  I
-// generally prefer to correspond about this project using my
-// personal email address rather than my work one, though.
-const AUTHOR: &str = "James Youngman <james@youngman.org>";
-
 /// Make a tape image for the historical TX-2 computer
 #[derive(Parser, Debug)]
-#[clap(author = AUTHOR, version, about, long_about = None)]
+#[clap(version, about, long_about = None)]
 struct Cli {
     /// File from which the octal dump is read.
     #[clap(action=Set)]

@@ -6,5 +6,5 @@ Generate HTML:
 
 View in rendered form:
 
-[sk.html](https://htmlpreview.github.io/?https://github.com/TX-2/Sketchpad/blob/main/sk.html)
-[sk2.html](https://htmlpreview.github.io/?https://github.com/TX-2/Sketchpad/blob/main/sk2.html)
+[sk.html](https://htmlpreview.github.io/?https://github.com/GrahamGoudeau/Sketchpad/blob/main/reconstruction/sk.html)
+[sk2.html](https://htmlpreview.github.io/?https://github.com/GrahamGoudeau/Sketchpad/blob/main/reconstruction/sk2.html)

@@ -3,6 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd "$script_dir/.." && pwd)"
+repo_dir="$(cd "$project_dir/.." && pwd)"
 deploy_host="${SCRATCHPAD_DEPLOY_HOST:-ubuntu@100.55.208.216}"
 deploy_key="${SCRATCHPAD_DEPLOY_KEY:-$HOME/.ssh/acyclic-lightsail}"
 release="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -15,7 +16,7 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$project_dir"
-npm run build
+"$repo_dir/build.sh"
 npm test
 COPYFILE_DISABLE=1 tar --no-xattrs -C web -czf "$archive" \
 	LICENSE-MIT app.js external-input.js index.html machine-worker.js pen-transport.js scope-model.js styles.css visual-capture.js pkg

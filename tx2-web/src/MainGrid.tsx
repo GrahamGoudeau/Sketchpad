@@ -98,10 +98,10 @@ export const MainGrid = (props: MainGridProps) => (
           </ol>
           <p>
             Presently you should see some output.
-            You can <a href="https://tx-2.github.io/">find out more about
-              the simulator project on our website</a> or <a
-                href="https://github.com/TX-2/TX-2-simulator">take a
-                look at the source code</a>.
+            You can <a href="https://github.com/GrahamGoudeau/Sketchpad/blob/main/docs/OVERVIEW.md">read
+              about the TX-2</a> or <a
+                href="https://github.com/GrahamGoudeau/Sketchpad">view the
+                source code</a>.
           </p>
         </details>
       </Box>

@@ -10,14 +10,9 @@ use tracing_subscriber::prelude::*;
 
 use assembler::*;
 
-// Thanks to Google for allowing this code to be open-sourced.  I
-// generally prefer to correspond about this project using my
-// personal email address rather than my work one, though.
-const AUTHOR: &str = "James Youngman <james@youngman.org>";
-
 /// Assembler for the historical TX-2 computer
 #[derive(Parser, Debug)]
-#[clap(author = AUTHOR, version, about, long_about = None)]
+#[clap(version, about, long_about = None)]
 struct Cli {
     /// File from which assembly source is read.
     #[clap(action=Set)]

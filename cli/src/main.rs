@@ -22,11 +22,6 @@ use cpu::{
     Tx2, UnmaskedAlarm,
 };
 
-// Thanks to Google for allowing this code to be open-sourced.  I
-// generally prefer to correspond about this project using my
-// personal email address rather than my work one, though.
-const AUTHOR: &str = "James Youngman <james@youngman.org>";
-
 fn run(
     tx2: &mut Tx2,
     clk: &mut BasicClock,
@@ -224,7 +219,7 @@ impl FromStr for PanicOnUnmaskedAlarm {
 
 /// Command-line simulator for the historical TX-2 computer
 #[derive(Parser, Debug)]
-#[command(author = AUTHOR, version, about, long_about = None)]
+#[command(version, about, long_about = None)]
 struct Cli {
     /// Run this many times faster than real-time ('MAX' for as-fast-as-possible)
     #[arg(action = Set, long = "speed-multiplier")]

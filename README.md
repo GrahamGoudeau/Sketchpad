@@ -6,6 +6,8 @@ A working reconstruction of Ivan Sutherland's 1963 Sketchpad.
 
 [Play Sketchpad](https://sketchpad.acyclic.sh/)
 
+Build with Rust installed: `./build.sh`
+
 This repository contains the recovered TX-2 source, reconstruction record,
 simulator, and browser build. See [the reconstruction](reconstruction/) and
 [runtime notes](sketchpad-web/).

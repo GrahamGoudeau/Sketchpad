@@ -12,8 +12,7 @@ If you have trouble, please make sure you have a recent set of Rust
 build tools (by running `rustup update`).
 
 If you have done that and `cargo build --workspace` still does not
-work, please [report an issue in the project's bug
-tracker](https://github.com/TX-2/TX-2-simulator/issues/new/choose).
+work, please [report an issue](https://github.com/GrahamGoudeau/Sketchpad/issues/new).
 
 ## Browser-based Emulator
 
