@@ -163,7 +163,7 @@
         </div>
         <ol>
           <li><strong>Position the pen.</strong> Move the pointer anywhere over the scope. The browser continuously sends that position to the emulated light-pen hardware.</li>
-          <li><strong>Engage the sensor.</strong> Click once on a bright part of <code>INK</code>. The original photocell cannot detect blank glass. Wait until <em>Light pen</em> says <code>TRACKING</code>. Press <kbd>Escape</kbd> when you want to disengage the sensor.</li>
+          <li><strong>Engage the sensor.</strong> Click once on a bright part of <code>INK</code>. The original photocell cannot detect blank glass. <em>Light pen</em> says <code>ACQUIRING</code> until Sketchpad stores the first real pen position. Wait for <code>TRACKING</code>. Press <kbd>Escape</kbd> when you want to disengage the sensor.</li>
           <li><strong>Draw.</strong> Hold <kbd>D</kbd> to send Q1.8 <code>STARTDRAW</code>. Move the tracker without holding the mouse button. Release <kbd>D</kbd>. The browser then holds Q1.6 <code>STOPMOVEP</code>. The original assembly finalizes the line. The next <kbd>D</kbd> press releases Q1.6 before it sends Q1.8 again.</li>
           <li><strong>Select.</strong> Move over the middle of a visible line. Click once if the sensor is disengaged. Wait until <em>Selection</em> says <code>LINE</code>. Send the next command while the sensor remains engaged.</li>
           <li><strong>True up and solve.</strong> Leave <em>Solve</em> off. Tap <kbd>T</kbd> once. This sends Q2.9 to <code>TRUEUP</code>. The assembly adds one horizontal-or-vertical constraint. Then turn on <em>Solve</em>. The original <code>RELAX</code> routine changes the endpoints.</li>
@@ -200,6 +200,6 @@
         <p>The scope places programmed spots in unit-60 order. It does not use a raster scan.</p>
       </footer>
     </main>
-    <script type="module" src="./app.js?v=20260917-19"></script>
+    <script type="module" src="./app.js?v=20260917-20"></script>
   </body>
 </html>

@@ -11,6 +11,7 @@ const wasmUrl = new URL("../web/pkg/sketchpad_web_bg.wasm", import.meta.url);
 await init({ module_or_path: await readFile(fileURLToPath(wasmUrl)) });
 
 const machine = new SketchpadMachine();
+const activatePenAfterBoot = process.env.PEN_AFTER_BOOT === "1";
 const selectedCommand = process.env.SELECT_COMMAND ?? "2.9";
 const selectedCommandParts = selectedCommand.split(".").map(Number);
 assert.equal(selectedCommandParts.length, 2, "SELECT_COMMAND must use quarter.bit form");
@@ -31,7 +32,12 @@ function setSelectedCommand(held) {
 machine.set_toggle_register(0o20, 0o400, 0, 0, 0, process.env.FIX_FROM_BOOT === "1");
 machine.set_toggle_register(0o25, 0o400, 0, 0, 0, false);
 machine.mount_tape(sketchpad_tape(), 0);
-machine.set_light_pen(575 / 1022, 1 - 575 / 1022, 26 / 1022, true);
+machine.set_light_pen(
+  575 / 1022,
+  1 - 575 / 1022,
+  26 / 1022,
+  !activatePenAfterBoot,
+);
 machine.codabo(0);
 
 let scopePoints = 0;
@@ -488,6 +494,22 @@ function traceNextDisplayBuild(timeoutSeconds = 10) {
 }
 
 runUntilTime(200);
+if (activatePenAfterBoot) {
+  const detectionsBeforeActivation = Number(machine.light_pen_detection_count);
+  machine.set_light_pen(575 / 1022, 1 - 575 / 1022, 26 / 1022, true);
+  assert.ok(
+    runUntil(
+      () => Number(machine.light_pen_detection_count) > detectionsBeforeActivation
+        && (
+          machine.memory_word(0o200042, machine.simulated_time).value !== 0
+          || machine.memory_word(0o200043, machine.simulated_time).value !== 0
+        )
+        && !machine.memory_word(0o200042, machine.simulated_time).meta,
+      200,
+    ),
+    "the first live pen activation must produce a real optical detection",
+  );
+}
 assert.ok(
   runUntil(() => !machine.memory_word(0o200042, machine.simulated_time).meta, 200),
   "the original tracker must acquire the initial stationary pen",

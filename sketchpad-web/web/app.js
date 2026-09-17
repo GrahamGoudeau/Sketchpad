@@ -4,7 +4,7 @@ import {
   lightPenStatus,
   phosphorFade,
   scopePointPosition,
-} from "./scope-model.js?v=20260917-19";
+} from "./scope-model.js?v=20260917-20";
 import {
   PEN_STATE_LENGTH,
   readSharedPenApplication,
@@ -122,7 +122,7 @@ const keyboardButtons = new Map([
   ["KeyU", externalButtons.find((button) => button.dataset.command === "UNFIX")],
 ]);
 
-const machineWorker = new Worker(new URL("./machine-worker.js?v=20260915-12", import.meta.url), {
+const machineWorker = new Worker(new URL("./machine-worker.js?v=20260917-20", import.meta.url), {
   type: "module",
 });
 const penBuffer = globalThis.crossOriginIsolated && typeof SharedArrayBuffer === "function"
@@ -136,6 +136,8 @@ let machineState = {
   simulatedTime: 0,
   detectionCount: 0n,
   lost: true,
+  penInitialized: false,
+  penPositionVersion: 0,
   atBits: 0n,
 };
 let running = false;
@@ -164,11 +166,19 @@ let displayStoppedAt = null;
 let beamRateWindowStartedAt = 0;
 let beamRateWindowSpots = 0;
 const lightPen = { active: false, x: 0.5, y: 0.5, radius: 12 / 1022 };
+let initialPenAnchor = null;
+let drawCommandActive = false;
+let drawStartPending = false;
+let drawStartAfterPenPositionVersion = null;
 const visualCapture = new VisualCapture(canvas, () => ({
   x: lightPen.x,
   y: lightPen.y,
   active: lightPen.active,
-  penState: lightPenStatus(lightPen.active, machineState.lost),
+  penState: lightPenStatus(
+    lightPen.active,
+    machineState.lost,
+    machineState.penInitialized,
+  ),
   simulatedTime: machineState.simulatedTime,
 }));
 let lightPenBounds = null;
@@ -383,7 +393,11 @@ function updateReadouts() {
     return;
   }
 
-  penStateNode.textContent = lightPenStatus(lightPen.active, machineState.lost);
+  penStateNode.textContent = lightPenStatus(
+    lightPen.active,
+    machineState.lost,
+    machineState.penInitialized,
+  );
 
   const atBits = machineState.atBits;
   const selections = SELECTION_BITS
@@ -458,6 +472,9 @@ function holdExternalButton(button, owner, held) {
 function releaseAllExternalButtons() {
   heldExternalButtons.clear();
   heldShortcutCodes.clear();
+  drawCommandActive = false;
+  drawStartPending = false;
+  drawStartAfterPenPositionVersion = null;
   for (const button of externalButtons) {
     button.classList.remove("held");
     button.setAttribute("aria-pressed", "false");
@@ -473,6 +490,40 @@ function applyDrawKey(held) {
       (candidate) => candidate.dataset.command === transition.command,
     );
     holdExternalButton(button, "shortcut:KeyD", transition.held);
+  }
+}
+
+function canStartDraw() {
+  return lightPen.active && machineState.penInitialized && !machineState.lost;
+}
+
+function startPendingDraw() {
+  if (drawCommandActive || !drawStartPending || !canStartDraw()) return;
+  drawCommandActive = true;
+  drawStartPending = false;
+  drawStartAfterPenPositionVersion = null;
+  applyDrawKey(true);
+}
+
+function requestDrawKey(held) {
+  if (!held) {
+    drawStartPending = false;
+    drawStartAfterPenPositionVersion = null;
+    if (drawCommandActive) {
+      drawCommandActive = false;
+      applyDrawKey(false);
+    }
+    return;
+  }
+  drawStartPending = true;
+  if (canStartDraw()) {
+    startPendingDraw();
+  } else {
+    setMessage(
+      lightPen.active
+        ? "The first pen point is acquiring. Keep D held."
+        : "Click a bright scope point before you draw.",
+    );
   }
 }
 
@@ -595,8 +646,14 @@ function loadMachine(tape) {
     simulatedTime: 0,
     detectionCount: 0n,
     lost: true,
+    penInitialized: false,
+    penPositionVersion: 0,
     atBits: 0n,
   };
+  initialPenAnchor = null;
+  drawCommandActive = false;
+  drawStartPending = false;
+  drawStartAfterPenPositionVersion = null;
   resizeCanvas();
   context.fillStyle = "#010503";
   context.fillRect(0, 0, canvas.width, canvas.height);
@@ -659,7 +716,10 @@ function publishLightPen() {
   const dispatchedAt = performance.now();
   const pen = {
     ...lightPen,
-    radius: lightPenDetectionRadius(lightPen.radius, machineState.lost),
+    radius: lightPenDetectionRadius(
+      lightPen.radius,
+      machineState.lost || !machineState.penInitialized,
+    ),
   };
   if (penView) {
     writeSharedPen(
@@ -675,12 +735,12 @@ function publishLightPen() {
   }
 }
 
-function updateLightPen(event) {
+function updateLightPen(event, publish = true) {
   const handlerStartedAt = performance.now();
   const box = lightPenBounds ?? lightPenSurface.getBoundingClientRect();
   lightPen.x = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
   lightPen.y = Math.max(0, Math.min(1, (event.clientY - box.top) / box.height));
-  publishLightPen();
+  if (publish) publishLightPen();
   latestInputHandlerMs = performance.now() - handlerStartedAt;
   const queueDelay = handlerStartedAt - event.timeStamp;
   if (queueDelay >= 0 && queueDelay < 60_000) {
@@ -694,18 +754,22 @@ lightPenSurface.addEventListener("pointerdown", (event) => {
   }
   event.preventDefault();
   lightPen.active = true;
-  updateLightPen(event);
+  updateLightPen(event, false);
+  if (!machineState.penInitialized) {
+    initialPenAnchor = { x: lightPen.x, y: lightPen.y };
+  }
+  publishLightPen();
 });
 
 if ("onpointerrawupdate" in window) {
   lightPenSurface.addEventListener("pointerrawupdate", (event) => {
     if (event.cancelable) event.preventDefault();
-    updateLightPen(event);
+    updateLightPen(event, machineState.penInitialized || initialPenAnchor === null);
   });
 } else {
   lightPenSurface.addEventListener("pointermove", (event) => {
     if (event.cancelable) event.preventDefault();
-    updateLightPen(event);
+    updateLightPen(event, machineState.penInitialized || initialPenAnchor === null);
   });
 }
 
@@ -783,7 +847,7 @@ document.addEventListener("keydown", (event) => {
   event.preventDefault();
   heldShortcutCodes.add(event.code);
   if (event.code === "KeyD") {
-    applyDrawKey(true);
+    requestDrawKey(true);
   } else {
     holdExternalButton(button, `shortcut:${event.code}`, true);
   }
@@ -797,7 +861,7 @@ document.addEventListener("keyup", (event) => {
   event.preventDefault();
   heldShortcutCodes.delete(event.code);
   if (event.code === "KeyD") {
-    applyDrawKey(false);
+    requestDrawKey(false);
   } else {
     holdExternalButton(button, `shortcut:${event.code}`, false);
   }
@@ -827,13 +891,45 @@ function handleWorkerMessage({ data }) {
     }
     case "status": {
       const lostChanged = machineState.lost !== data.lost;
+      const penInitializedChanged = machineState.penInitialized !== data.penInitialized;
+      const penPositionVersionChanged =
+        machineState.penPositionVersion !== data.penPositionVersion;
+      const acquisitionAnchor = initialPenAnchor;
       machineState = {
         simulatedTime: data.simulatedTime,
         detectionCount: data.detectionCount,
         lost: data.lost,
+        penInitialized: data.penInitialized,
+        penPositionVersion: data.penPositionVersion,
         atBits: data.atBits,
       };
-      if (lostChanged && lightPen.active) publishLightPen();
+      if ((lostChanged || penInitializedChanged) && lightPen.active) {
+        if (penInitializedChanged && machineState.penInitialized) {
+          initialPenAnchor = null;
+        }
+        publishLightPen();
+      }
+      if (
+        penInitializedChanged
+        && machineState.penInitialized
+        && drawStartPending
+        && acquisitionAnchor
+        && Math.hypot(
+          lightPen.x - acquisitionAnchor.x,
+          lightPen.y - acquisitionAnchor.y,
+        ) > 2 / 1022
+      ) {
+        drawStartAfterPenPositionVersion = machineState.penPositionVersion;
+      }
+      if (
+        drawStartPending
+        && drawStartAfterPenPositionVersion !== null
+        && penPositionVersionChanged
+        && machineState.penPositionVersion !== drawStartAfterPenPositionVersion
+      ) {
+        drawStartAfterPenPositionVersion = null;
+      }
+      if (drawStartAfterPenPositionVersion === null) startPendingDraw();
       updateReadouts();
       break;
     }

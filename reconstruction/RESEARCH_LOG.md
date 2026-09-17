@@ -3066,3 +3066,38 @@ test fixes both values.
 The complete Rust workspace tests pass.  The complete browser interaction suite
 passes, including the new downward vertical path.  The zero-dependency build
 also passes and reproduces the checked-in combined tape byte for byte.
+
+Production release `20260917T032050Z` deployed commit `5b5e770`.  Caddy
+validated and reloaded.  The live JavaScript and WASM matched the local build,
+the TX-2 reached `RUNNING`, and the browser console stayed clear.
+
+## Checkpoint 73: First-Line Acquisition State
+
+Date: 2026-09-16
+
+Operator feedback separated a remaining first-line failure from ordinary
+lost-pen behavior.  On a fresh page, the physical pen starts inactive.  The
+previous assembly regression instead activated the pen before `CODABO`.  That
+test setup initialized `PSPL` before the first draw and hid the live order.
+
+A new delayed-activation regression boots with the pen up.  It then activates
+the pen at the assembly-drawn label and presses Q1.8 only after the original
+tracker stores its first position.  Without that wait, `LPLOST` is already
+clear while both `PSPL` words still contain zero.  The page therefore reported
+`TRACKING` before Sketchpad had a usable first point.  `STARTDRAW` then created
+a line from the uninitialized scope-center position.  Repeated D presses could
+eventually leave one visible point and make later lines appear to work.
+
+The worker now distinguishes `penInitialized` from `LPLOST`.  Initialization
+requires a Unit 55 detection after activation and a change to the original
+`PSPL` position words.  The page reports `ACQUIRING` until that condition is
+true.  It keeps the 40-unit acquisition radius during this state.  It also
+holds the clicked bright position while the first tracker write completes, so
+immediate pointer movement cannot outrun the first acquisition.
+
+The D shortcut now waits for an active, initialized, non-lost pen.  If the
+operator holds D during acquisition, the page sends Q1.8 only after the
+original tracker stores the current pointer position.  A release before that
+point cancels the pending command and does not synthesize Q1.6.  The worker and
+assembly tests cover delayed activation, the original position write, first
+line creation, horizontal movement, and `STOPMOVEP` completion.

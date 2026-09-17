@@ -29,6 +29,7 @@ assert.deepEqual(
 );
 
 assert.equal(lightPenStatus(false, true), "UP");
+assert.equal(lightPenStatus(true, false, false), "ACQUIRING");
 assert.equal(lightPenStatus(true, true), "LOST");
 assert.equal(lightPenStatus(true, false), "TRACKING");
 assert.deepEqual(

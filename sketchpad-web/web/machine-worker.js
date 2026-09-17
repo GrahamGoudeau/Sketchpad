@@ -11,6 +11,7 @@ const SCOPE_FLUSH_INTERVAL_MS = 4;
 const STATUS_INTERVAL_MS = 32;
 const ATBITS_ADDRESS = 0o200044;
 const LPLOST_ADDRESS = 0o200042;
+const PEN_Y_ADDRESS = 0o200043;
 
 let machine = null;
 let activeTape = null;
@@ -26,6 +27,12 @@ let lastScopeFlushAt = 0;
 let lastStatusAt = 0;
 let penView = null;
 let lastPenSequence = -1;
+let penActive = false;
+let penInitialized = false;
+let penActivationDetections = 0n;
+let penActivationPosition = [0, 0];
+let penPosition = [0, 0];
+let penPositionVersion = 0;
 let fallbackPen = { sequence: 0, x: 0.5, y: 0.5, radius: 12 / 1022, active: false };
 let knobState = { values: [0, 0, 0, 0], meta: false };
 let externalState = { quarters: [0, 0, 0, 0], meta: false };
@@ -72,11 +79,47 @@ function currentPen() {
   return penView ? readSharedPen(penView) : fallbackPen;
 }
 
+function currentPenPosition() {
+  const simulatedTime = machine.simulated_time;
+  return [
+    machine.memory_word(LPLOST_ADDRESS, simulatedTime).value,
+    machine.memory_word(PEN_Y_ADDRESS, simulatedTime).value,
+  ];
+}
+
+function positionsDiffer(left, right) {
+  return left[0] !== right[0] || left[1] !== right[1];
+}
+
+function updatePenPositionState() {
+  if (!machine) return false;
+  const position = currentPenPosition();
+  if (positionsDiffer(position, penPosition)) {
+    penPosition = position;
+    penPositionVersion += 1;
+  }
+  if (
+    !penInitialized
+    && penActive
+    && machine.light_pen_detection_count > penActivationDetections
+    && positionsDiffer(position, penActivationPosition)
+  ) {
+    penInitialized = true;
+    return true;
+  }
+  return false;
+}
+
 function applyPen() {
   if (!machine) return;
   const pen = currentPen();
   if (pen.sequence === lastPenSequence) return;
+  if (pen.active && !penActive && !penInitialized) {
+    penActivationDetections = machine.light_pen_detection_count;
+    penActivationPosition = currentPenPosition();
+  }
   machine.set_light_pen(pen.x, pen.y, pen.radius, pen.active);
+  penActive = pen.active;
   lastPenSequence = pen.sequence;
   if (penView) {
     recordSharedPenApplication(
@@ -128,6 +171,8 @@ function postStatus(now = performance.now()) {
     simulatedTime,
     detectionCount: machine.light_pen_detection_count,
     lost: machine.memory_word(LPLOST_ADDRESS, simulatedTime).meta,
+    penInitialized,
+    penPositionVersion,
     atBits: machine.memory_word(ATBITS_ADDRESS, simulatedTime).value,
   });
   lastStatusAt = now;
@@ -155,6 +200,7 @@ function runSlice() {
         }
         pendingScope.push(event);
       }
+      if (updatePenPositionState()) postStatus();
       applyPen();
     }
   } catch (error) {
@@ -190,6 +236,12 @@ async function initialize(message) {
   externalState = message.config.external;
   toggleState = message.config.toggles;
   lastPenSequence = -1;
+  penActive = false;
+  penInitialized = false;
+  penActivationDetections = 0n;
+  penActivationPosition = [0, 0];
+  penPosition = [0, 0];
+  penPositionVersion = 0;
   displayClockStarted = false;
   pendingScope = [];
   mainScopeBacklog = 0;
@@ -201,6 +253,7 @@ async function initialize(message) {
   applyToggles();
   applyPen();
   machine.codabo(0);
+  penPosition = currentPenPosition();
   postStatus();
   self.postMessage({ type: "ready", generation });
 }

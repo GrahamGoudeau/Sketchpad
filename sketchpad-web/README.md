@@ -27,9 +27,9 @@ budget pause the machine.  A 2,048-point queue applies display backpressure.
 Each unit-60 event includes its emulated TX-2 time.  The browser accelerates
 the machine until the first scope event.  It then keeps execution aligned with
 the real-time display clock.  The renderer
-intensifies points in event order and keeps one-sixteenth of a point's light
+intensifies points in event order and keeps one-sixty-fourth of a point's light
 after the handbook's approximate two-second phosphor-persistence interval.
-This is equivalent to a 0.5-second exponential half-life.  A sampled
+This is equivalent to a one-third-second exponential half-life.  A sampled
 blue-white beam head marks the newest point.  The beam
 stays blank between programmed positions.  This models the TX-2 point-addressed
 scope.  A one-second readout reports the displayed spot rate.  The renderer does

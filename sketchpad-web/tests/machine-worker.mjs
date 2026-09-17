@@ -24,6 +24,8 @@ const worker = new Worker(new URL("./worker-node-wrapper.mjs", import.meta.url),
 let ready = false;
 let scopePoints = 0;
 let simulatedTime = 0;
+let penInitialized = false;
+let penPositionVersion = 0;
 let workerError = null;
 worker.on("message", (message) => {
   if (message.type === "error") workerError = new Error(message.message);
@@ -32,7 +34,11 @@ worker.on("message", (message) => {
     worker.postMessage({ type: "run" });
   }
   if (message.type === "scope") scopePoints += message.events.length;
-  if (message.type === "status") simulatedTime = message.simulatedTime;
+  if (message.type === "status") {
+    simulatedTime = message.simulatedTime;
+    penInitialized = message.penInitialized;
+    penPositionVersion = message.penPositionVersion;
+  }
 });
 worker.on("error", (error) => {
   workerError = error;
@@ -70,7 +76,7 @@ assert.ok(scopePoints > 0, "the worker must forward real unit-60 points");
 
 writeSharedPen(
   penView,
-  { x: 0.625, y: 0.375, radius: 40 / 1022, active: true },
+  { x: 575 / 1022, y: 1 - 575 / 1022, radius: 40 / 1022, active: true },
   2,
   performance.timeOrigin + performance.now(),
 );
@@ -83,7 +89,22 @@ const application = readSharedPenApplication(penView);
 assert.equal(application.sequence, 2, "the running worker must read the latest atomic pen state");
 assert.ok(application.latencyMilliseconds >= 0);
 
+const initializationDeadline = performance.now() + 3000;
+while (!penInitialized && performance.now() < initializationDeadline) {
+  await delay(5);
+}
+assert.equal(penInitialized, true,
+  "a pen activated after boot must initialize from a real optical detection");
+assert.ok(penPositionVersion > 0,
+  "initial pen acquisition must store an original Sketchpad position");
+
 worker.postMessage({ type: "pause" });
 await worker.terminate();
 
-console.log(JSON.stringify({ simulatedTime, scopePoints, penApplyMs: application.latencyMilliseconds }));
+console.log(JSON.stringify({
+  simulatedTime,
+  scopePoints,
+  penApplyMs: application.latencyMilliseconds,
+  penInitialized,
+  penPositionVersion,
+}));
