@@ -1898,6 +1898,31 @@ if (process.env.CONSTRAINT_ONLY === "1") {
           + "word is STA [12255] at 012257.",
       },
       {
+        kind: "constraint_error_store",
+        address: "012214",
+        justification: "ADCONER stores the constraint subroutine's standard "
+          + "error in ADCSE before it builds the equation (sk2.tx2as:3075-3078).",
+      },
+      {
+        kind: "constraint_evaluation_call",
+        address: "012237",
+        justification: "ADCONER calls the constraint type's runtime-selected "
+          + "comparison routine once for the base error and once per probe "
+          + "(sk2.tx2as:3096-3098).",
+      },
+      {
+        kind: "constraint_coefficient_store",
+        address: "012253",
+        justification: "ADCONER stores one finite-difference coefficient in the "
+          + "active REEQ equation (sk2.tx2as:3106-3108).",
+      },
+      {
+        kind: "constraint_constant_store",
+        address: "012274",
+        justification: "ADCONER stores the accumulated equation constant in "
+          + "REEQ after all variable probes complete (sk2.tx2as:3123-3129).",
+      },
+      {
         kind: "constraint_pass_head",
         address: "012112",
         justification: "APY5 RELC (sk2.tx2as:3023) assembles to RSX 140 (REEQ) at "
@@ -1905,11 +1930,11 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       },
       {
         kind: "solve_entry",
-        address: "013727",
+        address: "013726",
         justification: "SOLVE|P,Q dispatches a two-equation system to "
           + "hJPQ {SOLVEM|2} (sk2.tx2as:2974); the APY5 assembler listing places "
           + "that call at 012151 and the SOLVEM expansion's first word ¹STE SLVDR "
-          + "at 013727.",
+          + "at 013726.",
       },
       {
         kind: "solve_return",
@@ -1918,43 +1943,152 @@ if (process.env.CONSTRAINT_ONLY === "1") {
           + "observable RELC instruction after SOLVEM returns.",
       },
       {
+        kind: "solve_answer_dividend",
+        address: "014103",
+        justification: "SOLVEM SLVD1 loads one reduced equation constant before "
+          + "it subtracts the saved term and divides by the diagonal "
+          + "(sk2.tx2as:2822-2825).",
+      },
+      {
+        kind: "solve_answer_division",
+        address: "014105",
+        justification: "SOLVEM SLVD1 divides the reduced equation value by its "
+          + "diagonal to calculate one final answer (sk2.tx2as:2824-2826).",
+      },
+      {
+        kind: "solve_answer_store",
+        address: "014107",
+        justification: "SOLVEM SLVD2 stores one final answer in its temporary "
+          + "result vector (sk2.tx2as:2827).",
+      },
+      {
+        kind: "solve_answer_copy",
+        address: "014114",
+        justification: "SOLVEM copies each temporary final answer into the REANS "
+          + "result vector that RELC consumes (sk2.tx2as:2831-2833).",
+      },
+      {
+        kind: "saved_index_restore",
+        address: "012154",
+        justification: "APY5 RELC2 restores gamma with REX gamma # after SOLVEM "
+          + "returns (sk2.tx2as:3039); the corrected GETIX mask leaves the saved "
+          + "index as a direct REX operand at this address.",
+      },
+      {
+        kind: "solution_load",
+        address: "012156",
+        justification: "APY5 loads one returned answer from REANS+1 before it "
+          + "computes the over-relaxed coordinate update (sk2.tx2as:3041).",
+      },
+      {
+        kind: "solution_store",
+        address: "012163",
+        justification: "APY5 stores the over-relaxed answer through the variable "
+          + "location chain before advancing the result index (sk2.tx2as:3047).",
+      },
+      {
+        kind: "constraint_pass_exit",
+        address: "012165",
+        justification: "APY5 RELX is the saved return from the RELB and RELC "
+          + "passes (sk2.tx2as:3049); reaching it after the solution store closes "
+          + "this constraint pass.",
+      },
+      {
+        kind: "relax_return",
+        address: "205567",
+        justification: "The acceptance path calls hJPQ RELAX at 0205566. The "
+          + "instruction at 0205567 is therefore the first caller instruction "
+          + "after the original RELAX invocation returns.",
+      },
+      {
         kind: "solve_degeneracy_test",
-        address: "014074",
+        address: "014073",
         justification: "SOLVEM loads the right half of SLVTS with configuration 11 "
           + "immediately before it decides whether to enter SLVAD "
           + "(sk2.tx2as:2813-2814).",
       },
       {
         kind: "solve_degeneracy_branch",
-        address: "014075",
+        address: "014074",
         justification: "The JNA SLVAD instruction enters the constraint-addition "
           + "path when the loaded degeneracy value is negative "
           + "(sk2.tx2as:2814).",
       },
       {
+        kind: "solve_added_equation_diagonal_load",
+        address: "014154",
+        justification: "SLVAD2 loads the diagonal of one candidate equation "
+          + "before it tests whether the equation is degenerate "
+          + "(sk2.tx2as:2882-2885).",
+      },
+      {
+        kind: "solve_added_equation_zero_branch",
+        address: "014157",
+        justification: "SLVAD2 jumps directly to SLVAD3 when both signed tests "
+          + "find a zero diagonal, so the zero equation entry is preserved "
+          + "(sk2.tx2as:2883-2890).",
+      },
+      {
+        kind: "solve_added_equation_term_load",
+        address: "014160",
+        justification: "SLVAD2 loads the next non-reduced matrix term for a "
+          + "nonzero diagonal (sk2.tx2as:2886).",
+      },
+      {
+        kind: "solve_added_equation_term_multiply",
+        address: "014161",
+        justification: "SLVAD2 multiplies the non-reduced term by the future "
+          + "diagonal stored in the active equation constant (sk2.tx2as:2887).",
+      },
+      {
+        kind: "solve_added_equation_term_divide",
+        address: "014162",
+        justification: "SLVAD2 divides the scaled term by the current diagonal "
+          + "to calculate the new equation entry (sk2.tx2as:2888).",
+      },
+      {
+        kind: "solve_added_equation_store",
+        address: "014164",
+        justification: "SLVAD3 stores the computed entry, including zero for a "
+          + "degenerate candidate equation (sk2.tx2as:2885-2890).",
+      },
+      {
         kind: "solve_retry_load",
-        address: "014220",
+        address: "014217",
         justification: "At the end of SLVAD, configuration 11 loads the right half "
           + "of SLVTS before the retry state is rotated (sk2.tx2as:2917).",
       },
       {
+        kind: "solve_degeneracy_point_multiply",
+        address: "014204",
+        justification: "SLVAD6 multiplies one completed-equation term by the "
+          + "saved original point value through a self-modified address "
+          + "(sk2.tx2as:2905-2907).",
+      },
+      {
+        kind: "solve_degeneracy_constant_store",
+        address: "014207",
+        justification: "SLVAD6 stores the reconstructed constant for the added "
+          + "degeneracy equation (sk2.tx2as:2907-2910).",
+      },
+      {
         kind: "solve_retry_store",
-        address: "014221",
+        address: "014220",
         justification: "Configuration 17 stores the loaded degeneracy state back "
           + "to SLVTS with its two halves exchanged (sk2.tx2as:2918).",
       },
       {
         kind: "solve_elimination_head",
-        address: "013770",
+        address: "013767",
         justification: "The assembler listing places SLVR1-2, the elimination "
           + "head entered by the initial solve and by each repaired retry, at "
-          + "013770 (sk2.tx2as:2753 and 2919).",
+          + "013767 (sk2.tx2as:2753 and 2919).",
       },
       {
         kind: "solve_retry_tail",
-        address: "014222",
-        justification: "The JPQ SLVR1-2 word itself (sk2.tx2as:2919) at 014222; "
-          + "its executed form names the loop head 013770 that it returns to.",
+        address: "014221",
+        justification: "The JPQ SLVR1-2 word itself (sk2.tx2as:2919) at 014221; "
+          + "its executed form names the loop head 013767 that it returns to.",
       },
     ];
     const boundaryByAddress = new Map(boundaryTable.map(
@@ -1983,14 +2117,18 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       hovCode: octal(rightHalf(wordAt(constraintAddress + 0o14))),
     });
     const solverWordAddresses = {
-      slvtr2: 0o014032,
-      slvtx: 0o014037,
-      slvty: 0o014040,
-      slvts: 0o014041,
-      slvt5: 0o013761,
-      slvtr: 0o014053,
-      slvtp: 0o014055,
-      slvdr: 0o014120,
+      slvtr2: 0o014031,
+      slvtx: 0o014036,
+      slvty: 0o014037,
+      slvts: 0o014040,
+      slvt5: 0o013760,
+      slvtr: 0o014052,
+      slvtp: 0o014054,
+      slvdr: 0o014117,
+      slvadPointMultiply: 0o014204,
+      adcse: 0o014336,
+      adcsum: 0o014337,
+      adceff: 0o014334,
     };
     const observedSolver = () => ({
       indexRegisters: {
@@ -2018,7 +2156,12 @@ if (process.env.CONSTRAINT_ONLY === "1") {
         }],
       )),
       matrixWords: Object.fromEntries(
-        Array.from({ length: 0o13 }, (_, offset) => 0o000076 + offset)
+        [
+          ...Array.from({ length: 0o11 }, (_, offset) => offset),
+          ...Array.from({ length: 0o13 }, (_, offset) => 0o000076 + offset),
+          ...Array.from({ length: 0o12 }, (_, offset) => 0o000107 + offset),
+          ...Array.from({ length: 0o6 }, (_, offset) => 0o000140 + offset),
+        ]
           .map((address) => [octal(address, 6), octal(wordAt(address))]),
       ),
     });
@@ -2049,7 +2192,7 @@ if (process.env.CONSTRAINT_ONLY === "1") {
     };
     const trace = {
       schema: "sketchpad-web/relax-hov-trace",
-      schemaVersion: 3,
+      schemaVersion: 4,
       generator: {
         command: "CONSTRAINT_ONLY=1 RELAX_TRACE=1 node tests/assembly-interaction.mjs",
         harness: "sketchpad-web/tests/assembly-interaction.mjs",
@@ -2076,10 +2219,11 @@ if (process.env.CONSTRAINT_ONLY === "1") {
             + "axis; the TX-2 stores a coordinate as one fixed-point word, so the "
             + "word difference is proportional to the coordinate difference while "
             + "both words keep the same scale",
-          constrainedAxis: null,
-          constrainedAxisNote: "the constraint's HOVCODE word is 0, and sk2.tx2as:380 "
-            + "defines EITHER = 0, so the assembly rather than the constraint record "
-            + "selects the axis; no axis is claimed",
+          constrainedAxis: "x",
+          constrainedAxisNote: "the constraint enters with HOVCODE 0 (EITHER) and the "
+            + "original comparison routine changes it to 1; the measured standard error "
+            + "is the endpoint x difference and the completed solve makes the two observed "
+            + "x words equal, so this trace labels x as the constrained axis",
         },
       },
       samples: [],
@@ -2129,9 +2273,25 @@ if (process.env.CONSTRAINT_ONLY === "1") {
     let previousInstructionAddress = null;
     let fault = null;
     const crossings = new Map();
+    const answerWordAddresses = [0o000100, 0o000101, 0o000102];
+    const observedAnswers = () => Object.fromEntries(answerWordAddresses.map(
+      (address) => [octal(address, 6), octal(wordAt(address))],
+    ));
+    const answerChanges = [];
+    let previousAnswers = observedAnswers();
+    const activeMatrixAddresses = Array.from(
+      { length: 0o6 },
+      (_, offset) => 0o000101 + offset,
+    );
+    const observedActiveMatrix = () => Object.fromEntries(activeMatrixAddresses.map(
+      (address) => [octal(address, 6), octal(wordAt(address))],
+    ));
+    const matrixChanges = [];
+    let previousActiveMatrix = observedActiveMatrix();
     let reachedSolveReturn = false;
+    let reachedRelaxReturn = false;
     machine.set_toggle_register(0o20, 0o400, 0, 0, 0, true);
-    const tickLimit = Number(process.env.RELAX_TRACE_TICKS ?? "20000");
+    const tickLimit = Number(process.env.RELAX_TRACE_TICKS ?? "150000");
     trace.provenance.tickLimit = tickLimit;
     let traceTick = 0;
     while (traceTick < tickLimit) {
@@ -2146,6 +2306,34 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       if (previousWords !== null && words !== previousWords) coordinateChangeTicks += 1;
       previousWords = words;
       const state = machine.control_state();
+      const answers = observedAnswers();
+      if (Object.keys(answers).some((address) => answers[address] !== previousAnswers[address])) {
+        answerChanges.push({
+          tick: traceTick,
+          instruction: {
+            address: octal(state.instruction_address, 6),
+            text: state.instruction,
+          },
+          before: previousAnswers,
+          after: answers,
+        });
+      }
+      previousAnswers = answers;
+      const activeMatrix = observedActiveMatrix();
+      if (Object.keys(activeMatrix).some(
+        (address) => activeMatrix[address] !== previousActiveMatrix[address],
+      )) {
+        matrixChanges.push({
+          tick: traceTick,
+          instruction: {
+            address: octal(state.instruction_address, 6),
+            text: state.instruction,
+          },
+          before: previousActiveMatrix,
+          after: activeMatrix,
+        });
+      }
+      previousActiveMatrix = activeMatrix;
       // One instruction can occupy two ticks; record a boundary only when a
       // new instruction executes, so a two-tick instruction yields one sample.
       const isNewInstruction = state.instruction_address !== previousInstructionAddress;
@@ -2188,18 +2376,24 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       });
       if (boundary.kind === "solve_return") {
         reachedSolveReturn = true;
+      }
+      if (boundary.kind === "relax_return") {
+        reachedRelaxReturn = true;
         break;
       }
     }
     machine.set_toggle_register(0o20, 0o400, 0, 0, 0, false);
     const endState = machine.control_state();
     trace.outcome = {
-      kind: reachedSolveReturn ? "solve_return" : (fault === null ? "tick_limit" : "machine_fault"),
+      kind: reachedRelaxReturn ? "relax_return" : (fault === null ? "tick_limit" : "machine_fault"),
       tick: traceTick,
       simulatedTimeSeconds: machine.simulated_time,
       completedSolve: reachedSolveReturn,
+      completedRelax: reachedRelaxReturn,
       eliminationPasses,
       degeneracyRepairs,
+      answerChanges,
+      matrixChanges,
       observedCoordinateChangeTicks: coordinateChangeTicks,
       endCoordinateWords: Object.fromEntries(Object.entries(coordinateAddresses).map(
         ([name, address]) => [name, octal(wordAt(address))],
@@ -2232,6 +2426,12 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       "the traced RELC pass must enter the original SOLVEM expansion");
     assert.ok(crossed("solve_return"),
       "the traced SOLVEM expansion must return to RELC");
+    assert.ok(crossed("saved_index_restore"),
+      "the traced RELC pass must restore its saved result index");
+    assert.ok(crossed("solution_store"),
+      "the traced RELC pass must apply a returned answer");
+    assert.ok(crossed("relax_return"),
+      "the traced RELAX invocation must return to its caller");
     // The artifact is large enough that a plain process.exit can cut the
     // pipe before Node flushes stdout, so exit from the write callback and
     // never fall through into the ordinary constraint regression.
@@ -2252,7 +2452,7 @@ if (process.env.CONSTRAINT_ONLY === "1") {
     assert.equal(machine.alarm_active, false, machine.last_alarm);
     const state = machine.control_state();
     if (state.instruction_address === 0o200060) enteredRelax = true;
-    if (state.instruction_address === 0o013727) enteredSolve = true;
+    if (state.instruction_address === 0o013726) enteredSolve = true;
     geometryAfterProbes = lineGeometry(selectedLineWord);
     const changedThisTick = (
       geometryAfterProbes.first.some((value, index) => value !== previousGeometry.first[index])

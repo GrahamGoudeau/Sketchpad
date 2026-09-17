@@ -66,7 +66,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R067 and the validator changes let the complete source
+Repairs R001 through R070 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -79,9 +79,9 @@ Seven historical jobs form the current compatible machine image.  The load order
 `2XMX`, `GX7A`, `BOO7`, `ONLW`, `APY5`, `LYUO`, and `Y3HT`.  The earlier and
 shorter `OPLW` job is not in this set.  A separate one-word inferred
 initialization tape sets the no-old-designation sentinel used by `DESIGNATE`.
-The merged tape has 12,946 words in 29 blocks.  It starts at octal address
-`200140`.  It is 78,168 bytes.  Its SHA-256 is
-`864e7be146d8306489b847ff6e080f2f69cfa20632444315da2bdebf412fcae8`.
+The merged tape has 12,946 words in 28 blocks.  It starts at octal address
+`200140`.  It is 78,156 bytes.  Its SHA-256 is
+`5d78aba492c87a7e3a6935c785bff1437e6a29ef03ff151f2083de1172066fcf`.
 
 The simulator runs this image through WebAssembly.  The executing assembly
 draws `INK`, creates a line, selects it with the emulated light pen, creates a
@@ -268,6 +268,9 @@ file marks it clearly and the log records the alternatives.
 | R065 | `sk2.tx2as:6175` | inferred | Operator recording; complete unit-60 sweep; `LMAG4` trace; TX-2 Users Handbook pages 3-62 and 3-63 | Send a boundary-key divide overflow to `LMAG5`, which tests the real endpoints, instead of discarding the display file before those tests. |
 | R066 | `sk2.tx2as:2412` | verified | 300-DPI render of Sketchpad part 2, PDF page 58 (document page 208), `NORMATM` macro: the mnemonic's first letter has the three-stroke `N` form of `NORX` on the same page and differs from the four-stroke `M` of `MUL` and the `**NEW MAX` comment; TX-2 Users Handbook pages 3-40 and 3-41 print `NAB` as octal 066 ("NORMALIZE AB (Extended Accumulator)") with the sample `MUL Y / NAB (35.,)` and its opcode Table 7-3 lists `66 - NAB` with no `MAB`; the preceding `MUL NORX` leaves the double-length product in `AB`, which `NAB` normalizes | Read `hMAB {35.,}` as `hNAB {35.,}`.  This replaces the invalid opcode word at `013671` with `h NAB 13712` and removes the extra trailing pool word the undefined symbol produced. |
 | R067 | `sk2.tx2as:2866` | verified | 300-DPI render of Sketchpad part 2, PDF page 67 (document page 217); the final glyph is the digit `5`; the printed comment says `MATRIX LOCATION`; `SLVT5-1` is the self-modified matrix-base word used by the adjacent solver code | Read `RSX y1 SLVTS-1` as `RSX y1 SLVT5-1`.  The repaired `SLVAD` path reads the matrix at `000101` through `000106` instead of unrelated low memory at `000001` through `000006`. |
+| R068 | `sk2.tx2as:2510-2518,5146-5154` | verified | 500-DPI renders of Sketchpad part 2, PDF pages 61 and 118; every masked GETIX operand uses the printed logical-AND glyph; the Part 1 copy uses the same operation | Read the 18 masks as `and(370,)`, not `xor(370,)`.  The APY5 and Y3HT metadata lookups now retain the intended three-bit field and resolve `TUPLE` and `VARLOC` to record constants instead of solver instructions. |
+| R069 | `sk.tx2as:6723` | verified | 500-DPI render of Sketchpad part 1, PDF page 152; the dispatch table prints `hJMP HOVSCOMP` at octal address `023771` between `PRLCOMP` and `IBVERTCOMP` | Restore the omitted HOV dispatch entry.  HOV constraints now call their comparison routine instead of the following independent-variable routine. |
+| R070 | `sk2.tx2as:2886` | verified | 500-DPI render of Sketchpad part 2, PDF page 68 (document page 218); the operand clearly reads `x1|x3`; adjacent matrix operations use the same indexed form | Remove the extra transcribed `S` and `beta` symbols from the `LDA x1|x3` operand.  `SLVAD2` now loads the next matrix term instead of executable memory, preserves the free coordinate, completes both solver passes, and returns from `RELAX`. |
 
 ## Publication Gate
 

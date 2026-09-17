@@ -2507,15 +2507,15 @@ hJPQ ADCONER
 [Page header: "HHL APY5 012"]
 
 REX @sub_beta@*{0@sub_alpha@}
-RSX@sub_beta@*{LIST+I@sub_beta@}+(I@xor@(370,))
-RSX@sub_beta@*{LIST+H@sub_beta@}+(H@xor@(370,))
-RSX@sub_beta@*{LIST+G@sub_beta@}+(G@xor@(370,))
-RSX@sub_beta@*{LIST+F@sub_beta@}+(F@xor@(370,))
-RSX@sub_beta@*{LIST+E@sub_beta@}+(E@xor@(370,))
-RSX@sub_beta@*{LIST+D@sub_beta@}+(D@xor@(370,))
-RSX@sub_beta@*{LIST+C@sub_beta@}+(C@xor@(370,))
-RSX@sub_beta@*{LIST+B@sub_beta@}+(B@xor@(370,))
-RSX@sub_beta@*{LIST+A@sub_beta@}+(A@xor@(370,))
+RSX@sub_beta@*{LIST+I@sub_beta@}+(I@and@(370,))
+RSX@sub_beta@*{LIST+H@sub_beta@}+(H@and@(370,))
+RSX@sub_beta@*{LIST+G@sub_beta@}+(G@and@(370,))
+RSX@sub_beta@*{LIST+F@sub_beta@}+(F@and@(370,))
+RSX@sub_beta@*{LIST+E@sub_beta@}+(E@and@(370,))
+RSX@sub_beta@*{LIST+D@sub_beta@}+(D@and@(370,))
+RSX@sub_beta@*{LIST+C@sub_beta@}+(C@and@(370,))
+RSX@sub_beta@*{LIST+B@sub_beta@}+(B@and@(370,))
+RSX@sub_beta@*{LIST+A@sub_beta@}+(A@and@(370,))
 @hand@@hand@EMD
 
 @hand@@hand@DEF LTAKE@hamb@N@times@XR
@@ -2883,7 +2883,7 @@ SLVAD2@arr@     LDA@sub_x@@sub_2@@sub_pipe@@sub_x@@sub_3@       **DIAGONAL
                 JPA #+3
                 JNA #+2
                 JPQ SLVAD3      **SKIP DEGEN EQUATIONS
-                LDA@sub_x@@sub_1@@sub_S@@sub_pipe@@sub_beta@@sub_x@@sub_3@      **NEXT NON REDUCED TERM
+                LDA@sub_x@@sub_1@@sub_pipe@@sub_x@@sub_3@      **NEXT NON REDUCED TERM
                 MUL@sub_y@@sub_1@K      **FUTURE DIAG IN CONSTANT
                 DIV@sub_x@@sub_2@@sub_pipe@@sub_x@@sub_3@       **DIAGONAL
                 JOV SLVAD8
@@ -5143,15 +5143,15 @@ STA Q
 
 @hand@@hand@DEF GETIX@hamb@@beta@@times@A@times@B@times@C@times@D@times@E@times@F@times@G@times@H@times@I,@alpha@
 REX @sub_beta@*{0@sub_alpha@}
-RSX@sub_beta@*{LIST+I@sub_beta@}+(I@xor@(370,))
-RSX@sub_beta@*{LIST+H@sub_beta@}+(H@xor@(370,))
-RSX@sub_beta@*{LIST+G@sub_beta@}+(G@xor@(370,))
-RSX@sub_beta@*{LIST+F@sub_beta@}+(F@xor@(370,))
-RSX@sub_beta@*{LIST+E@sub_beta@}+(E@xor@(370,))
-RSX@sub_beta@*{LIST+D@sub_beta@}+(D@xor@(370,))
-RSX@sub_beta@*{LIST+C@sub_beta@}+(C@xor@(370,))
-RSX@sub_beta@*{LIST+B@sub_beta@}+(B@xor@(370,))
-RSX@sub_beta@*{LIST+A@sub_beta@}+(A@xor@(370,))
+RSX@sub_beta@*{LIST+I@sub_beta@}+(I@and@(370,))
+RSX@sub_beta@*{LIST+H@sub_beta@}+(H@and@(370,))
+RSX@sub_beta@*{LIST+G@sub_beta@}+(G@and@(370,))
+RSX@sub_beta@*{LIST+F@sub_beta@}+(F@and@(370,))
+RSX@sub_beta@*{LIST+E@sub_beta@}+(E@and@(370,))
+RSX@sub_beta@*{LIST+D@sub_beta@}+(D@and@(370,))
+RSX@sub_beta@*{LIST+C@sub_beta@}+(C@and@(370,))
+RSX@sub_beta@*{LIST+B@sub_beta@}+(B@and@(370,))
+RSX@sub_beta@*{LIST+A@sub_beta@}+(A@and@(370,))
 @hand@@hand@EMD
 
 @hand@@hand@DEF DIREC1@hamb@P@arr@Q,R@arr@S=T@arr@U

@@ -6720,6 +6720,7 @@ CCFR14@arr@     hJMP IBFSCOMP
 CCFR10@arr@     hJMP MDISCOMP
                 hJMP TPTLCOMP
                 hJMP PRLCOMP
+                hJMP HOVSCOMP
                 hJMP IBVERTCOMP
                 hJMP ONCIRCCOMP
 CCFR2@arr@      hJMP ONLINECOMP

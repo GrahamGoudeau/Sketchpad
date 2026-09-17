@@ -28,7 +28,7 @@ const { stdout } = await run(process.execPath, ["tests/assembly-interaction.mjs"
 const trace = JSON.parse(stdout);
 
 assert.equal(trace.schema, "sketchpad-web/relax-hov-trace", "the trace must declare its schema");
-assert.equal(trace.schemaVersion, 3, "the trace must declare a known schema version");
+assert.equal(trace.schemaVersion, 4, "the trace must declare a known schema version");
 assert.ok(Array.isArray(trace.samples) && trace.samples.length > 0,
   "the trace must contain samples");
 
@@ -119,8 +119,8 @@ for (const sample of trace.samples) {
     "the constraint link word must be 12 octal digits");
   assert.equal(constraint.master, "000561",
     "every sample must see the HOV master 0561 on the constraint record");
-  assert.equal(constraint.hovCode, "000000000000",
-    "the HOVCODE word must stay 0 (EITHER, sk2.tx2as:380) throughout the window");
+  assert.ok(["000000000000", "000000000001", "000000000002"].includes(constraint.hovCode),
+    "the HOVCODE word must contain EITHER, HORIZ, or VERTICAL (sk2.tx2as:380)");
 
   const solver = sample.observed.solver;
   for (const value of Object.values(solver.indexRegisters)) {
@@ -175,6 +175,12 @@ for (const sample of trace.samples) {
 
 assert.equal(trace.samples[0].boundary.kind, "relax_call",
   "the trace must open at the RELAX call vector");
+assert.equal(trace.samples[0].observed.constraint.hovCode, "000000000000",
+  "the HOV constraint must enter RELAX in its EITHER state");
+assert.equal(trace.samples.at(-1).observed.constraint.hovCode, "000000000001",
+  "the original comparison routine must select one HOV axis during relaxation");
+assert.equal(trace.derived.hovResidual.constrainedAxis, "x",
+  "the trace must name the axis proved by its measured error and final geometry");
 for (const kind of [
   "variable_pass_head",
   "constraint_application",
@@ -184,10 +190,25 @@ for (const kind of [
   "solve_elimination_head",
   "solve_degeneracy_test",
   "solve_degeneracy_branch",
+  "solve_added_equation_diagonal_load",
+  "solve_added_equation_zero_branch",
+  "solve_added_equation_term_load",
+  "solve_added_equation_term_multiply",
+  "solve_added_equation_term_divide",
+  "solve_added_equation_store",
   "solve_retry_load",
   "solve_retry_store",
   "solve_retry_tail",
+  "solve_answer_dividend",
+  "solve_answer_division",
+  "solve_answer_store",
+  "solve_answer_copy",
   "solve_return",
+  "saved_index_restore",
+  "solution_load",
+  "solution_store",
+  "constraint_pass_exit",
+  "relax_return",
 ]) {
   assert.ok(trace.samples.some((sample) => sample.boundary.kind === kind),
     `the trace must record the ${kind} boundary`);
@@ -195,10 +216,13 @@ for (const kind of [
 
 // The outcome must account for every boundary and for the whole window.
 const outcome = trace.outcome;
-assert.equal(outcome.kind, "solve_return",
-  "the trace must end when SOLVEM returns to RELC");
+assert.equal(outcome.kind, "relax_return",
+  "the trace must end when RELAX returns to its caller");
 assert.equal(outcome.completedSolve, true,
   "the outcome must mark the original SOLVEM call complete");
+assert.equal(outcome.completedRelax, true,
+  "the outcome must mark the original RELAX call complete");
+assert.equal(outcome.fault, null, "the full RELAX call must return without a machine fault");
 assert.equal(typeof outcome.simulatedTimeSeconds, "number");
 assert.ok(outcome.tick <= trace.provenance.tickLimit,
   "the outcome tick cannot exceed the traced window");
@@ -214,30 +238,75 @@ assert.deepEqual(
 assert.ok(/^[0-7]{6}$/.test(outcome.lastInstruction.address),
   "the outcome must name the last instruction address in octal");
 
-// The solver performs one initial elimination pass and one repaired retry.
-const solveEliminationHeadCrossings = crossingsByAddress.get("013770") ?? 0;
-const solveRetryTailCrossings = crossingsByAddress.get("014222") ?? 0;
-assert.equal(solveEliminationHeadCrossings, 2,
-  "the trace must contain the initial elimination pass and one repaired retry");
-assert.equal(solveRetryTailCrossings, 1,
-  "one degeneracy repair must return to the elimination head");
-assert.equal(outcome.eliminationPasses, 2,
-  "the outcome must count both elimination passes");
-assert.equal(outcome.degeneracyRepairs, 1,
-  "the outcome must count the one completed degeneracy repair");
+// Each of the two endpoint passes performs one initial elimination and one
+// repaired retry.  The complete RELAX call then applies both returned answers.
+const solveEliminationHeadCrossings = crossingsByAddress.get("013767") ?? 0;
+const solveRetryTailCrossings = crossingsByAddress.get("014221") ?? 0;
+assert.equal(solveEliminationHeadCrossings, 4,
+  "two endpoint passes must each contain an initial elimination and a repaired retry");
+assert.equal(solveRetryTailCrossings, 2,
+  "each endpoint pass must complete one degeneracy repair");
+assert.equal(outcome.eliminationPasses, 4,
+  "the outcome must count all four elimination passes");
+assert.equal(outcome.degeneracyRepairs, 2,
+  "the outcome must count both completed degeneracy repairs");
 
-// The window's measured solver progress: only the two ADCON3 probes and their
-// removals may change the endpoint words. The trace stops at SOLVEM's return,
-// before RELC applies the returned answer to the endpoint coordinates.
-assert.equal(outcome.observedCoordinateChangeTicks, 4,
-  "the two ADCON3 probes and their removals must be the only coordinate changes");
+const validateChanges = (events, addresses, label) => {
+  assert.ok(Array.isArray(events) && events.length > 0, `${label} changes must be present`);
+  let tick = 0;
+  for (const event of events) {
+    assert.ok(event.tick > tick, `${label} change ticks must strictly increase`);
+    tick = event.tick;
+    assert.ok(/^[0-7]{6}$/.test(event.instruction.address),
+      `${label} changes must name an octal instruction address`);
+    assert.ok(event.instruction.text.length > 0,
+      `${label} changes must name the executed instruction`);
+    assert.deepEqual(Object.keys(event.before), addresses,
+      `${label} before snapshots must cover the declared words`);
+    assert.deepEqual(Object.keys(event.after), addresses,
+      `${label} after snapshots must cover the declared words`);
+    assert.ok(addresses.some((address) => event.before[address] !== event.after[address]),
+      `${label} events must record a changed word`);
+    for (const word of [...Object.values(event.before), ...Object.values(event.after)]) {
+      assert.ok(/^[0-7]{12}$/.test(word), `${label} snapshots must contain octal words`);
+    }
+  }
+};
+validateChanges(outcome.answerChanges, ["000100", "000101", "000102"], "answer");
+validateChanges(
+  outcome.matrixChanges,
+  ["000101", "000102", "000103", "000104", "000105", "000106"],
+  "matrix",
+);
+
+// The corrected x1|x3 operand must load the first pass's zero matrix term.
+// The old malformed operand loaded an executable instruction instead.
+const firstTermLoad = trace.samples.find(
+  (sample) => sample.pass === 1 && sample.boundary.kind === "solve_added_equation_term_load",
+);
+assert.equal(firstTermLoad.boundary.instruction, "LDA₁₁ 101",
+  "SLVAD2 must use the scanned x1|x3 indexed operand");
+assert.equal(firstTermLoad.observed.solver.arithmeticRegisters.a, "000000000000",
+  "the first added-equation term must load the zero matrix word");
+const firstAddedEquationStore = trace.samples.find(
+  (sample) => sample.pass === 1 && sample.boundary.kind === "solve_added_equation_store"
+    && sample.observed.solver.indexRegisters.x2 === 0,
+);
+assert.equal(firstAddedEquationStore.observed.solver.matrixWords["000104"], "000000000000",
+  "the first pass must preserve the zero off-diagonal equation entry");
+
+assert.equal(outcome.observedCoordinateChangeTicks, 11,
+  "the trace must contain the finite-difference probes and returned solution stores");
 const firstSample = trace.samples[0].observed.endpoints;
-for (const [name, word] of Object.entries(outcome.endCoordinateWords)) {
-  const axis = name.endsWith("X") ? "x" : "y";
-  const endpoint = name.startsWith("first") ? firstSample.first : firstSample.second;
-  assert.equal(word, endpoint[axis],
-    `the window must end with ${name} unchanged before RELC applies the answer`);
-}
+const end = outcome.endCoordinateWords;
+assert.equal(end.firstX, end.secondX,
+  "the completed HOV relaxation must give both endpoints the same x coordinate");
+assert.ok(parseOctal(end.firstX) > parseOctal(firstSample.first.x),
+  "the first endpoint must move toward the second endpoint on the constrained axis");
+assert.ok(Math.abs(parseOctal(end.firstY) - parseOctal(firstSample.first.y)) <= 3,
+  "the first endpoint's free y coordinate must stay within fixed-point rounding error");
+assert.equal(end.secondY, firstSample.second.y,
+  "the second endpoint's free y coordinate must stay unchanged");
 
 if (process.env.RELAX_TRACE_UPDATE === "1") {
   await mkdir(dirname(artifactPath), { recursive: true });
