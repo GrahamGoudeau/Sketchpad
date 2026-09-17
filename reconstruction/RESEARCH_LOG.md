@@ -3515,3 +3515,8 @@ needs an assembly-level regression before it becomes a named browser control.
 The RELAX trace instrument no longer appears on the simulator page. It now
 lives at the separate `/relax.html` research route. The simulator page contains
 only the running machine, its console, and its operator guide.
+
+Commit `0ef461e` was pushed to `main`. Production release
+`20260917T205012Z` deployed to `https://sketchpad.acyclic.sh/`. Caddy validated
+and reloaded. Live HTTP and Chrome checks confirm that the simulator page has
+no RELAX instrument and that `/relax.html` contains the instrument.
