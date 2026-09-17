@@ -53,14 +53,18 @@ at address `377621`.  The application models the 24 manual toggle registers at
 `377700` through `377727`.  The application also accepts a local paper-tape
 file.
 
-After reset, the operator first acquires the pen on a bright part of the
-assembly-drawn `INK` label.  The photocell cannot detect blank glass.  After
-the assembly draws its tracking pattern, the operator can move the pen into
-blank space while the tracking pattern remains under it.
+After reset, the operator clicks once to engage the pen.  The active pen keeps
+following the pointer while it searches.  The operator moves it across the
+assembly-drawn `INK` label to acquire the first optical position.  The
+photocell cannot detect blank glass.  After the assembly draws its tracking
+pattern, the operator can move the pen into blank space while the tracking
+pattern remains under it.
 
-The light-pen readout reports the original `LPLOST` state.  The
-selection readout decodes Sketchpad's own `ATBITS` word at `200044`.  These are
-read-only diagnostics.  They do not change assembly state.  A pickup control
+The light-pen readout reports a sustained original `LPLOST` state.  It filters
+search pulses shorter than 150 milliseconds.  The physical D button does not
+use this filter and does not wait for `LPLOST` to clear.  The selection readout
+decodes Sketchpad's own `ATBITS` word at `200044`.  These are read-only
+diagnostics.  They do not change assembly state.  A pickup control
 sets the modeled detector radius.  The original hardware had a manual
 sensitivity dial whose correct setting depended on scope intensity and was set
 by trial and error.  No exact historical dial setting is known.  The browser

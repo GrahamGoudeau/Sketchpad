@@ -76,7 +76,7 @@ assert.ok(scopePoints > 0, "the worker must forward real unit-60 points");
 
 writeSharedPen(
   penView,
-  { x: 575 / 1022, y: 1 - 575 / 1022, radius: 40 / 1022, active: true },
+  { x: 0.9, y: 0.9, radius: 40 / 1022, active: true },
   2,
   performance.timeOrigin + performance.now(),
 );
@@ -88,6 +88,25 @@ while (Atomics.load(penView, PEN_INDEX.appliedSequence) !== 2 && performance.now
 const application = readSharedPenApplication(penView);
 assert.equal(application.sequence, 2, "the running worker must read the latest atomic pen state");
 assert.ok(application.latencyMilliseconds >= 0);
+
+await delay(250);
+assert.equal(penInitialized, false,
+  "a blank first click must not invent a light-pen position");
+
+writeSharedPen(
+  penView,
+  { x: 575 / 1022, y: 1 - 575 / 1022, radius: 40 / 1022, active: true },
+  3,
+  performance.timeOrigin + performance.now(),
+);
+worker.postMessage({ type: "pen-update" });
+const movedPenDeadline = performance.now() + 1000;
+while (Atomics.load(penView, PEN_INDEX.appliedSequence) !== 3
+  && performance.now() < movedPenDeadline) {
+  await delay(1);
+}
+assert.equal(Atomics.load(penView, PEN_INDEX.appliedSequence), 3,
+  "the active pen must keep following the pointer during acquisition");
 
 const initializationDeadline = performance.now() + 3000;
 while (!penInitialized && performance.now() < initializationDeadline) {

@@ -31,6 +31,8 @@ assert.deepEqual(
 assert.equal(lightPenStatus(false, true), "UP");
 assert.equal(lightPenStatus(true, false, false), "ACQUIRING");
 assert.equal(lightPenStatus(true, true), "LOST");
+assert.equal(lightPenStatus(true, true, true, 149), "TRACKING");
+assert.equal(lightPenStatus(true, true, true, 150), "LOST");
 assert.equal(lightPenStatus(true, false), "TRACKING");
 assert.deepEqual(
   scopePointPosition({ physical_x: 1022, physical_y: 1022 }, 1024, 768),

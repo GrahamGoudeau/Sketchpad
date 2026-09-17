@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   HeldControls,
+  drawCanStart,
   drawKeyTransitions,
 } from "../web/external-input.js";
 
@@ -22,5 +23,10 @@ assert.deepEqual(drawKeyTransitions(false), [
   { command: "STARTDRAW", held: false },
   { command: "STOPMOVEP", held: true },
 ]);
+
+assert.equal(drawCanStart(false, false), false);
+assert.equal(drawCanStart(true, false), false);
+assert.equal(drawCanStart(true, true), true,
+  "transient assembly tracking misses must not suppress the physical D button");
 
 console.log("external input ownership and draw release passed");

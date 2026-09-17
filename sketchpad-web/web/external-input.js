@@ -41,3 +41,7 @@ export function drawKeyTransitions(held) {
         { command: "STOPMOVEP", held: true },
       ];
 }
+
+export function drawCanStart(penActive, penInitialized) {
+  return penActive && penInitialized;
+}

@@ -3101,3 +3101,66 @@ original tracker stores the current pointer position.  A release before that
 point cancels the pending command and does not synthesize Q1.6.  The worker and
 assembly tests cover delayed activation, the original position write, first
 line creation, horizontal movement, and `STOPMOVEP` completion.
+
+## Checkpoint 74: Moving Acquisition and Physical D Input
+
+Date: 2026-09-16
+
+Two operator recordings after Checkpoint 73 are retained at
+`evidence/visual/sketchpad-visual-2026-09-17T03-43-06.522Z.webm` and
+`evidence/visual/sketchpad-visual-2026-09-17T03-43-59.237Z.webm`.  Their
+SHA-256 values are
+`310df3b3dde5042f832c32a596cb1666e8a35039d6857236e04d5679a6bdf450`
+and `21e9f0c6b893b2a3e437be08e39fe19553f03348ad1b1b8c4c5ae75504b69ed2`.
+The VP9 streams contain 540 and 934 packets at 1024 by 1024 pixels.  Their
+last packet times are 23.072 and 40.823 seconds.
+
+The first recording proves a regression in the Checkpoint 73 browser bridge.
+The page stayed in `ACQUIRING` while the visible pointer moved from a blank
+part of the scope toward the assembly-drawn `INK` label.  The bridge had held
+the physical pen at the first clicked position before any unit-55 detection.
+A first click on blank glass therefore pinned the emulated photocell to blank
+glass.  Later pointer motion could not reach `INK`, and repeated clicks could
+not repair that state.
+
+Sutherland's thesis gives the required sequence on pages 57 and 59.  The pen
+reports after a displayed spot lies in its view.  Sketchpad draws a cross-like
+search pattern and uses the detected spots to follow the pen.  Initial tracking
+requires the operator to touch an existing line or spot.  The thesis calls
+this action "inking-up" and states that `INK` is always displayed when no
+picture exists.  A fully dark display therefore has no coordinate source.
+`INK` is the bootstrap target.
+
+The worker now has three distinct acquisition phases.  Before the first
+optical detection, the active pen follows every browser pointer update.  On
+the first unit-55 detection, the worker holds only that detected physical
+position while the original tracker writes the two `PSPL` words.  Once those
+words change, the worker releases the hold and applies the latest pointer
+position.  The main thread no longer holds the first clicked position.
+
+The second recording shows another browser integration error.  The assembly's
+raw `LPLOST` bit changes during normal tracker searches near displayed lines.
+The browser used that internal bit as permission to deliver the physical D
+button.  A D press sampled during a brief miss therefore disappeared even
+though the external TX-2 button exists independently of unit 55.  The D bridge
+now waits only for the first valid `PSPL` position.  After initialization, it
+delivers Q1.8 immediately even when `LPLOST` is momentarily set.  Sketchpad's
+original assembly remains responsible for the command result.
+
+The operator readout now shows `LOST` only after `LPLOST` remains set for 150
+milliseconds.  Short search pulses continue to show `TRACKING`.  This filter
+changes presentation only.  The unit-55 detector and the acquisition-radius
+logic still receive the raw assembly bit.
+
+The worker regression now starts with an active pen on blank glass.  It proves
+that this position does not initialize `PSPL`.  It then moves the same active
+pen to the real `INK` coordinate and proves that tracking initializes without
+another click.  Input tests prove that an inactive or uninitialized pen defers
+D and that an initialized pen accepts D without an `LPLOST` condition.  The
+scope-model test fixes the 150-millisecond presentation threshold.
+
+The complete browser interaction suite passes.  The zero-dependency build
+reproduces the 12,947-word combined tape and builds the release WASM.  A local
+Chrome run clicked blank glass and stayed at `ACQUIRING`.  The same active pen
+then moved to `INK` and reached `TRACKING` without another click.  The browser
+reported no warnings or errors.

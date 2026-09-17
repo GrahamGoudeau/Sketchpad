@@ -34,8 +34,14 @@ export function scopePointPosition(event, width, height) {
   };
 }
 
-export function lightPenStatus(active, lost, initialized = true) {
+export function lightPenStatus(
+  active,
+  lost,
+  initialized = true,
+  lostForMilliseconds = Number.POSITIVE_INFINITY,
+  lossDelayMilliseconds = 150,
+) {
   if (!active) return "UP";
   if (!initialized) return "ACQUIRING";
-  return lost ? "LOST" : "TRACKING";
+  return lost && lostForMilliseconds >= lossDelayMilliseconds ? "LOST" : "TRACKING";
 }

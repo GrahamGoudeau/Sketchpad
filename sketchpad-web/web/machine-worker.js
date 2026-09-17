@@ -31,9 +31,11 @@ let penActive = false;
 let penInitialized = false;
 let penActivationDetections = 0n;
 let penActivationPosition = [0, 0];
+let acquisitionPen = null;
 let penPosition = [0, 0];
 let penPositionVersion = 0;
 let fallbackPen = { sequence: 0, x: 0.5, y: 0.5, radius: 12 / 1022, active: false };
+let lastAppliedPen = fallbackPen;
 let knobState = { values: [0, 0, 0, 0], meta: false };
 let externalState = { quarters: [0, 0, 0, 0], meta: false };
 let toggleState = {
@@ -98,14 +100,23 @@ function updatePenPositionState() {
     penPosition = position;
     penPositionVersion += 1;
   }
-  if (
-    !penInitialized
-    && penActive
-    && machine.light_pen_detection_count > penActivationDetections
-    && positionsDiffer(position, penActivationPosition)
-  ) {
-    penInitialized = true;
-    return true;
+  if (!penInitialized && penActive) {
+    if (
+      acquisitionPen === null
+      && machine.light_pen_detection_count > penActivationDetections
+    ) {
+      acquisitionPen = { ...lastAppliedPen };
+      lastPenSequence = -1;
+    }
+    if (
+      acquisitionPen !== null
+      && positionsDiffer(position, penActivationPosition)
+    ) {
+      penInitialized = true;
+      acquisitionPen = null;
+      lastPenSequence = -1;
+      return true;
+    }
   }
   return false;
 }
@@ -117,8 +128,17 @@ function applyPen() {
   if (pen.active && !penActive && !penInitialized) {
     penActivationDetections = machine.light_pen_detection_count;
     penActivationPosition = currentPenPosition();
+    acquisitionPen = null;
   }
-  machine.set_light_pen(pen.x, pen.y, pen.radius, pen.active);
+  if (!pen.active) acquisitionPen = null;
+  const appliedPen = acquisitionPen ?? pen;
+  machine.set_light_pen(
+    appliedPen.x,
+    appliedPen.y,
+    appliedPen.radius,
+    appliedPen.active,
+  );
+  lastAppliedPen = { ...appliedPen };
   penActive = pen.active;
   lastPenSequence = pen.sequence;
   if (penView) {
@@ -240,6 +260,8 @@ async function initialize(message) {
   penInitialized = false;
   penActivationDetections = 0n;
   penActivationPosition = [0, 0];
+  acquisitionPen = null;
+  lastAppliedPen = fallbackPen;
   penPosition = [0, 0];
   penPositionVersion = 0;
   displayClockStarted = false;
