@@ -3341,3 +3341,51 @@ Commit `be7bfea` was pushed to `main`.  Production release
 `20260917T173849Z` deployed to `https://sketchpad.acyclic.sh/`.  Caddy validated
 and reloaded.  The deployed JavaScript and WebAssembly hashes match the local
 reviewed build.  GitHub Actions run `35253992606` passed.
+
+## Checkpoint 77: The Solver Matrix Repair and First Completed SOLVEM Call
+
+Date: 2026-09-17
+
+Checkpoint 76 found a stable `SLVAD` loop and correctly refused to call it a
+solver iteration. A one-character transcription error caused that loop.
+
+Repair R067 changes `RSX y1 SLVTS-1` to `RSX y1 SLVT5-1` at
+`sk2.tx2as:2866`. A 300-DPI view of Sketchpad part 2, PDF page 67 (document
+page 217), shows a final digit `5`, not the letter `S`. The printed comment on
+the same line says `MATRIX LOCATION`. The surrounding solver code also uses
+`SLVT5-1` as the self-modified matrix base. The old reading made the repair
+path read addresses `000001` through `000006`. The verified reading makes it
+read the active matrix at `000101` through `000106`.
+
+The repaired APY5 tape SHA-256 is
+`a1169064dfde26cd3acc89202eeaa270526aa71c7ded5252a969a0b124ea5db3`.
+The merged 12,946-word tape SHA-256 is
+`864e7be146d8306489b847ff6e080f2f69cfa20632444315da2bdebf412fcae8`.
+
+The deterministic trace now reaches `SOLVEM|2` at `013727`. It crosses the
+elimination head at `013770` twice. Between those crossings it takes the
+degeneracy branch, updates `SLVTS`, and closes one repair through `014222`.
+The second elimination pass reaches the nonnegative branch and returns to
+`RELC` at `012152`. The old unbounded retry is gone. This is the first recorded
+completed call to the original `SOLVEM` routine in this reconstruction.
+
+Trace schema 3 stops at the return boundary. It records 19 justified samples.
+Each sample includes the solver index registers, arithmetic registers, work
+words, matrix words, endpoint words, constraint record, and derived HOV
+residual. The checked-in trace validator requires two elimination passes, one
+completed degeneracy repair, and one `SOLVEM` return. It still makes no claim
+that the enclosing `RELAX` pass completed, because it stops before `RELC`
+applies the returned answer.
+
+The next instruction exposes a separate TX-2 semantics question. Before the
+call, `¹DPX gamma RELC2` writes the saved negative gamma value `707013` into
+the address syllable of `RELC2`. After the return, that word decodes as
+`REX gamma [307013]`. The current emulator follows the high bit as deferred
+addressing and raises `QSAL`, because `307013` is unmapped. The source pattern
+clearly intends to restore gamma, but other original TX-2 code also uses real
+deferred `REX` instructions. The November 1963 Users Handbook permits a final
+deferred address, while the March 1961 Technical Manual describes `SKX` as
+non-indexable and as operating on the base address. A global change to make
+all `REX` operands immediate breaks the original 2XMX boot program. No CPU
+semantic change is retained. This conflict remains the next machine-level
+research question.

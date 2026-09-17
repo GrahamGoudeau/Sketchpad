@@ -42,7 +42,7 @@ modes, but it does not show a fixed grid on the display.
 The bundled tape contains seven compatible historical Sketchpad jobs and one
 separate inferred initialization word.  Its entry point is octal address
 `200140`.  Its SHA-256 is
-`5216fb90a50aa9a512d4da90f78b870641e86e3ee1ca6e83ec516f91c4bbca88`.
+`864e7be146d8306489b847ff6e080f2f69cfa20632444315da2bdebf412fcae8`.
 
 The browser runs the paper tape through the CPU and WebAssembly.  It draws the
 unit-60 output on the canvas.  Pointer motion over the scope always sets the
@@ -119,25 +119,25 @@ assembler listing, and the assembled tape: the `hJPQ RELAX` call vector
 `ADCONER 012166` constraint application, the two `STA *ADVC` variable stores
 at `012235` and `012257`, the `SOLVEM|2` expansion head `013727`, and the
 degeneracy retry head `013770` with its closing `JPQ SLVR1-2` word at
-`014222`.  Each sample carries the tick, the simulated time, the executed
-instruction, both endpoint coordinate words read at fixed recorded addresses,
-the constraint's link word, master, and HOVCODE word, and a derived HOV
-residual.  Observed machine words and derived measurements are labelled
-separately in the artifact.
+`014222`, and the return to `RELC` at `012152`. Each sample carries the tick,
+the simulated time, the executed instruction, both endpoint coordinate words,
+the constraint record, the solver index and arithmetic registers, selected
+solver work words, the active matrix words, and a derived HOV residual.
+Observed machine words and derived measurements are labelled separately.
 
 The trace is deterministic: three runs are byte-identical.  The checked-in
 artifact `evidence/relax-hov-trace.json` records the current behaviour.  One
 `RELAX` invocation runs one `RELB` pass, applies the constraint through
 `ADCONER`, measures two variable coordinates with `ADCON3`/`ADVC` probe
-pairs, and opens the `RELC` pass. Its `SOLVEM|2` solve then repeats the
-`SLVAD` degeneracy retry without returning. The window ends at the tick limit
-with both endpoint records unchanged from the `RELAX` call. No convergence,
-completed `RELAX` pass, or second pass is claimed. `npm run
-test:relax-trace` regenerates the trace from the checked-in tape, validates
-its structure, provenance, store decode, and residual derivation, and requires
-a byte-identical match.  `RELAX_TRACE_TICKS` bounds the traced window in
-machine ticks; the default is `20000`.  After an intentional machine or
-assembly change, rewrite the artifact with
+pairs, and opens the `RELC` pass. Repair R067 lets `SOLVEM|2` complete one
+initial elimination pass, perform one `SLVAD` degeneracy repair, complete a
+second elimination pass, and return to `RELC`. The trace stops at that return,
+before `RELC` applies the answer. It does not claim a completed `RELAX` pass
+or a second pass. `npm run test:relax-trace` regenerates the trace from the
+checked-in tape, validates its structure, provenance, store decode, solver
+completion, and residual derivation, and requires a byte-identical match.
+`RELAX_TRACE_TICKS` bounds the traced window in machine ticks; the default is
+`20000`. After an intentional machine or assembly change, rewrite the artifact with
 `RELAX_TRACE_UPDATE=1 node tests/relax-trace.mjs`.
 
 A second regression presses Q3.3 on the selected assembly-created line.  The

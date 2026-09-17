@@ -1,13 +1,13 @@
 {
   "schema": "sketchpad-web/relax-hov-trace",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "generator": {
     "command": "CONSTRAINT_ONLY=1 RELAX_TRACE=1 node tests/assembly-interaction.mjs",
     "harness": "sketchpad-web/tests/assembly-interaction.mjs"
   },
   "provenance": {
     "tape": "sketchpad-web/rust/assets/sketchpad-combined.tape",
-    "tapeSha256": "5216fb90a50aa9a512d4da90f78b870641e86e3ee1ca6e83ec516f91c4bbca88",
+    "tapeSha256": "864e7be146d8306489b847ff6e080f2f69cfa20632444315da2bdebf412fcae8",
     "tapeBytes": 78168,
     "selectCommand": "2.9",
     "lineAddress": "025261",
@@ -60,9 +60,34 @@
       "justification": "SOLVE|P,Q dispatches a two-equation system to hJPQ {SOLVEM|2} (sk2.tx2as:2974); the APY5 assembler listing places that call at 012151 and the SOLVEM expansion's first word ¹STE SLVDR at 013727."
     },
     {
-      "kind": "solve_retry_head",
+      "kind": "solve_return",
+      "address": "012152",
+      "justification": "The instruction after the hJPQ SOLVEM call is the first observable RELC instruction after SOLVEM returns."
+    },
+    {
+      "kind": "solve_degeneracy_test",
+      "address": "014074",
+      "justification": "SOLVEM loads the right half of SLVTS with configuration 11 immediately before it decides whether to enter SLVAD (sk2.tx2as:2813-2814)."
+    },
+    {
+      "kind": "solve_degeneracy_branch",
+      "address": "014075",
+      "justification": "The JNA SLVAD instruction enters the constraint-addition path when the loaded degeneracy value is negative (sk2.tx2as:2814)."
+    },
+    {
+      "kind": "solve_retry_load",
+      "address": "014220",
+      "justification": "At the end of SLVAD, configuration 11 loads the right half of SLVTS before the retry state is rotated (sk2.tx2as:2917)."
+    },
+    {
+      "kind": "solve_retry_store",
+      "address": "014221",
+      "justification": "Configuration 17 stores the loaded degeneracy state back to SLVTS with its two halves exchanged (sk2.tx2as:2918)."
+    },
+    {
+      "kind": "solve_elimination_head",
       "address": "013770",
-      "justification": "SOLVEM's degeneracy block ends in JPQ SLVR1-2 (sk2.tx2as:2919); the assembler listing places SLVR1-2 - the statement @sup_1@REX@sub_x@@sub_3@ K+1, whose assembled word the machine displays as 1SKX13 3 - at 013770. Each crossing restarts SOLVEM after the SLVAD degeneracy path adds constraints."
+      "justification": "The assembler listing places SLVR1-2, the elimination head entered by the initial solve and by each repaired retry, at 013770 (sk2.tx2as:2753 and 2919)."
     },
     {
       "kind": "solve_retry_tail",
@@ -82,7 +107,8 @@
       "index": 0,
       "invocation": 1,
       "pass": 0,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "relax_call",
         "address": "200060",
@@ -113,6 +139,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 79,
+            "beta": 689,
+            "gamma": 671,
+            "s": 82,
+            "t": 682,
+            "x1": 712,
+            "x2": 682,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "377777777777",
+            "b": "000026255127",
+            "c": "000000000000",
+            "d": "000110000000",
+            "e": "100330205567"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500014120"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": null
       },
       "derived": {
@@ -132,7 +225,8 @@
       "index": 1,
       "invocation": 1,
       "pass": 1,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "variable_pass_head",
         "address": "012105",
@@ -163,6 +257,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 701,
+            "beta": 689,
+            "gamma": 3,
+            "s": 664,
+            "t": 682,
+            "x1": 712,
+            "x2": 682,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "377777777777",
+            "b": "000026255127",
+            "c": "000000000000",
+            "d": "000110000000",
+            "e": "076060012106"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500014120"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": null
       },
       "derived": {
@@ -182,7 +343,8 @@
       "index": 2,
       "invocation": 1,
       "pass": 1,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "constraint_application",
         "address": "012166",
@@ -213,6 +375,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 701,
+            "beta": 689,
+            "gamma": 3,
+            "s": 664,
+            "t": 682,
+            "x1": 712,
+            "x2": 682,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "001215001275",
+            "b": "000026255127",
+            "c": "000000000000",
+            "d": "000110000000",
+            "e": "076060012167"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500014120"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": null
       },
       "derived": {
@@ -232,7 +461,8 @@
       "index": 3,
       "invocation": 1,
       "pass": 1,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "variable_store",
         "address": "012235",
@@ -263,6 +493,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 701,
+            "beta": 653,
+            "gamma": 3,
+            "s": 97,
+            "t": 1,
+            "x1": 712,
+            "x2": 682,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "000012254100",
+            "b": "777777777777",
+            "c": "000000000000",
+            "d": "000000000100",
+            "e": "076060012236"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500014120"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": {
           "programWord": "003400412255",
           "pointerCell": "012255",
@@ -288,7 +585,8 @@
       "index": 4,
       "invocation": 1,
       "pass": 1,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "variable_store",
         "address": "012257",
@@ -319,6 +617,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 701,
+            "beta": 653,
+            "gamma": 3,
+            "s": 1,
+            "t": 1,
+            "x1": 712,
+            "x2": 682,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "000012254000",
+            "b": "777777777777",
+            "c": "777777777777",
+            "d": "000000000100",
+            "e": "000012254000"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500014120"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": {
           "programWord": "003400412255",
           "pointerCell": "012255",
@@ -344,7 +709,8 @@
       "index": 5,
       "invocation": 1,
       "pass": 1,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "variable_store",
         "address": "012235",
@@ -375,6 +741,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 701,
+            "beta": 653,
+            "gamma": 3,
+            "s": 1,
+            "t": 0,
+            "x1": 712,
+            "x2": 682,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "000012210100",
+            "b": "777777777777",
+            "c": "000000000000",
+            "d": "000000000100",
+            "e": "076060012236"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500014120"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": {
           "programWord": "003400412255",
           "pointerCell": "012255",
@@ -400,7 +833,8 @@
       "index": 6,
       "invocation": 1,
       "pass": 1,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "variable_store",
         "address": "012257",
@@ -431,6 +865,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 701,
+            "beta": 653,
+            "gamma": 3,
+            "s": 1,
+            "t": 0,
+            "x1": 712,
+            "x2": 682,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "000012210000",
+            "b": "200000000000",
+            "c": "777777777777",
+            "d": "000000000100",
+            "e": "000012210000"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500014120"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": {
           "programWord": "003400412255",
           "pointerCell": "012255",
@@ -456,7 +957,8 @@
       "index": 7,
       "invocation": 1,
       "pass": 1,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "constraint_pass_head",
         "address": "012112",
@@ -487,6 +989,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 653,
+            "beta": 653,
+            "gamma": 3,
+            "s": 664,
+            "t": -1,
+            "x1": 712,
+            "x2": 682,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "777777777777",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "777772673777",
+            "e": "076060012113"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500014120"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": null
       },
       "derived": {
@@ -506,7 +1075,8 @@
       "index": 8,
       "invocation": 1,
       "pass": 1,
-      "retry": 0,
+      "eliminationPass": 0,
+      "degeneracyRepairs": 0,
       "boundary": {
         "kind": "solve_entry",
         "address": "013727",
@@ -537,6 +1107,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": 96,
+            "x2": 64,
+            "x3": 0,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "000000071064",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "777772673777",
+            "e": "076060013730"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000000"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000000"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000000"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "000000000000",
+            "000102": "000000000000",
+            "000103": "000000000000",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": null
       },
       "derived": {
@@ -556,9 +1193,10 @@
       "index": 9,
       "invocation": 1,
       "pass": 1,
-      "retry": 1,
+      "eliminationPass": 1,
+      "degeneracyRepairs": 0,
       "boundary": {
-        "kind": "solve_retry_head",
+        "kind": "solve_elimination_head",
         "address": "013770",
         "instruction": "¹SKX₁₃ 3"
       },
@@ -587,6 +1225,73 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": 0,
+            "x3": -3,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "100000000000",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "000000000000",
+            "e": "060076200304"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000104"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "100000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "000000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000000000"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000104"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000000"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000000000000",
+            "000101": "100000000000",
+            "000102": "777777777777",
+            "000103": "777777777777",
+            "000104": "777777777777",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
+        },
         "store": null
       },
       "derived": {
@@ -606,18 +1311,19 @@
       "index": 10,
       "invocation": 1,
       "pass": 1,
-      "retry": 1,
+      "eliminationPass": 1,
+      "degeneracyRepairs": 0,
       "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
+        "kind": "solve_degeneracy_test",
+        "address": "014074",
+        "instruction": "¹¹LDA 14041"
       },
-      "tick": 3555,
-      "simulatedTimeSeconds": 215.15474621,
+      "tick": 3267,
+      "simulatedTimeSeconds": 215.15191881,
       "observed": {
         "control": {
           "sequence": 62,
-          "programCounter": "013770"
+          "programCounter": "014075"
         },
         "endpoints": {
           "first": {
@@ -636,6 +1342,73 @@
           "linkWord": "016014000561",
           "master": "000561",
           "hovCode": "000000000000"
+        },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": -1,
+            "x3": 64,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "777777777776",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "000000000000",
+            "e": "000000777776"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000076"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "100000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000777776"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000076"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000003000006",
+            "000101": "100000000000",
+            "000102": "777777777777",
+            "000103": "777777777777",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
         },
         "store": null
       },
@@ -656,18 +1429,19 @@
       "index": 11,
       "invocation": 1,
       "pass": 1,
-      "retry": 2,
+      "eliminationPass": 1,
+      "degeneracyRepairs": 0,
       "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
+        "kind": "solve_degeneracy_branch",
+        "address": "014075",
+        "instruction": "JNA 14140"
       },
-      "tick": 3559,
-      "simulatedTimeSeconds": 215.15477941,
+      "tick": 3271,
+      "simulatedTimeSeconds": 215.15195281,
       "observed": {
         "control": {
           "sequence": 62,
-          "programCounter": "013771"
+          "programCounter": "014140"
         },
         "endpoints": {
           "first": {
@@ -686,6 +1460,73 @@
           "linkWord": "016014000561",
           "master": "000561",
           "hovCode": "000000000000"
+        },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": -1,
+            "x3": 64,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "777777777776",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "000000000000",
+            "e": "060076014076"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000076"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "100000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000777776"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000076"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000003000006",
+            "000101": "100000000000",
+            "000102": "777777777777",
+            "000103": "777777777777",
+            "000104": "000000000000",
+            "000105": "000000000000",
+            "000106": "000000000000",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
         },
         "store": null
       },
@@ -706,18 +1547,19 @@
       "index": 12,
       "invocation": 1,
       "pass": 1,
-      "retry": 2,
+      "eliminationPass": 1,
+      "degeneracyRepairs": 0,
       "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
+        "kind": "solve_retry_load",
+        "address": "014220",
+        "instruction": "¹¹LDA 14041"
       },
-      "tick": 4198,
-      "simulatedTimeSeconds": 215.16160341,
+      "tick": 3543,
+      "simulatedTimeSeconds": 215.15464421,
       "observed": {
         "control": {
           "sequence": 62,
-          "programCounter": "013770"
+          "programCounter": "014221"
         },
         "endpoints": {
           "first": {
@@ -736,6 +1578,73 @@
           "linkWord": "016014000561",
           "master": "000561",
           "hovCode": "000000000000"
+        },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": 68,
+            "x3": 62,
+            "y1": -1
+          },
+          "arithmeticRegisters": {
+            "a": "777777777776",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "777777777777",
+            "e": "000000777776"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000104"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "100000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "000000777776"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000104"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000003000006",
+            "000101": "100000000000",
+            "000102": "777777777777",
+            "000103": "777777777777",
+            "000104": "007600014276",
+            "000105": "677777777777",
+            "000106": "777777777777",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
         },
         "store": null
       },
@@ -756,18 +1665,19 @@
       "index": 13,
       "invocation": 1,
       "pass": 1,
-      "retry": 3,
+      "eliminationPass": 1,
+      "degeneracyRepairs": 0,
       "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
+        "kind": "solve_retry_store",
+        "address": "014221",
+        "instruction": "¹⁷STA 14041"
       },
-      "tick": 4202,
-      "simulatedTimeSeconds": 215.16163661,
+      "tick": 3547,
+      "simulatedTimeSeconds": 215.15467821,
       "observed": {
         "control": {
           "sequence": 62,
-          "programCounter": "013771"
+          "programCounter": "014222"
         },
         "endpoints": {
           "first": {
@@ -786,6 +1696,73 @@
           "linkWord": "016014000561",
           "master": "000561",
           "hovCode": "000000000000"
+        },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": 68,
+            "x3": 62,
+            "y1": -1
+          },
+          "arithmeticRegisters": {
+            "a": "777777777776",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "777777777777",
+            "e": "777776777777"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000104"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "100000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "777776777777"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000104"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000003000006",
+            "000101": "100000000000",
+            "000102": "777777777777",
+            "000103": "777777777777",
+            "000104": "007600014276",
+            "000105": "677777777777",
+            "000106": "777777777777",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
         },
         "store": null
       },
@@ -806,14 +1783,15 @@
       "index": 14,
       "invocation": 1,
       "pass": 1,
-      "retry": 3,
+      "eliminationPass": 1,
+      "degeneracyRepairs": 1,
       "boundary": {
         "kind": "solve_retry_tail",
         "address": "014222",
         "instruction": "¹⁴JPQ 13770"
       },
-      "tick": 4593,
-      "simulatedTimeSeconds": 215.16539621,
+      "tick": 3551,
+      "simulatedTimeSeconds": 215.15471261,
       "observed": {
         "control": {
           "sequence": 62,
@@ -836,6 +1814,73 @@
           "linkWord": "016014000561",
           "master": "000561",
           "hovCode": "000000000000"
+        },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": 68,
+            "x3": 62,
+            "y1": -1
+          },
+          "arithmeticRegisters": {
+            "a": "777777777776",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "777777777777",
+            "e": "100215014223"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000104"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "100000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "777776777777"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000104"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000003000006",
+            "000101": "100000000000",
+            "000102": "777777777777",
+            "000103": "777777777777",
+            "000104": "007600014276",
+            "000105": "677777777777",
+            "000106": "777777777777",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
         },
         "store": null
       },
@@ -856,14 +1901,15 @@
       "index": 15,
       "invocation": 1,
       "pass": 1,
-      "retry": 4,
+      "eliminationPass": 2,
+      "degeneracyRepairs": 1,
       "boundary": {
-        "kind": "solve_retry_head",
+        "kind": "solve_elimination_head",
         "address": "013770",
         "instruction": "¹SKX₁₃ 3"
       },
-      "tick": 4597,
-      "simulatedTimeSeconds": 215.16542941,
+      "tick": 3555,
+      "simulatedTimeSeconds": 215.15474581,
       "observed": {
         "control": {
           "sequence": 62,
@@ -886,6 +1932,73 @@
           "linkWord": "016014000561",
           "master": "000561",
           "hovCode": "000000000000"
+        },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": 68,
+            "x3": -3,
+            "y1": -1
+          },
+          "arithmeticRegisters": {
+            "a": "777777777776",
+            "b": "000000000000",
+            "c": "000000000000",
+            "d": "777777777777",
+            "e": "060076200307"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000104"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "100000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "777776777777"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000104"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000003000006",
+            "000101": "100000000000",
+            "000102": "777777777777",
+            "000103": "777777777777",
+            "000104": "007600014276",
+            "000105": "677777777777",
+            "000106": "777777777777",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
         },
         "store": null
       },
@@ -906,18 +2019,19 @@
       "index": 16,
       "invocation": 1,
       "pass": 1,
-      "retry": 4,
+      "eliminationPass": 2,
+      "degeneracyRepairs": 1,
       "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
+        "kind": "solve_degeneracy_test",
+        "address": "014074",
+        "instruction": "¹¹LDA 14041"
       },
-      "tick": 5233,
-      "simulatedTimeSeconds": 215.17223781,
+      "tick": 4146,
+      "simulatedTimeSeconds": 215.16148161,
       "observed": {
         "control": {
           "sequence": 62,
-          "programCounter": "013770"
+          "programCounter": "014075"
         },
         "endpoints": {
           "first": {
@@ -936,6 +2050,73 @@
           "linkWord": "016014000561",
           "master": "000561",
           "hovCode": "000000000000"
+        },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": -1,
+            "x3": 64,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "777777777777",
+            "b": "777777777777",
+            "c": "000000000000",
+            "d": "777000000000",
+            "e": "777776777777"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000076"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "740777716407"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "777776777777"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000076"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000003000006",
+            "000101": "100000000000",
+            "000102": "000000000000",
+            "000103": "777777777777",
+            "000104": "000000000000",
+            "000105": "737777777777",
+            "000106": "777777777777",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
         },
         "store": null
       },
@@ -956,18 +2137,19 @@
       "index": 17,
       "invocation": 1,
       "pass": 1,
-      "retry": 5,
+      "eliminationPass": 2,
+      "degeneracyRepairs": 1,
       "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
+        "kind": "solve_degeneracy_branch",
+        "address": "014075",
+        "instruction": "JNA 14140"
       },
-      "tick": 5237,
-      "simulatedTimeSeconds": 215.17227101,
+      "tick": 4150,
+      "simulatedTimeSeconds": 215.16151561,
       "observed": {
         "control": {
           "sequence": 62,
-          "programCounter": "013771"
+          "programCounter": "014076"
         },
         "endpoints": {
           "first": {
@@ -986,6 +2168,73 @@
           "linkWord": "016014000561",
           "master": "000561",
           "hovCode": "000000000000"
+        },
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": -1,
+            "x3": 64,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "777777777777",
+            "b": "777777777777",
+            "c": "000000000000",
+            "d": "777000000000",
+            "e": "060076200303"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000076"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "740777716407"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "777776777777"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000076"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000003000006",
+            "000101": "100000000000",
+            "000102": "000000000000",
+            "000103": "777777777777",
+            "000104": "000000000000",
+            "000105": "737777777777",
+            "000106": "777777777777",
+            "000107": "000000000000",
+            "000110": "000000000000"
+          }
         },
         "store": null
       },
@@ -1006,18 +2255,19 @@
       "index": 18,
       "invocation": 1,
       "pass": 1,
-      "retry": 5,
+      "eliminationPass": 2,
+      "degeneracyRepairs": 1,
       "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
+        "kind": "solve_return",
+        "address": "012152",
+        "instruction": "¹⁴JPQ 12154"
       },
-      "tick": 5628,
-      "simulatedTimeSeconds": 215.17603061,
+      "tick": 4267,
+      "simulatedTimeSeconds": 215.16297081,
       "observed": {
         "control": {
           "sequence": 62,
-          "programCounter": "013770"
+          "programCounter": "012154"
         },
         "endpoints": {
           "first": {
@@ -1037,2755 +2287,72 @@
           "master": "000561",
           "hovCode": "000000000000"
         },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 19,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 6,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 5632,
-      "simulatedTimeSeconds": 215.17606381,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 20,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 6,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 6268,
-      "simulatedTimeSeconds": 215.18287221,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 21,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 7,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 6272,
-      "simulatedTimeSeconds": 215.18290541,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 22,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 7,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 6663,
-      "simulatedTimeSeconds": 215.18666501,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 23,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 8,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 6667,
-      "simulatedTimeSeconds": 215.18669821,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 24,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 8,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 7300,
-      "simulatedTimeSeconds": 215.19346101,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 25,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 9,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 7307,
-      "simulatedTimeSeconds": 215.19353981,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 26,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 9,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 7909,
-      "simulatedTimeSeconds": 215.19980061,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 27,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 10,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 7913,
-      "simulatedTimeSeconds": 215.19983381,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 28,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 10,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 8335,
-      "simulatedTimeSeconds": 215.20409541,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 29,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 11,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 8339,
-      "simulatedTimeSeconds": 215.20412861,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 30,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 11,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 8941,
-      "simulatedTimeSeconds": 215.21038941,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 31,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 12,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 8945,
-      "simulatedTimeSeconds": 215.21042261,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 32,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 12,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 9336,
-      "simulatedTimeSeconds": 215.21418221,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 33,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 13,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 9340,
-      "simulatedTimeSeconds": 215.21421541,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 34,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 13,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 9976,
-      "simulatedTimeSeconds": 215.22102381,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 35,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 14,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 9980,
-      "simulatedTimeSeconds": 215.22105701,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 36,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 14,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 10371,
-      "simulatedTimeSeconds": 215.22481661,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 37,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 15,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 10375,
-      "simulatedTimeSeconds": 215.22484981,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 38,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 15,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 11011,
-      "simulatedTimeSeconds": 215.23165821,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 39,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 16,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 11015,
-      "simulatedTimeSeconds": 215.23169141,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 40,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 16,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 11406,
-      "simulatedTimeSeconds": 215.23545101,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 41,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 17,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 11410,
-      "simulatedTimeSeconds": 215.23548421,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 42,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 17,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 12046,
-      "simulatedTimeSeconds": 215.24229261,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 43,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 18,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 12050,
-      "simulatedTimeSeconds": 215.24232581,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 44,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 18,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 12441,
-      "simulatedTimeSeconds": 215.24608541,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 45,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 19,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 12445,
-      "simulatedTimeSeconds": 215.24611861,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 46,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 19,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 13078,
-      "simulatedTimeSeconds": 215.25288141,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 47,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 20,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 13082,
-      "simulatedTimeSeconds": 215.25291461,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 48,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 20,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 13473,
-      "simulatedTimeSeconds": 215.25667421,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 49,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 21,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 13477,
-      "simulatedTimeSeconds": 215.25670741,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 50,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 21,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 14116,
-      "simulatedTimeSeconds": 215.26353141,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 51,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 22,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 14120,
-      "simulatedTimeSeconds": 215.26356461,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 52,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 22,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 14725,
-      "simulatedTimeSeconds": 215.26984101,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 53,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 23,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 14732,
-      "simulatedTimeSeconds": 215.26991981,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 54,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 23,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 15154,
-      "simulatedTimeSeconds": 215.27418141,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 55,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 24,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 15158,
-      "simulatedTimeSeconds": 215.27421461,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 56,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 24,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 15763,
-      "simulatedTimeSeconds": 215.28049101,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 57,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 25,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 15767,
-      "simulatedTimeSeconds": 215.28052421,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 58,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 25,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 16192,
-      "simulatedTimeSeconds": 215.28483141,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 59,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 26,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 16196,
-      "simulatedTimeSeconds": 215.28486461,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 60,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 26,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 16798,
-      "simulatedTimeSeconds": 215.29112541,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 61,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 27,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 16802,
-      "simulatedTimeSeconds": 215.29115861,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 62,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 27,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 17227,
-      "simulatedTimeSeconds": 215.29546581,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 63,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 28,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 17231,
-      "simulatedTimeSeconds": 215.29549901,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 64,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 28,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 17836,
-      "simulatedTimeSeconds": 215.30177541,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 65,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 29,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 17840,
-      "simulatedTimeSeconds": 215.30180861,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 66,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 29,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 18265,
-      "simulatedTimeSeconds": 215.30611581,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 67,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 30,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 18269,
-      "simulatedTimeSeconds": 215.30614901,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 68,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 30,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 18871,
-      "simulatedTimeSeconds": 215.31240981,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 69,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 31,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 18875,
-      "simulatedTimeSeconds": 215.31244301,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 70,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 31,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 19297,
-      "simulatedTimeSeconds": 215.31670461,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 71,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 32,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 19301,
-      "simulatedTimeSeconds": 215.31673781,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 72,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 32,
-      "boundary": {
-        "kind": "solve_retry_tail",
-        "address": "014222",
-        "instruction": "¹⁴JPQ 13770"
-      },
-      "tick": 19909,
-      "simulatedTimeSeconds": 215.32305981,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013770"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
-          }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
-        },
-        "store": null
-      },
-      "derived": {
-        "hovResidual": {
-          "x": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          },
-          "y": {
-            "wordDelta": "000025674000",
-            "decimal": 5732352
-          }
-        }
-      }
-    },
-    {
-      "index": 73,
-      "invocation": 1,
-      "pass": 1,
-      "retry": 33,
-      "boundary": {
-        "kind": "solve_retry_head",
-        "address": "013770",
-        "instruction": "¹SKX₁₃ 3"
-      },
-      "tick": 19913,
-      "simulatedTimeSeconds": 215.32309301,
-      "observed": {
-        "control": {
-          "sequence": 62,
-          "programCounter": "013771"
-        },
-        "endpoints": {
-          "first": {
-            "pointAddress": "025215",
-            "x": "000012210000",
-            "y": "000012254000"
-          },
-          "second": {
-            "pointAddress": "025237",
-            "x": "000040104000",
-            "y": "000040150000"
+        "solver": {
+          "indexRegisters": {
+            "alpha": 68493,
+            "beta": -63232,
+            "gamma": -29173,
+            "s": 664,
+            "t": -1,
+            "x1": -1,
+            "x2": 62,
+            "x3": 64,
+            "y1": 0
+          },
+          "arithmeticRegisters": {
+            "a": "777777777776",
+            "b": "777777777777",
+            "c": "000000000000",
+            "d": "100000000000",
+            "e": "100074012153"
+          },
+          "workWords": {
+            "slvtr2": {
+              "address": "014032",
+              "value": "007714000076"
+            },
+            "slvtx": {
+              "address": "014037",
+              "value": "000000000000"
+            },
+            "slvty": {
+              "address": "014040",
+              "value": "100000000000"
+            },
+            "slvts": {
+              "address": "014041",
+              "value": "777776777777"
+            },
+            "slvt5": {
+              "address": "013761",
+              "value": "003414000100"
+            },
+            "slvtr": {
+              "address": "014053",
+              "value": "002414000076"
+            },
+            "slvtp": {
+              "address": "014055",
+              "value": "006714000076"
+            },
+            "slvdr": {
+              "address": "014120",
+              "value": "140500012152"
+            }
+          },
+          "matrixWords": {
+            "000076": "000000000000",
+            "000077": "000000000000",
+            "000100": "000001000002",
+            "000101": "777777777777",
+            "000102": "000000000000",
+            "000103": "777777777777",
+            "000104": "000000000000",
+            "000105": "737777777777",
+            "000106": "777777777777",
+            "000107": "777777777777",
+            "000110": "000000000000"
           }
-        },
-        "constraint": {
-          "address": "025275",
-          "linkWord": "016014000561",
-          "master": "000561",
-          "hovCode": "000000000000"
         },
         "store": null
       },
@@ -3804,9 +2371,12 @@
     }
   ],
   "outcome": {
-    "kind": "tick_limit",
-    "tick": 20000,
-    "simulatedTimeSeconds": 215.32391741,
+    "kind": "solve_return",
+    "tick": 4267,
+    "simulatedTimeSeconds": 215.16297081,
+    "completedSolve": true,
+    "eliminationPasses": 2,
+    "degeneracyRepairs": 1,
     "observedCoordinateChangeTicks": 4,
     "endCoordinateWords": {
       "firstX": "000012210000",
@@ -3851,19 +2421,44 @@
         "crossings": 1
       },
       {
-        "kind": "solve_retry_head",
+        "kind": "solve_return",
+        "address": "012152",
+        "crossings": 1
+      },
+      {
+        "kind": "solve_degeneracy_test",
+        "address": "014074",
+        "crossings": 2
+      },
+      {
+        "kind": "solve_degeneracy_branch",
+        "address": "014075",
+        "crossings": 2
+      },
+      {
+        "kind": "solve_retry_load",
+        "address": "014220",
+        "crossings": 1
+      },
+      {
+        "kind": "solve_retry_store",
+        "address": "014221",
+        "crossings": 1
+      },
+      {
+        "kind": "solve_elimination_head",
         "address": "013770",
-        "crossings": 33
+        "crossings": 2
       },
       {
         "kind": "solve_retry_tail",
         "address": "014222",
-        "crossings": 32
+        "crossings": 1
       }
     ],
     "lastInstruction": {
-      "address": "013776",
-      "instruction": "REX₁₄ 0"
+      "address": "012152",
+      "instruction": "¹⁴JPQ 12154"
     },
     "fault": null
   },
@@ -3875,13 +2470,14 @@
       "observed.control",
       "observed.endpoints",
       "observed.constraint",
+      "observed.solver",
       "observed.store"
     ],
     "derived": [
       "derived.hovResidual"
     ],
     "notes": [
-      "observed.control is the control state at the end of the tick that executed the boundary instruction, so its sequence can be a hardware display sequence servicing the scope and its program counter belongs to that sequence, not to RELAX.",
+      "observed.control is the control state after the tick that reached the boundary instruction, so its sequence can be a hardware display sequence servicing the scope and its program counter can belong to that sequence, not to RELAX.",
       "The two endpoint records are resolved once, from the selected line record, before the traced window opens; every sample then reads the same four coordinate words at the addresses recorded in provenance.coordinateWords.",
       "observed.constraint reads the HOV constraint's link word, master, and HOVCODE word directly; sk2.tx2as:380 defines HOVCODE at octal offset 14 with HORIZ = 1, VERTICAL = 2, EITHER = 0.",
       "observed.store appears only for the two STA *ADVC boundaries: programWord is the raw instruction word, pointerCell is its deferred address field (the ADVC cell), pointerCellWord is that cell's runtime-modified content, and effectiveAddress is its address field plus index register 10, which the executed instruction text confirms.",

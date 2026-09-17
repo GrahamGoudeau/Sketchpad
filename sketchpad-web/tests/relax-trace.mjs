@@ -28,7 +28,7 @@ const { stdout } = await run(process.execPath, ["tests/assembly-interaction.mjs"
 const trace = JSON.parse(stdout);
 
 assert.equal(trace.schema, "sketchpad-web/relax-hov-trace", "the trace must declare its schema");
-assert.equal(trace.schemaVersion, 2, "the trace must declare a known schema version");
+assert.equal(trace.schemaVersion, 3, "the trace must declare a known schema version");
 assert.ok(Array.isArray(trace.samples) && trace.samples.length > 0,
   "the trace must contain samples");
 
@@ -68,18 +68,22 @@ assert.deepEqual(
 
 let previousTick = 0;
 let previousPass = 0;
-let previousRetry = 0;
+let previousEliminationPass = 0;
+let previousDegeneracyRepairs = 0;
 const crossingsByAddress = new Map();
 for (const sample of trace.samples) {
   assert.equal(sample.index, trace.samples.indexOf(sample), "sample indexes must be sequential");
   assert.ok(sample.tick > previousTick, "sample ticks must strictly increase");
   assert.ok(sample.invocation >= 1, "samples must belong to a RELAX invocation");
   assert.ok(sample.pass >= previousPass, "solver pass indexes must not decrease");
-  assert.ok(sample.retry >= previousRetry,
-    "solve retry indexes must not decrease");
+  assert.ok(sample.eliminationPass >= previousEliminationPass,
+    "elimination pass indexes must not decrease");
+  assert.ok(sample.degeneracyRepairs >= previousDegeneracyRepairs,
+    "degeneracy repair indexes must not decrease");
   previousTick = sample.tick;
   previousPass = sample.pass;
-  previousRetry = sample.retry;
+  previousEliminationPass = sample.eliminationPass;
+  previousDegeneracyRepairs = sample.degeneracyRepairs;
 
   assert.ok(boundaryByAddress.has(sample.boundary.address),
     "each sample boundary must come from the declared boundary table");
@@ -117,6 +121,22 @@ for (const sample of trace.samples) {
     "every sample must see the HOV master 0561 on the constraint record");
   assert.equal(constraint.hovCode, "000000000000",
     "the HOVCODE word must stay 0 (EITHER, sk2.tx2as:380) throughout the window");
+
+  const solver = sample.observed.solver;
+  for (const value of Object.values(solver.indexRegisters)) {
+    assert.ok(Number.isInteger(value), "solver index registers must be integers");
+  }
+  for (const value of Object.values(solver.arithmeticRegisters)) {
+    assert.ok(/^[0-7]{12}$/.test(value), "solver arithmetic registers must be octal words");
+  }
+  for (const word of Object.values(solver.workWords)) {
+    assert.ok(/^[0-7]{6}$/.test(word.address), "solver work-word addresses must be octal");
+    assert.ok(/^[0-7]{12}$/.test(word.value), "solver work words must be octal");
+  }
+  for (const [address, value] of Object.entries(solver.matrixWords)) {
+    assert.ok(/^[0-7]{6}$/.test(address), "solver matrix addresses must be octal");
+    assert.ok(/^[0-7]{12}$/.test(value), "solver matrix words must be octal");
+  }
 
   // Only the STA *ADVC boundaries may record a store, and its decoded target
   // must be the coordinate that the executed instruction just wrote.
@@ -161,6 +181,13 @@ for (const kind of [
   "variable_store",
   "constraint_pass_head",
   "solve_entry",
+  "solve_elimination_head",
+  "solve_degeneracy_test",
+  "solve_degeneracy_branch",
+  "solve_retry_load",
+  "solve_retry_store",
+  "solve_retry_tail",
+  "solve_return",
 ]) {
   assert.ok(trace.samples.some((sample) => sample.boundary.kind === kind),
     `the trace must record the ${kind} boundary`);
@@ -168,8 +195,10 @@ for (const kind of [
 
 // The outcome must account for every boundary and for the whole window.
 const outcome = trace.outcome;
-assert.ok(["tick_limit", "machine_fault"].includes(outcome.kind),
-  "the outcome must record how the traced window ended");
+assert.equal(outcome.kind, "solve_return",
+  "the trace must end when SOLVEM returns to RELC");
+assert.equal(outcome.completedSolve, true,
+  "the outcome must mark the original SOLVEM call complete");
 assert.equal(typeof outcome.simulatedTimeSeconds, "number");
 assert.ok(outcome.tick <= trace.provenance.tickLimit,
   "the outcome tick cannot exceed the traced window");
@@ -185,19 +214,21 @@ assert.deepEqual(
 assert.ok(/^[0-7]{6}$/.test(outcome.lastInstruction.address),
   "the outcome must name the last instruction address in octal");
 
-// The repeated boundary is a SOLVEM retry after the SLVAD degeneracy path.
-const solveRetryHeadCrossings = crossingsByAddress.get("013770") ?? 0;
+// The solver performs one initial elimination pass and one repaired retry.
+const solveEliminationHeadCrossings = crossingsByAddress.get("013770") ?? 0;
 const solveRetryTailCrossings = crossingsByAddress.get("014222") ?? 0;
-assert.ok(solveRetryHeadCrossings >= 2,
-  "the traced window must cross the solve retry head at least twice");
-assert.ok(solveRetryTailCrossings >= 2,
-  "the traced window must close the solve retry path at least twice");
-assert.ok(Math.abs(solveRetryHeadCrossings - solveRetryTailCrossings) <= 1,
-  "every closed degeneracy retry must reopen SOLVEM, give or take the cut-off");
+assert.equal(solveEliminationHeadCrossings, 2,
+  "the trace must contain the initial elimination pass and one repaired retry");
+assert.equal(solveRetryTailCrossings, 1,
+  "one degeneracy repair must return to the elimination head");
+assert.equal(outcome.eliminationPasses, 2,
+  "the outcome must count both elimination passes");
+assert.equal(outcome.degeneracyRepairs, 1,
+  "the outcome must count the one completed degeneracy repair");
 
 // The window's measured solver progress: only the two ADCON3 probes and their
-// removals may change the endpoint words, and the window must end where it
-// started, because SOLVEM stays in its degeneracy retries and never returns.
+// removals may change the endpoint words. The trace stops at SOLVEM's return,
+// before RELC applies the returned answer to the endpoint coordinates.
 assert.equal(outcome.observedCoordinateChangeTicks, 4,
   "the two ADCON3 probes and their removals must be the only coordinate changes");
 const firstSample = trace.samples[0].observed.endpoints;
@@ -205,7 +236,7 @@ for (const [name, word] of Object.entries(outcome.endCoordinateWords)) {
   const axis = name.endsWith("X") ? "x" : "y";
   const endpoint = name.startsWith("first") ? firstSample.first : firstSample.second;
   assert.equal(word, endpoint[axis],
-    `the window must end with ${name} unchanged, because SOLVEM did not return`);
+    `the window must end with ${name} unchanged before RELC applies the answer`);
 }
 
 if (process.env.RELAX_TRACE_UPDATE === "1") {

@@ -1912,13 +1912,43 @@ if (process.env.CONSTRAINT_ONLY === "1") {
           + "at 013727.",
       },
       {
-        kind: "solve_retry_head",
+        kind: "solve_return",
+        address: "012152",
+        justification: "The instruction after the hJPQ SOLVEM call is the first "
+          + "observable RELC instruction after SOLVEM returns.",
+      },
+      {
+        kind: "solve_degeneracy_test",
+        address: "014074",
+        justification: "SOLVEM loads the right half of SLVTS with configuration 11 "
+          + "immediately before it decides whether to enter SLVAD "
+          + "(sk2.tx2as:2813-2814).",
+      },
+      {
+        kind: "solve_degeneracy_branch",
+        address: "014075",
+        justification: "The JNA SLVAD instruction enters the constraint-addition "
+          + "path when the loaded degeneracy value is negative "
+          + "(sk2.tx2as:2814).",
+      },
+      {
+        kind: "solve_retry_load",
+        address: "014220",
+        justification: "At the end of SLVAD, configuration 11 loads the right half "
+          + "of SLVTS before the retry state is rotated (sk2.tx2as:2917).",
+      },
+      {
+        kind: "solve_retry_store",
+        address: "014221",
+        justification: "Configuration 17 stores the loaded degeneracy state back "
+          + "to SLVTS with its two halves exchanged (sk2.tx2as:2918).",
+      },
+      {
+        kind: "solve_elimination_head",
         address: "013770",
-        justification: "SOLVEM's degeneracy block ends in JPQ SLVR1-2 "
-          + "(sk2.tx2as:2919); the assembler listing places SLVR1-2 - the "
-          + "statement @sup_1@REX@sub_x@@sub_3@ K+1, whose assembled word the "
-          + "machine displays as 1SKX13 3 - at 013770. Each crossing restarts "
-          + "SOLVEM after the SLVAD degeneracy path adds constraints.",
+        justification: "The assembler listing places SLVR1-2, the elimination "
+          + "head entered by the initial solve and by each repaired retry, at "
+          + "013770 (sk2.tx2as:2753 and 2919).",
       },
       {
         kind: "solve_retry_tail",
@@ -1952,6 +1982,46 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       master: octal(rightHalf(wordAt(constraintAddress)), 6),
       hovCode: octal(rightHalf(wordAt(constraintAddress + 0o14))),
     });
+    const solverWordAddresses = {
+      slvtr2: 0o014032,
+      slvtx: 0o014037,
+      slvty: 0o014040,
+      slvts: 0o014041,
+      slvt5: 0o013761,
+      slvtr: 0o014053,
+      slvtp: 0o014055,
+      slvdr: 0o014120,
+    };
+    const observedSolver = () => ({
+      indexRegisters: {
+        alpha: machine.index_register(0o01),
+        beta: machine.index_register(0o02),
+        gamma: machine.index_register(0o03),
+        s: machine.index_register(0o07),
+        t: machine.index_register(0o10),
+        x1: machine.index_register(0o11),
+        x2: machine.index_register(0o12),
+        x3: machine.index_register(0o13),
+        y1: machine.index_register(0o14),
+      },
+      arithmeticRegisters: {
+        a: octal(wordAt(0o377604)),
+        b: octal(wordAt(0o377605)),
+        c: octal(wordAt(0o377606)),
+        d: octal(wordAt(0o377607)),
+        e: octal(wordAt(0o377610)),
+      },
+      workWords: Object.fromEntries(Object.entries(solverWordAddresses).map(
+        ([name, address]) => [name, {
+          address: octal(address, 6),
+          value: octal(wordAt(address)),
+        }],
+      )),
+      matrixWords: Object.fromEntries(
+        Array.from({ length: 0o13 }, (_, offset) => 0o000076 + offset)
+          .map((address) => [octal(address, 6), octal(wordAt(address))]),
+      ),
+    });
     const observedStore = (boundary) => {
       if (boundary.kind !== "variable_store") return null;
       // STA *ADVC defers through the ADVC cell, whose runtime-modified address
@@ -1979,7 +2049,7 @@ if (process.env.CONSTRAINT_ONLY === "1") {
     };
     const trace = {
       schema: "sketchpad-web/relax-hov-trace",
-      schemaVersion: 2,
+      schemaVersion: 3,
       generator: {
         command: "CONSTRAINT_ONLY=1 RELAX_TRACE=1 node tests/assembly-interaction.mjs",
         harness: "sketchpad-web/tests/assembly-interaction.mjs",
@@ -2022,16 +2092,17 @@ if (process.env.CONSTRAINT_ONLY === "1") {
           "observed.control",
           "observed.endpoints",
           "observed.constraint",
+          "observed.solver",
           "observed.store",
         ],
         derived: [
           "derived.hovResidual",
         ],
         notes: [
-          "observed.control is the control state at the end of the tick that "
-            + "executed the boundary instruction, so its sequence can be a hardware "
-            + "display sequence servicing the scope and its program counter belongs "
-            + "to that sequence, not to RELAX.",
+          "observed.control is the control state after the tick that reached the "
+            + "boundary instruction, so its sequence can be a hardware display "
+            + "sequence servicing the scope and its program counter can belong to "
+            + "that sequence, not to RELAX.",
           "The two endpoint records are resolved once, from the selected line "
             + "record, before the traced window opens; every sample then reads the "
             + "same four coordinate words at the addresses recorded in "
@@ -2051,12 +2122,14 @@ if (process.env.CONSTRAINT_ONLY === "1") {
     };
     let invocations = 0;
     let passes = 0;
-    let retries = 0;
+    let eliminationPasses = 0;
+    let degeneracyRepairs = 0;
     let coordinateChangeTicks = 0;
     let previousWords = null;
     let previousInstructionAddress = null;
     let fault = null;
     const crossings = new Map();
+    let reachedSolveReturn = false;
     machine.set_toggle_register(0o20, 0o400, 0, 0, 0, true);
     const tickLimit = Number(process.env.RELAX_TRACE_TICKS ?? "20000");
     trace.provenance.tickLimit = tickLimit;
@@ -2082,14 +2155,16 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       if (boundary === undefined) continue;
       if (boundary.kind === "relax_call") invocations += 1;
       if (boundary.kind === "variable_pass_head") passes += 1;
-      if (boundary.kind === "solve_retry_head") retries += 1;
+      if (boundary.kind === "solve_elimination_head") eliminationPasses += 1;
+      if (boundary.kind === "solve_retry_tail") degeneracyRepairs += 1;
       crossings.set(boundary.address, (crossings.get(boundary.address) ?? 0) + 1);
       const endpoints = observedEndpoints();
       trace.samples.push({
         index: trace.samples.length,
         invocation: invocations,
         pass: passes,
-        retry: retries,
+        eliminationPass: eliminationPasses,
+        degeneracyRepairs,
         boundary: {
           kind: boundary.kind,
           address: boundary.address,
@@ -2104,19 +2179,27 @@ if (process.env.CONSTRAINT_ONLY === "1") {
           },
           endpoints,
           constraint: observedConstraint(),
+          solver: observedSolver(),
           store: observedStore(boundary),
         },
         derived: {
           hovResidual: derivedResidual(endpoints),
         },
       });
+      if (boundary.kind === "solve_return") {
+        reachedSolveReturn = true;
+        break;
+      }
     }
     machine.set_toggle_register(0o20, 0o400, 0, 0, 0, false);
     const endState = machine.control_state();
     trace.outcome = {
-      kind: fault === null ? "tick_limit" : "machine_fault",
+      kind: reachedSolveReturn ? "solve_return" : (fault === null ? "tick_limit" : "machine_fault"),
       tick: traceTick,
       simulatedTimeSeconds: machine.simulated_time,
+      completedSolve: reachedSolveReturn,
+      eliminationPasses,
+      degeneracyRepairs,
       observedCoordinateChangeTicks: coordinateChangeTicks,
       endCoordinateWords: Object.fromEntries(Object.entries(coordinateAddresses).map(
         ([name, address]) => [name, octal(wordAt(address))],
@@ -2147,6 +2230,8 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       "the traced RELAX invocation must open the RELC solve pass");
     assert.ok(crossed("solve_entry"),
       "the traced RELC pass must enter the original SOLVEM expansion");
+    assert.ok(crossed("solve_return"),
+      "the traced SOLVEM expansion must return to RELC");
     // The artifact is large enough that a plain process.exit can cut the
     // pipe before Node flushes stdout, so exit from the write callback and
     // never fall through into the ordinary constraint regression.

@@ -2863,7 +2863,7 @@ SLVD3@arr@      DPX A
                 COM SLVTX
                 JPQ SLVD1-3
 SLVAD@arr@      REX@sub_x@@sub_1@K-1    **COUNT DIAG
-                RSX@sub_y@@sub_1@SLVTS-1        **MATRIX LOCATION
+                RSX@sub_y@@sub_1@SLVT5-1        **MATRIX LOCATION
                 DEX@sub_y@@sub_1@K
                 @sup_1@DPX@sub_y@@sub_1@SLVAD6+1        **TO GET POINT VALUE [really 6?]
                 INX@sub_y@@sub_1@(K+1)@times@K  **Y1 AT LAST ROW
