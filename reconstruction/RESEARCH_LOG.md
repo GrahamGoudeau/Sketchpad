@@ -3201,3 +3201,8 @@ unchanged.  The original endpoint tests now decide whether the line is visible.
 The complete sweep keeps a nonzero line display file through the reported
 sector.  The regression also requires every pointer position to remain
 detected and requires `STOPMOVEP` to complete after D is released.
+
+Production release `20260917T043513Z` deployed commit `d58abff`.  Caddy
+validated and reloaded.  The live page reached `RUNNING`, loaded cache key
+`20260917-22`, reported the configured 12-unit pickup radius, and produced no
+browser warnings or errors.  GitHub Actions run `35182468548` passed.
