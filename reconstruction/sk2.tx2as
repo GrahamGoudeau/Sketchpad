@@ -6096,7 +6096,7 @@ LMAG1@arr@      LDA LMDX
 LMAG1A@arr@     SCNORM|LMSTART=LMSST@arr@LMAGEXIT
                 STA LMSEND
                 SCNORM|LMSTART+1@arr@1=@sup_2@@sup_2@ LMSST@arr@LMAG1B
-                SCNORM|LMEND1@arr@1=@sup_2@@sup_2@ LMSEND@arr@LMAG1C
+                SCNORM|LMEND+1@arr@1=@sup_2@@sup_2@ LMSEND@arr@LMAG1C
                 JPQ LMDRAW
 LMAG1B@arr@     SCNORM|LMEND+1@arr@1=@sup_2@@sup_2@ LMSEND@arr@LMAG1N   **ST OFF
                 LDA LMDY        **END ON START OFF

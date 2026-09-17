@@ -3007,3 +3007,62 @@ validation.  The live page returns HTTP 200, the TX-2 reaches `RUNNING`, and
 the browser reports no console warnings or errors.  The deployed WASM
 SHA-256 matches the local release build:
 `6f888c6a077e713516c8c13f36580354e574635398868a9070f107fe77e660dc`.
+
+## Checkpoint 72: Lost-Pen Acquisition and Reversed Axis Increments
+
+Date: 2026-09-16
+
+Two new operator recordings are retained at
+`evidence/visual/sketchpad-visual-2026-09-17T02-37-10.512Z.webm` and
+`evidence/visual/sketchpad-visual-2026-09-17T02-37-51.835Z.webm`.  Their
+SHA-256 values are
+`13808f27f5b4d2943a85762f74e682e55787e2888eaba703b2d3347d53abfd84`
+and `6bc624308409ee6bcb61fcf6af01b010f897f7a05f0a939fba19632b4286f429`.
+The VP9 streams contain 579 and 837 packets at 1024 by 1024 pixels.  Their
+last packet times are 25.006 and 36.003 seconds.
+
+The first recording keeps the overlay at `INPUT DOWN / LOST` while the
+pointer moves around the blank glass near `INK`.  The browser sends the input,
+but the physical pen sees no illuminated unit-60 point.  The page now raises
+the modeled pickup radius from the configured 12 units to 40 units only while
+the original assembly reports `LPLOST`.  It returns to the configured radius
+after acquisition.  This change still requires real scope light.  It does not
+synthesize a coordinate or write the tracker state.
+
+The second recording stays at `INPUT DOWN / TRACKING`.  It shows a reflected
+ray on the opposite side of the fixed endpoint.  A new 160-step downward
+vertical test reproduced that ray with no lost-pen transition.  The stored
+line record remained correct.  The malformed points already existed in the
+unit-60 stream.
+
+The trace isolated the direction reversal to the `DIV` overflow result used by
+the original `LMDRAW` routine.  The August 1963 TX-2 Users Handbook says that
+an overflowing quotient has the reverse of its proper algebraic sign.  It also
+says that a following `SCA` or `SAB` can recover a bounded overflow.  The
+emulator encoded the overflow bit in the quotient and also reversed the sign
+explicitly.  This double reversal made `LMDRAW` produce `+1` where the printed
+program required `-1`, and the converse.  The CPU now keeps the algebraic sign
+during quotient encoding.  The overflow bit then provides the documented
+temporary reversal, and `SAB` recovers the correct direction.
+
+A focused CPU test covers the divide-overflow and scale-recovery sequence.
+The interaction suite now checks horizontal, upward vertical, and downward
+vertical output for a reflected segment.  After the repair, their final scope
+ranges are respectively `X 584..763 / Y 569..600`,
+`X 569..600 / Y 584..763`, and `X 569..600 / Y 410..584`.  All three paths
+track every position and complete the original `STOPMOVEP` routine.
+
+The same source audit found a separate verified transcription error on Part 2
+PDF page 139.  The printed operand is `LMEND+1`, not `LMEND1`.  Repair R064
+removes the false automatic symbol.  The Y3HT tape and merged image each lose
+one word.  The combined image now contains 12,947 words.
+
+The two-second phosphor envelope remains.  Its calibrated remaining intensity
+at two seconds changes from one-sixteenth to one-sixty-fourth.  This reduces
+the visible burn while it keeps the historical persistence interval.  The
+derived half-life changes from one-half second to one-third second.  A renderer
+test fixes both values.
+
+The complete Rust workspace tests pass.  The complete browser interaction suite
+passes, including the new downward vertical path.  The zero-dependency build
+also passes and reproduces the checked-in combined tape byte for byte.

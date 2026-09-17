@@ -8,8 +8,16 @@ export function displayTime(sourceEpoch, realEpoch, realNow) {
 export function phosphorFade(elapsedSeconds, persistenceSeconds = 2) {
   const elapsed = Math.max(0, elapsedSeconds);
   const persistence = Math.max(Number.EPSILON, persistenceSeconds);
-  const visibleAtPersistence = 1 / 16;
+  const visibleAtPersistence = 1 / 64;
   return Math.min(0.995, 1 - Math.pow(visibleAtPersistence, elapsed / persistence));
+}
+
+export function lightPenDetectionRadius(
+  configuredRadius,
+  lost,
+  acquisitionRadius = 40 / 1022,
+) {
+  return lost ? Math.max(configuredRadius, acquisitionRadius) : configuredRadius;
 }
 
 export function axisPosition(physicalCoordinate, extent) {

@@ -661,6 +661,7 @@ const movementProfiles = {
   diagonal: { steps: 160, x: 735, y: 735 },
   horizontal: { steps: 160, x: 735, y: 575 },
   vertical: { steps: 160, x: 575, y: 735 },
+  "vertical-down": { steps: 160, x: 575, y: 415 },
   "axis-cross": { steps: 270, x: 440, y: 440 },
   jump: { steps: 1, x: 735, y: 575 },
 };
@@ -881,6 +882,24 @@ if (movementPath === "diagonal" && movementDurationMilliseconds === null) {
     "the diagonal line must not emit a reflected horizontal or vertical segment",
   );
 }
+if (
+  ["horizontal", "vertical", "vertical-down"].includes(movementPath)
+  && movementDurationMilliseconds === null
+) {
+  const finalScope = movement.at(-1)?.scope;
+  const lowerX = Math.min(575, finalPhysicalX) - 40;
+  const upperX = Math.max(575, finalPhysicalX) + 40;
+  const lowerY = Math.min(575, finalPhysicalY) - 40;
+  const upperY = Math.max(575, finalPhysicalY) + 40;
+  assert.ok(finalScope, "the axis-aligned move must emit scope points");
+  assert.ok(
+    finalScope.x[0] >= lowerX
+      && finalScope.x[1] <= upperX
+      && finalScope.y[0] >= lowerY
+      && finalScope.y[1] <= upperY,
+    `the axis-aligned line must not emit a reflected segment: ${JSON.stringify(finalScope)}`,
+  );
+}
 if (process.env.EXPECT_TRACK_LOSS !== undefined) {
   assert.equal(
     penLostAfterMovement,
@@ -986,7 +1005,7 @@ if (movementPath === "horizontal" && movementDurationMilliseconds === null) {
   assert.ok(verificationHeight <= 40,
     "the horizontal line and tracker must remain in their narrow vertical band");
 }
-if (movementPath === "vertical" && movementDurationMilliseconds === null) {
+if (movementPath.startsWith("vertical") && movementDurationMilliseconds === null) {
   assert.ok(verificationHeight >= 120, "the vertical line must retain its length");
   assert.ok(verificationWidth <= 40,
     "the vertical line and tracker must remain in their narrow horizontal band");

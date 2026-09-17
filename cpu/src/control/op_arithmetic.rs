@@ -355,11 +355,7 @@ fn normalize_word(
         let nz = if overflow[overflow_index] {
             -1
         } else {
-            i16::from(leading_sign_bits(
-                u128::from(field),
-                width,
-                width - 2,
-            ))
+            i16::from(leading_sign_bits(u128::from(field), width, width - 2))
         };
         let scaled = scale_bits(field, width, nz, overflow[overflow_index]);
         output = (output & !word_mask) | scaled << offset;
@@ -532,7 +528,7 @@ fn divide_word(
             let quotient_magnitude = numerator_magnitude / u128::from(divisor_magnitude);
             let remainder_magnitude = numerator_magnitude % u128::from(divisor_magnitude);
             let did_overflow = high_magnitude >= divisor_magnitude;
-            let quotient_negative = numerator_negative ^ divisor_negative ^ did_overflow;
+            let quotient_negative = numerator_negative ^ divisor_negative;
             (
                 ones_complement_encode(quotient_magnitude, quotient_negative, width),
                 ones_complement_encode(remainder_magnitude, numerator_negative, width),
@@ -1057,6 +1053,25 @@ mod tests {
         assert_eq!(a, u36!(4));
         assert_eq!(b, u36!(!1 & 0o777_777_777_777));
         assert_eq!(overflow, [false; 4]);
+    }
+
+    #[test]
+    fn recoverable_divide_overflow_reverses_sign_for_scale() {
+        let config = SystemConfiguration::try_from(0_u16).unwrap();
+        let (a, b, _, overflow) = divide_word(
+            &config,
+            u36!(1),
+            Unsigned36Bit::ZERO,
+            u36!(1),
+            Unsigned36Bit::ZERO,
+            [false; 4],
+        );
+        assert_eq!(a, u36!(0o400_000_000_000));
+        assert!(overflow[3]);
+
+        let (a, _, _, overflow) = scale_ab_word(&config, a, b, u36!(0o776_000_000_000), overflow);
+        assert_eq!(a, u36!(0o200_000_000_000));
+        assert!(!overflow[3]);
     }
 
     #[test]

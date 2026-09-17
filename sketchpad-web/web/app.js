@@ -1,9 +1,10 @@
 import {
   displayTime,
+  lightPenDetectionRadius,
   lightPenStatus,
   phosphorFade,
   scopePointPosition,
-} from "./scope-model.js?v=20260916-18";
+} from "./scope-model.js?v=20260917-19";
 import {
   PEN_STATE_LENGTH,
   readSharedPenApplication,
@@ -656,17 +657,20 @@ function cacheLightPenBounds() {
 function publishLightPen() {
   penSequence += 1;
   const dispatchedAt = performance.now();
+  const pen = {
+    ...lightPen,
+    radius: lightPenDetectionRadius(lightPen.radius, machineState.lost),
+  };
   if (penView) {
     writeSharedPen(
       penView,
-      lightPen,
+      pen,
       penSequence,
       performance.timeOrigin + dispatchedAt,
     );
     machineWorker.postMessage({ type: "pen-update" });
   } else {
-    const pen = { ...lightPen, sequence: penSequence };
-    machineWorker.postMessage({ type: "pen", pen });
+    machineWorker.postMessage({ type: "pen", pen: { ...pen, sequence: penSequence } });
     lastPenDispatch = { sequence: penSequence, dispatchedAt };
   }
 }
@@ -821,15 +825,18 @@ function handleWorkerMessage({ data }) {
       document.documentElement.dataset.scopeEvents = String(data.events.length);
       break;
     }
-    case "status":
+    case "status": {
+      const lostChanged = machineState.lost !== data.lost;
       machineState = {
         simulatedTime: data.simulatedTime,
         detectionCount: data.detectionCount,
         lost: data.lost,
         atBits: data.atBits,
       };
+      if (lostChanged && lightPen.active) publishLightPen();
       updateReadouts();
       break;
+    }
     case "pen-applied":
       if (lastPenDispatch && data.sequence === lastPenDispatch.sequence) {
         const latency = performance.now() - lastPenDispatch.dispatchedAt;
