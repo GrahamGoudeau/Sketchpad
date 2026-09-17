@@ -3389,3 +3389,8 @@ non-indexable and as operating on the base address. A global change to make
 all `REX` operands immediate breaks the original 2XMX boot program. No CPU
 semantic change is retained. This conflict remains the next machine-level
 research question.
+
+Commit `d220337` was pushed to `main`. Production release
+`20260917T190747Z` deployed to `https://sketchpad.acyclic.sh/`. Caddy validated
+and reloaded. The deployed JavaScript and WebAssembly hashes match the local
+reviewed build. GitHub Actions run `35263015553` passed.
