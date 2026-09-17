@@ -3328,3 +3328,16 @@ tests/relax-trace.mjs` rewrites the artifact after an intentional change;
 The tape digests in `RECONSTRUCTION.md` and `sketchpad-web/README.md` carry
 the repaired combined tape.  The complete browser interaction suite and the
 complete Rust workspace tests pass.
+
+Independent review changed the delegated trace labels from elimination
+iterations to `SLVAD` degeneracy retries.  Address `013770` restarts `SOLVEM`
+after the degeneracy path.  It does not mark a completed relaxation iteration.
+The review also replaced the older constraint regression's false solver-move
+assertion.  That assertion had stopped on the first finite-difference probe.
+The regression now proves both probes occur, all four coordinate changes are
+restored, and control enters `SOLVEM`.
+
+Commit `be7bfea` was pushed to `main`.  Production release
+`20260917T173849Z` deployed to `https://sketchpad.acyclic.sh/`.  Caddy validated
+and reloaded.  The deployed JavaScript and WebAssembly hashes match the local
+reviewed build.  GitHub Actions run `35253992606` passed.
