@@ -1,0 +1,63 @@
+** This small program checks the simulated TX-2 oscilloscope display.
+** It is not part of Sketchpad.
+** It emits a box and two diagonals through output sequence 60.
+
+BEGIN = 100
+
+BEGIN|      REX₆₀ DRAW
+        h ²¹IOS₆₀ 30030   ** Connect unit 60 with centered origin and high intensity.
+
+DRAW|       TSD P00
+            TSD P01
+            TSD P02
+            TSD P03
+            TSD P04
+            TSD P05
+            TSD P06
+            TSD P07
+            TSD P08
+            TSD P09
+            TSD P10
+            TSD P11
+            TSD P12
+            TSD P13
+            TSD P14
+            TSD P15
+            TSD P16
+            TSD P17
+            TSD P18
+            TSD P19
+            TSD P20
+            TSD P21
+            TSD P22
+            TSD P23
+            TSD P24
+            JMP DRAW
+
+P00| 467400467400
+P01| 633400467400
+P02| 000000467400
+P03| 144000467400
+P04| 310000467400
+P05| 310000633400
+P06| 310000000000
+P07| 310000144000
+P08| 310000310000
+P09| 144000310000
+P10| 000000310000
+P11| 633400310000
+P12| 467400310000
+P13| 467400144000
+P14| 467400000000
+P15| 467400633400
+P16| 551400551400
+P17| 664400664400
+P18| 000000000000
+P19| 113000113000
+P20| 226000226000
+P21| 551400226000
+P22| 664400113000
+P23| 113000664400
+P24| 226000551400
+
+☛☛PUNCH 100

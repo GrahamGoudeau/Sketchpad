@@ -1,0 +1,2474 @@
+//! Abstract syntax representation.   It's mostly not actually a tree.
+//!
+//! In the AST, terminology follows the TX-2 assembler's
+//! documentation, and this doesn't always match modern usage.  In
+//! particular, "block" is used to refer to a contiguously-allocated
+//! sequence of instructions which share an origin statement.  Such as
+//! the RC-block.  This is not the same as a block in a language like
+//! C, where "block" is also a declaration-scoping construct.
+//!
+//! Instead, in the TX-2 assembler, scopes are introduced by macro
+//! expansion.  So, a "block" may contain some instructions followed
+//! by a macro-expansion (which has an associated scope) which itself
+//! might contain a macro-expansion, with another scope.
+use std::borrow::Cow;
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet};
+use std::error::Error;
+use std::fmt::{self, Display, Formatter, Octal, Write};
+use std::hash::Hash;
+use std::ops::{Shl, Shr};
+
+use tracing::{Level, event};
+
+use base::charset::{Script, subscript_char, superscript_char};
+use base::prelude::*;
+use base::u18;
+
+use super::collections::OneOrMore;
+use super::eval::{
+    Evaluate, EvaluationContext, EvaluationFailure, HereValue, ScopeIdentifier,
+    evaluate_elevated_symbol,
+};
+use super::glyph;
+use super::listing::{Listing, ListingLine};
+use super::manuscript::{
+    MacroDefinition, MacroDummyParameters, MacroInvocation, MacroParameterBindings,
+    MacroParameterValue,
+};
+use super::memorymap::MemoryMap;
+use super::memorymap::RcAllocator;
+use super::memorymap::RcWordAllocationFailure;
+use super::memorymap::{RcWordKind, RcWordSource};
+use super::source::Source;
+use super::span::{Span, Spanned, span};
+use super::symbol::{InconsistentSymbolUse, SymbolContext, SymbolName};
+use super::symtab::{
+    BadSymbolDefinition, ExplicitDefinition, ExplicitSymbolTable, FinalSymbolDefinition,
+    FinalSymbolTable, FinalSymbolType, ImplicitSymbolTable, IndexRegisterAssigner, TagDefinition,
+    record_undefined_symbol_or_return_failure,
+};
+use super::types::{AssemblerFailure, BlockIdentifier, ProgramError};
+mod asteval;
+
+/// Indicates the action to be taken when a macro invocation does not
+/// specify a value for one of its dummy parameters.
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub(crate) enum OnUnboundMacroParameter {
+    ElideReference,
+    SubstituteZero,
+}
+
+/// Records a reference to or definition of a symbol.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) enum SymbolUse {
+    Reference(SymbolContext),
+    Definition(ExplicitDefinition),
+}
+
+/// Allows updates to the values of RC-words.
+///
+/// We use this to separate the activities of selecting addresses for
+/// RC-words, and determining their values.
+pub(crate) trait RcUpdater {
+    fn update(&mut self, address: Address, value: Unsigned36Bit);
+}
+
+/// Eventually we will support symbolic expressions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LiteralValue {
+    span: Span,
+    elevation: Script,
+    value: Unsigned36Bit,
+}
+
+impl LiteralValue {
+    pub(super) fn value(&self) -> Unsigned36Bit {
+        self.value << self.elevation.shift()
+    }
+
+    #[cfg(test)]
+    pub(super) fn unshifted_value(&self) -> Unsigned36Bit {
+        self.value
+    }
+}
+
+impl Spanned for LiteralValue {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl From<(Span, Script, Unsigned36Bit)> for LiteralValue {
+    fn from((span, elevation, value): (Span, Script, Unsigned36Bit)) -> LiteralValue {
+        LiteralValue {
+            span,
+            elevation,
+            value,
+        }
+    }
+}
+
+impl std::fmt::Display for LiteralValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let s = self.value.to_string();
+        format_elevated_chars(f, self.elevation, &s)
+    }
+}
+
+/// Write the name of a glyph with optional superscript / subscript
+/// indicator.
+fn write_glyph_name(f: &mut Formatter<'_>, elevation: Script, ch: char) -> fmt::Result {
+    let prefix: &'static str = match elevation {
+        Script::Sub => "sub_",
+        Script::Super => "sup_",
+        Script::Normal => "",
+    };
+    let name: &'static str = match glyph::name_from_glyph(ch) {
+        Some(n) => n,
+        None => {
+            panic!("There is no glyph name for character '{ch}'");
+        }
+    };
+    write!(f, "@{prefix}{name}@")
+}
+
+/// Convert a normal string to subscript or superscript (or leave it as-is).
+fn elevated_string(s: &str, elevation: Script) -> Cow<'_, str> {
+    match elevation {
+        Script::Normal => Cow::Borrowed(s),
+        Script::Super => Cow::Owned(
+            s.chars()
+                .map(|ch| superscript_char(ch).unwrap_or(ch))
+                .collect(),
+        ),
+        Script::Sub => Cow::Owned(
+            s.chars()
+                .map(|ch| subscript_char(ch).unwrap_or(ch))
+                .collect(),
+        ),
+    }
+}
+/// Format a string in super/sub/normal script, using `@...@` where necessary.
+fn format_elevated_chars(f: &mut Formatter<'_>, elevation: Script, s: &str) -> fmt::Result {
+    // TODO: do we really need both this and elevated_string?
+    match elevation {
+        Script::Normal => {
+            f.write_str(s)?;
+        }
+        Script::Super => {
+            for ch in s.chars() {
+                match superscript_char(ch) {
+                    Ok(superchar) => {
+                        f.write_char(superchar)?;
+                    }
+                    Err(_) => {
+                        write_glyph_name(f, elevation, ch)?;
+                    }
+                }
+            }
+        }
+        Script::Sub => {
+            for ch in s.chars() {
+                match subscript_char(ch) {
+                    Ok(sub) => {
+                        f.write_char(sub)?;
+                    }
+                    Err(_) => {
+                        write_glyph_name(f, elevation, ch)?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The Users Handbook specifies that the operators are the four
+/// arithmetic operators (+-×/) and the logical operators ∧ (AND), ∨
+/// (OR), and a circled ∨ meaning XOR.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Operator {
+    Add,
+    LogicalAnd,
+    LogicalOr, // "union" in the Users Handbook
+    LogicalXor,
+    Multiply,
+    Subtract,
+    Divide,
+}
+
+impl std::fmt::Display for Operator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_char(match self {
+            Operator::Add => '+',
+            Operator::LogicalAnd => '∧',
+            Operator::LogicalOr => '∨',
+            Operator::LogicalXor => '⊻',
+            Operator::Multiply => '\u{00D7}',
+            Operator::Subtract => '-',
+            Operator::Divide => '/',
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SignedAtom {
+    pub(super) negated: bool,
+    pub(super) span: Span,
+    pub(super) magnitude: Atom,
+}
+
+impl From<Atom> for SignedAtom {
+    fn from(magnitude: Atom) -> Self {
+        Self {
+            negated: false,
+            span: magnitude.span(),
+            magnitude,
+        }
+    }
+}
+
+impl SignedAtom {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        self.magnitude.resolve_rc_word_macros(macros);
+    }
+
+    fn with_script(&self, script: Script) -> SignedAtom {
+        SignedAtom {
+            magnitude: self.magnitude.with_script(script),
+            ..self.clone()
+        }
+    }
+
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        self.magnitude.symbol_uses(block_id, block_offset)
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<SignedAtom> {
+        self.magnitude
+            .substitute_macro_parameters(param_values, on_missing, macros)
+            .map(|magnitude| SignedAtom {
+                magnitude,
+                ..self.clone()
+            })
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        self.magnitude
+            .allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+    }
+}
+
+impl Spanned for SignedAtom {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl std::fmt::Display for SignedAtom {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.negated {
+            write!(f, "-{}", self.magnitude)
+        } else {
+            write!(f, "{}", self.magnitude)
+        }
+    }
+}
+
+/// Represents an arithmetic expression.
+///
+/// In the TX-2's M4 assembly language, arithmetic expressions are
+/// constants.  In other words, the assembler evaluates them to a
+/// specific 36-bit value which is emitted into the output.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ArithmeticExpression {
+    pub(crate) first: SignedAtom,
+    pub(crate) tail: Vec<(Operator, SignedAtom)>,
+}
+
+impl std::fmt::Display for ArithmeticExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.first)?;
+        for (op, atom) in &self.tail {
+            write!(f, "{op}{atom}")?;
+        }
+        Ok(())
+    }
+}
+
+impl From<SignedAtom> for ArithmeticExpression {
+    fn from(a: SignedAtom) -> ArithmeticExpression {
+        ArithmeticExpression {
+            first: a,
+            tail: Vec::new(),
+        }
+    }
+}
+
+impl From<Atom> for ArithmeticExpression {
+    fn from(a: Atom) -> ArithmeticExpression {
+        ArithmeticExpression::from(SignedAtom::from(a))
+    }
+}
+
+impl From<SymbolOrLiteral> for ArithmeticExpression {
+    fn from(value: SymbolOrLiteral) -> Self {
+        ArithmeticExpression::from(Atom::from(value))
+    }
+}
+
+impl Spanned for ArithmeticExpression {
+    fn span(&self) -> Span {
+        let start = self.first.span().start;
+        let end = self
+            .tail
+            .last()
+            .map_or(self.first.span().end, |(_op, atom)| atom.span().end);
+        span(start..end)
+    }
+}
+
+impl ArithmeticExpression {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        self.first.resolve_rc_word_macros(macros);
+        for (_, atom) in &mut self.tail {
+            atom.resolve_rc_word_macros(macros);
+        }
+    }
+
+    fn with_script(&self, script: Script) -> ArithmeticExpression {
+        ArithmeticExpression {
+            first: self.first.with_script(script),
+            tail: self
+                .tail
+                .iter()
+                .map(|(operator, atom)| (*operator, atom.with_script(script)))
+                .collect(),
+        }
+    }
+
+    pub(super) fn with_tail(
+        first: SignedAtom,
+        tail: Vec<(Operator, SignedAtom)>,
+    ) -> ArithmeticExpression {
+        ArithmeticExpression { first, tail }
+    }
+
+    pub(super) fn structured_substitution(
+        &self,
+        param_values: &MacroParameterBindings,
+    ) -> Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)> {
+        let Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(script, name, _)) = &self.first.magnitude
+        else {
+            return None;
+        };
+        if self.first.negated {
+            return None;
+        }
+        let (holdbit, defer_span, mut fragments) = match param_values.get(name) {
+            Some((
+                _,
+                Some(MacroParameterValue::Fragments {
+                    holdbit,
+                    defer_span,
+                    fragments,
+                }),
+            )) => (*holdbit, *defer_span, fragments.clone()),
+            _ => return None,
+        };
+        let (_, expression) = fragments.iter_mut().find(|(got, _)| got == script)?;
+        expression.tail.extend(self.tail.clone());
+        Some((holdbit, defer_span, fragments))
+    }
+
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        let mut result = Vec::with_capacity(1 + self.tail.len());
+        result.extend(self.first.symbol_uses(block_id, block_offset));
+        result.extend(
+            self.tail
+                .iter()
+                .flat_map(|(_op, x)| x.symbol_uses(block_id, block_offset)),
+        );
+        result.into_iter()
+    }
+
+    fn eval_binop(left: Unsigned36Bit, binop: Operator, right: Unsigned36Bit) -> Unsigned36Bit {
+        match binop {
+            Operator::Add => match left
+                .reinterpret_as_signed()
+                .checked_add(right.reinterpret_as_signed())
+            {
+                Some(result) => result.reinterpret_as_unsigned(),
+                None => {
+                    todo!(
+                        "{left:>012o}+{right:>012o} overflowed; please fix https://github.com/TX-2/TX-2-simulator/issues/146"
+                    )
+                }
+            },
+            Operator::Subtract => match left
+                .reinterpret_as_signed()
+                .checked_sub(right.reinterpret_as_signed())
+            {
+                Some(result) => result.reinterpret_as_unsigned(),
+                None => {
+                    todo!(
+                        "{left:>012o}-{right:>012o} overflowed; please fix https://github.com/TX-2/TX-2-simulator/issues/146"
+                    )
+                }
+            },
+            Operator::Multiply => match left
+                .reinterpret_as_signed()
+                .checked_mul(right.reinterpret_as_signed())
+            {
+                Some(result) => result.reinterpret_as_unsigned(),
+                None => {
+                    todo!(
+                        "{left:>012o}×{right:>012o} overflowed; multiplication overflow is not implemented"
+                    )
+                }
+            },
+            Operator::Divide => {
+                let sleft: Signed36Bit = left.reinterpret_as_signed();
+                let sright: Signed36Bit = right.reinterpret_as_signed();
+                // M4 evaluates address expressions with "normal integer
+                // arithmetic" (Users Handbook section 6-2.7), not with the
+                // arithmetic element's DIV instruction.  Sketchpad's LGORR
+                // family depends on X/X being zero when an omitted macro
+                // parameter makes X zero.
+                if sleft.is_zero() && sright.is_zero() {
+                    return Unsigned36Bit::ZERO;
+                }
+                match sleft.checked_div(sright) {
+                    Some(result) => result.reinterpret_as_unsigned(),
+                    None => {
+                        if sright.is_positive_zero() {
+                            !left
+                        } else if sright.is_negative_zero() {
+                            left
+                        } else {
+                            unreachable!("division overflow occurred but RHS is not zero")
+                        }
+                    }
+                }
+            }
+            Operator::LogicalAnd => left.and(right.into()),
+            Operator::LogicalOr => left.bitor(right.into()),
+            Operator::LogicalXor => left ^ right,
+        }
+    }
+
+    pub(super) fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<ArithmeticExpression> {
+        match self
+            .first
+            .substitute_macro_parameters(param_values, on_missing, macros)
+        {
+            None => None,
+            Some(first) => {
+                let mut tail: Vec<(Operator, SignedAtom)> = Vec::with_capacity(self.tail.len());
+                for (op, atom) in &self.tail {
+                    match atom.substitute_macro_parameters(param_values, on_missing, macros) {
+                        Some(atom) => {
+                            tail.push((*op, atom));
+                        }
+                        None => {
+                            return None;
+                        }
+                    }
+                }
+                Some(ArithmeticExpression { first, tail })
+            }
+        }
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        self.first
+            .allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)?;
+        for (_op, atom) in &mut self.tail {
+            atom.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)?;
+        }
+        Ok(())
+    }
+}
+
+/// An expression used to specify the configuration bits of an instruction.
+///
+/// A configuration syllable can be specified by putting it in a
+/// superscript, or by putting it in normal script after a ‖ symbol
+/// (‖x or ‖2, for example).  This is described in section 6-2.1 of
+/// the Users Handbook.
+///
+/// In the description of the parts of an instruction (section 6-2.1,
+/// "INSTRUCTION WORDS" of the Users Handbook) we see the
+/// specification that the configuration syllable cannot contain any
+/// spaces.  But this doesn't prevent the config syllable containing,
+/// say, an arithmetic expression.  Indeed, Leonard Kleinrock's
+/// program for network simulation does exactly that (by using a
+/// negated symbol as a configuration value).
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ConfigValue {
+    /// Indicates that the value was already in superscript.
+    pub(crate) already_superscript: bool,
+    /// Holds the configuration syllable value.
+    pub(crate) expr: ArithmeticExpression,
+}
+
+impl ConfigValue {
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        self.expr
+            .symbol_uses(block_id, block_offset)
+            .map(|r| match r {
+                Ok((name, span, _ignore_symbol_use)) => Ok((
+                    name,
+                    span,
+                    SymbolUse::Reference(SymbolContext::configuration(span)),
+                )),
+                Err(e) => Err(e),
+            })
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<ConfigValue> {
+        self.expr
+            .substitute_macro_parameters(param_values, on_missing, macros)
+            .map(|expr| ConfigValue {
+                expr,
+                already_superscript: self.already_superscript,
+            })
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        self.expr
+            .allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+    }
+}
+
+impl Spanned for ConfigValue {
+    fn span(&self) -> Span {
+        self.expr.span()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RegistersContaining {
+    local_symbols: Option<ExplicitSymbolTable>,
+    words: OneOrMore<RegisterContaining>,
+}
+
+impl RegistersContaining {
+    pub(super) fn from_words(words: OneOrMore<RegisterContaining>) -> RegistersContaining {
+        Self {
+            local_symbols: None,
+            words,
+        }
+    }
+
+    pub(super) fn from_macro_expansion(
+        local_symbols: Option<ExplicitSymbolTable>,
+        words: OneOrMore<RegisterContaining>,
+    ) -> RegistersContaining {
+        Self {
+            local_symbols: Some(local_symbols.unwrap_or_default()),
+            words,
+        }
+    }
+
+    pub(super) fn words(&self) -> impl Iterator<Item = &RegisterContaining> {
+        self.words.iter()
+    }
+
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        let forward_macro = if self.local_symbols.is_none() && self.words.len() == 1 {
+            let candidate = self.words.first().instruction().standalone_symbol();
+            candidate
+                .and_then(|name| macros.get(name))
+                .filter(|definition| matches!(definition.params, MacroDummyParameters::Bare))
+                .cloned()
+        } else {
+            None
+        };
+
+        if let Some(macro_def) = forward_macro {
+            let invocation = MacroInvocation {
+                macro_def,
+                param_values: MacroParameterBindings::default(),
+            };
+            let expansion = invocation.substitute_macro_parameters(macros);
+            let words = OneOrMore::try_from_iter(
+                expansion
+                    .instructions
+                    .into_iter()
+                    .map(RegisterContaining::from),
+            )
+            .expect("a macro used as an RC word must emit at least one word");
+            *self = RegistersContaining::from_macro_expansion(expansion.local_symbols, words);
+        }
+
+        for word in self.words.iter_mut() {
+            word.instruction_mut().resolve_rc_word_macros(macros);
+        }
+    }
+
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<'_>
+    {
+        let local_symbols = self.local_symbols.as_ref();
+        let local_tags: BTreeSet<&SymbolName> = self
+            .words
+            .iter()
+            .flat_map(|rc| rc.instruction().tags.iter().map(|tag| &tag.name))
+            .collect();
+        let mut result = Vec::new();
+        for rc in self.words.iter() {
+            result.extend(rc.symbol_uses(block_id, block_offset).filter(|result| {
+                match result.as_ref() {
+                    Err(_) => true,
+                    Ok((name, _, _)) => {
+                        !local_tags.contains(name)
+                            && !local_symbols.is_some_and(|symbols| symbols.is_defined(name))
+                    }
+                }
+            }));
+        }
+        result.into_iter()
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<RegistersContaining> {
+        // TODO: this implementation probably requires more thought.
+        // At the moment, if the contents of {...} yield any single
+        // item that gets omitted because it references an unbound
+        // macro paramter, then the whole {...} (and therefore
+        // anything containing it) gets omitted.
+        //
+        // This may not match the required behaviour of the TX-2's M4
+        // assembler, which might instead just omit that RC-word.
+        // However, if we switch to that option, then this could
+        // create a situation in which {...} results in zero words of
+        // the RC-block being reserved.  In that case, what is the
+        // resulting numerical value of the {...} expression?  If it
+        // actually does reserve zero words, then it means that two or
+        // more instances of {...} could resolve to the same address,
+        // and that is likely not intended.  It wold also mean trouble
+        // for the current implementation of the Spanned trait for
+        // RegistersContaining.
+        let tmp_rc: OneOrMore<Option<RegisterContaining>> = self
+            .words
+            .clone()
+            .map(|rc| rc.substitute_macro_parameters(param_values, on_missing, macros));
+        if tmp_rc.iter().all(Option::is_some) {
+            Some(RegistersContaining {
+                local_symbols: self.local_symbols.clone(),
+                words: tmp_rc
+                    .into_map(|maybe_rc| maybe_rc.expect("we already checked this wasn't None")),
+            })
+        } else {
+            None
+        }
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        span: Span,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        let source = RcWordSource {
+            span,
+            kind: RcWordKind::Braces,
+        };
+        let group_key = rc_word_reuse_key(&self.words, self.local_symbols.as_ref());
+        let addresses = rc_allocator.allocate_reusable_group(
+            source,
+            Unsigned36Bit::ZERO,
+            group_key,
+            self.words.len(),
+        )?;
+        for (rc, address) in self.words.iter_mut().zip(addresses) {
+            *rc = rc.clone().assign_rc_word_at(
+                address,
+                explicit_symtab,
+                &mut self.local_symbols,
+                implicit_symtab,
+                rc_allocator,
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl Spanned for RegistersContaining {
+    fn span(&self) -> Span {
+        use chumsky::span::Span;
+        let mut it = self.words.iter();
+        match it.next() {
+            Some(rc) => it.fold(rc.span(), |acc, rc| acc.union(rc.span())),
+            None => {
+                unreachable!(
+                    "invariant broken: RegistersContaining contains no RegisterContaining instances"
+                )
+            }
+        }
+    }
+}
+
+/// An RC-word.
+///
+/// See section 6-2.6 ("RC WORDS - RC BLOCK").
+///
+/// Section 6-4.7 ("Use of Macro Instructions") states that macro
+/// expansion may occur inside an RC-word and can expand to more than one
+/// word in the output binary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RegisterContaining {
+    Unallocated(Box<TaggedProgramInstruction>),
+    Allocated(Address, Box<TaggedProgramInstruction>),
+}
+
+impl From<TaggedProgramInstruction> for RegisterContaining {
+    fn from(inst: TaggedProgramInstruction) -> Self {
+        RegisterContaining::Unallocated(Box::new(inst))
+    }
+}
+
+impl Spanned for RegisterContaining {
+    fn span(&self) -> Span {
+        match self {
+            RegisterContaining::Unallocated(b) | RegisterContaining::Allocated(_, b) => b.span(),
+        }
+    }
+}
+
+impl RegisterContaining {
+    fn instruction(&self) -> &TaggedProgramInstruction {
+        match self {
+            RegisterContaining::Unallocated(tpi) | RegisterContaining::Allocated(_, tpi) => tpi,
+        }
+    }
+
+    fn instruction_mut(&mut self) -> &mut TaggedProgramInstruction {
+        match self {
+            RegisterContaining::Unallocated(tpi) | RegisterContaining::Allocated(_, tpi) => tpi,
+        }
+    }
+
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<'_>
+    {
+        let mut result: Vec<Result<_, _>> = Vec::new();
+        for r in self.instruction().symbol_uses(block_id, block_offset) {
+            match r {
+                Ok((name, span, symbol_definition)) => {
+                    match symbol_definition {
+                        def @ SymbolUse::Reference(_) => {
+                            result.push(Ok((name, span, def)));
+                        }
+                        SymbolUse::Definition(ExplicitDefinition::Tag { .. }) => {
+                            // Here we have a tag definition inside an
+                            // RC-word.  Therefore the passed-in value of
+                            // `block_id` is wrong (it refers to the block
+                            // containing the RC-word, not to the RC-block)
+                            // and the offset is similarly wrong.
+                            //
+                            // Therefore we will process these uses of symbols
+                            // at the time we allocate addresses for RC-block
+                            // words.
+                        }
+                        SymbolUse::Definition(ExplicitDefinition::Origin(_, _)) => {
+                            unreachable!(
+                                "Found origin {name} inside an RC-word; the parser should have rejected this."
+                            );
+                        }
+                        SymbolUse::Definition(_) => {
+                            // e.g. we have an input like
+                            //
+                            // { X = 2 }
+                            //
+                            //
+                            // Ideally we would issue an error for
+                            // this, but since this function cannot
+                            // fail, it's better to do that at the
+                            // time we parse the RC-word reference
+                            // (thus eliminating this case).
+                            //
+                            // When working on this case we should
+                            // figure out if an equality is allowed
+                            // inside a macro expansion.
+                            panic!(
+                                "Found unexpected definition of {name} inside RC-word reference at {span:?}"
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    result.push(Err(e));
+                }
+            }
+        }
+        result.into_iter()
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<RegisterContaining> {
+        match self {
+            RegisterContaining::Unallocated(tagged_program_instruction) => {
+                tagged_program_instruction
+                    .substitute_macro_parameters(param_values, on_missing, macros)
+                    .map(|tagged_program_instruction| {
+                        RegisterContaining::Unallocated(Box::new(tagged_program_instruction))
+                    })
+            }
+            RegisterContaining::Allocated(_address, _tagged_program_instruction) => {
+                // The assembler performs macro expansion before it
+                // allocates RC words.
+                unreachable!(
+                    "macro expansion must be completed before any RC-block addresses are allocated"
+                )
+            }
+        }
+    }
+
+    fn assign_rc_word<R: RcAllocator>(
+        self,
+        source: RcWordSource,
+        reuse_key: String,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        local_symbols: &mut Option<ExplicitSymbolTable>,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<RegisterContaining, RcWordAllocationFailure> {
+        let address = rc_allocator.allocate_reusable(source, Unsigned36Bit::ZERO, reuse_key)?;
+        self.assign_rc_word_at(
+            address,
+            explicit_symtab,
+            local_symbols,
+            implicit_symtab,
+            rc_allocator,
+        )
+    }
+
+    fn assign_rc_word_at<R: RcAllocator>(
+        self,
+        address: Address,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        local_symbols: &mut Option<ExplicitSymbolTable>,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<RegisterContaining, RcWordAllocationFailure> {
+        match self {
+            RegisterContaining::Unallocated(mut tpibox) => {
+                for tag in &tpibox.tags {
+                    implicit_symtab.remove(&tag.name);
+                    let new_tag_definition = TagDefinition::Resolved {
+                        span: tag.span,
+                        address,
+                    };
+                    let tag_symtab = local_symbols.as_mut().unwrap_or(explicit_symtab);
+                    match tag_symtab.define(
+                        tag.name.clone(),
+                        ExplicitDefinition::Tag(new_tag_definition.clone()),
+                    ) {
+                        Ok(()) => (),
+                        Err(BadSymbolDefinition {
+                            symbol_name,
+                            span,
+                            existing,
+                            proposed: _,
+                        }) => {
+                            return Err(RcWordAllocationFailure::InconsistentTag {
+                                tag_name: symbol_name,
+                                span,
+                                explanation: format!(
+                                    "previous definition {existing} is incompatible with new definition {new_tag_definition}"
+                                ),
+                            });
+                        }
+                    }
+                }
+                tpibox.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)?;
+                let tpi: Box<TaggedProgramInstruction> = tpibox;
+                Ok(RegisterContaining::Allocated(address, tpi))
+            }
+            other @ RegisterContaining::Allocated(..) => Ok(other),
+        }
+    }
+}
+
+fn rc_word_reuse_key<T: fmt::Debug>(
+    value: &T,
+    local_symbols: Option<&ExplicitSymbolTable>,
+) -> String {
+    fn omit_spans(input: &str) -> String {
+        let bytes = input.as_bytes();
+        let mut result = String::with_capacity(input.len());
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i].is_ascii_digit() {
+                let start = i;
+                while i < bytes.len() && bytes[i].is_ascii_digit() {
+                    i += 1;
+                }
+                if bytes.get(i..i + 2) == Some(b"..") {
+                    let mut end = i + 2;
+                    while end < bytes.len() && bytes[end].is_ascii_digit() {
+                        end += 1;
+                    }
+                    if end > i + 2 {
+                        result.push_str("<span>");
+                        i = end;
+                        continue;
+                    }
+                }
+                result.push_str(&input[start..i]);
+                continue;
+            }
+            let ch = input[i..]
+                .chars()
+                .next()
+                .expect("the byte index is within the string");
+            result.push(ch);
+            i += ch.len_utf8();
+        }
+        result
+    }
+
+    omit_spans(&format!("{value:?}|{local_symbols:?}"))
+}
+
+/// A component of an arithmetic expression.
+///
+/// A symbol, numeric literal, address of an RC-word, or a
+/// parenthesised arithmetic expression.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Atom {
+    SymbolOrLiteral(SymbolOrLiteral),
+    Parens(Span, Script, Box<ArithmeticExpression>),
+    AssembledWord(Span, Box<UntaggedProgramInstruction>),
+    RcRef(Span, RegistersContaining),
+}
+
+impl From<(Span, Script, SymbolName)> for Atom {
+    fn from((span, script, name): (Span, Script, SymbolName)) -> Self {
+        Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(script, name, span))
+    }
+}
+
+impl From<SymbolOrLiteral> for Atom {
+    fn from(value: SymbolOrLiteral) -> Self {
+        Atom::SymbolOrLiteral(value)
+    }
+}
+
+impl Atom {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        match self {
+            Atom::SymbolOrLiteral(_) => {}
+            Atom::Parens(_, _, expression) => expression.resolve_rc_word_macros(macros),
+            Atom::AssembledWord(_, instruction) => instruction.resolve_rc_word_macros(macros),
+            Atom::RcRef(_, words) => words.resolve_rc_word_macros(macros),
+        }
+    }
+
+    fn with_script(&self, script: Script) -> Atom {
+        match self {
+            Atom::SymbolOrLiteral(value) => Atom::SymbolOrLiteral(value.with_script(script)),
+            Atom::Parens(span, _, expression) => {
+                Atom::Parens(*span, script, Box::new(expression.with_script(script)))
+            }
+            Atom::AssembledWord(_, _) | Atom::RcRef(_, _) => self.clone(),
+        }
+    }
+
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        let mut result: Vec<Result<_, _>> = Vec::with_capacity(1);
+        match self {
+            Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(script, name, span)) => {
+                result.push(Ok((
+                    name.clone(),
+                    *span,
+                    SymbolUse::Reference(SymbolContext::from((script, *span))),
+                )));
+            }
+            Atom::SymbolOrLiteral(SymbolOrLiteral::Literal(_) | SymbolOrLiteral::Here(_, _)) => (),
+            Atom::Parens(_span, _script, expr) => {
+                result.extend(expr.symbol_uses(block_id, block_offset));
+            }
+            Atom::AssembledWord(_span, word) => {
+                result.extend(word.symbol_uses(block_id, block_offset));
+            }
+            Atom::RcRef(_span, rc_words) => {
+                result.extend(rc_words.symbol_uses(block_id, block_offset));
+            }
+        }
+        result.into_iter()
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<Atom> {
+        match self {
+            Atom::SymbolOrLiteral(symbol_or_literal) => {
+                match symbol_or_literal.substitute_macro_parameters(param_values, on_missing) {
+                    SymbolSubstitution::AsIs(symbol_or_literal) => {
+                        Some(Atom::SymbolOrLiteral(symbol_or_literal))
+                    }
+                    SymbolSubstitution::Hit(span, script, arithmetic_expression) => {
+                        if arithmetic_expression.tail.is_empty()
+                            && !arithmetic_expression.first.negated
+                        {
+                            Some(arithmetic_expression.first.magnitude)
+                        } else {
+                            Some(Atom::Parens(span, script, Box::new(arithmetic_expression)))
+                        }
+                    }
+                    SymbolSubstitution::Structured(span, instruction) => {
+                        Some(Atom::AssembledWord(span, Box::new(instruction)))
+                    }
+                    SymbolSubstitution::Omit => {
+                        // The parameter was not set, and this atom is
+                        // being used in a context where omitted
+                        // parameters cause the affected instruction
+                        // to be omitted.  That is, this expression is
+                        // not on the right-hand-side of an equality.
+                        None
+                    }
+                    SymbolSubstitution::Zero(span) => {
+                        Some(Atom::SymbolOrLiteral(SymbolOrLiteral::Literal(
+                            LiteralValue {
+                                span,
+                                // Since the value is zero the elevation actually doesn't matter.
+                                elevation: Script::Normal,
+                                value: Unsigned36Bit::ZERO,
+                            },
+                        )))
+                    }
+                }
+            }
+            Atom::Parens(span, script, arithmetic_expression) => arithmetic_expression
+                .substitute_macro_parameters(param_values, on_missing, macros)
+                .map(|arithmetic_expression| {
+                    Atom::Parens(*span, *script, Box::new(arithmetic_expression))
+                }),
+            Atom::AssembledWord(span, word) => word
+                .substitute_macro_parameters(param_values, on_missing, macros)
+                .map(|word| Atom::AssembledWord(*span, Box::new(word))),
+            Atom::RcRef(span, registers_containing) => registers_containing
+                .substitute_macro_parameters(param_values, on_missing, macros)
+                .map(|registers_containing| Atom::RcRef(*span, registers_containing)),
+        }
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        match self {
+            Atom::SymbolOrLiteral(thing) => {
+                thing.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+            }
+            Atom::Parens(_, _, expr) => {
+                expr.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+            }
+            Atom::AssembledWord(_, word) => {
+                word.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+            }
+            Atom::RcRef(span, rc) => {
+                rc.allocate_rc_words(*span, explicit_symtab, implicit_symtab, rc_allocator)
+            }
+        }
+    }
+}
+
+impl Spanned for Atom {
+    fn span(&self) -> Span {
+        match self {
+            Atom::SymbolOrLiteral(value) => value.span(),
+            Atom::Parens(span, _script, _bae) => *span,
+            Atom::AssembledWord(span, _) => *span,
+            Atom::RcRef(span, _) => *span,
+        }
+    }
+}
+
+impl From<LiteralValue> for Atom {
+    fn from(literal: LiteralValue) -> Atom {
+        Atom::SymbolOrLiteral(SymbolOrLiteral::Literal(literal))
+    }
+}
+
+impl From<(Span, Script, Unsigned36Bit)> for Atom {
+    fn from((span, script, v): (Span, Script, Unsigned36Bit)) -> Atom {
+        Atom::from(LiteralValue::from((span, script, v)))
+    }
+}
+
+impl std::fmt::Display for Atom {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Atom::SymbolOrLiteral(value) => write!(f, "{value}"),
+            Atom::Parens(_span, script, expr) => elevated_string(&expr.to_string(), *script).fmt(f),
+            Atom::AssembledWord(_span, _word) => f.write_str("(...)"),
+            Atom::RcRef(_span, _rc_reference) => {
+                // The RcRef doesn't itself record the content of the
+                // {...} because that goes into the rc-block itself.
+                write!(f, "{{...}}")
+            }
+        }
+    }
+}
+
+/// Indicates how some particular macro parameter should be processed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SymbolSubstitution<T> {
+    AsIs(T),
+    Hit(Span, Script, ArithmeticExpression),
+    Structured(Span, UntaggedProgramInstruction),
+    Omit,
+    Zero(Span),
+}
+
+/// A symbol name or a numeric literal, or `#`.
+///
+/// A `#` represents the address of the program word whose value the
+/// assembler is currently trying to determine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SymbolOrLiteral {
+    Symbol(Script, SymbolName, Span),
+    Literal(LiteralValue),
+    Here(Script, Span),
+}
+
+impl SymbolOrLiteral {
+    fn with_script(&self, script: Script) -> SymbolOrLiteral {
+        match self {
+            SymbolOrLiteral::Symbol(_, name, span) => {
+                SymbolOrLiteral::Symbol(script, name.clone(), *span)
+            }
+            SymbolOrLiteral::Literal(value) => {
+                SymbolOrLiteral::Literal(LiteralValue::from((value.span, script, value.value)))
+            }
+            SymbolOrLiteral::Here(_, span) => SymbolOrLiteral::Here(script, *span),
+        }
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+    ) -> SymbolSubstitution<SymbolOrLiteral> {
+        match self {
+            SymbolOrLiteral::Symbol(script, symbol_name, _span) => {
+                match param_values.get(symbol_name) {
+                    Some((
+                        span,
+                        Some(MacroParameterValue::Value(_argument_script, arithmetic_expression)),
+                    )) => {
+                        // symbol_name was a parameter name, and the
+                        // macro invocation specified it, so
+                        // substitute it.
+                        SymbolSubstitution::Hit(
+                            *span,
+                            *script,
+                            arithmetic_expression.with_script(*script),
+                        )
+                    }
+                    Some((_, Some(MacroParameterValue::Expansion(_)))) => {
+                        unreachable!("macro expansions require a standalone parameter line")
+                    }
+                    Some((
+                        span,
+                        Some(MacroParameterValue::Fragments {
+                            holdbit,
+                            defer_span,
+                            fragments,
+                        }),
+                    )) => {
+                        let last = fragments.len() - 1;
+                        let mut result: Vec<CommaDelimitedFragment> = fragments
+                            .iter()
+                            .enumerate()
+                            .map(|(index, (_, expression))| CommaDelimitedFragment {
+                                span: expression.span(),
+                                leading_commas: None,
+                                holdbit: if index == 0 {
+                                    *holdbit
+                                } else {
+                                    HoldBit::Unspecified
+                                },
+                                fragment: InstructionFragment::Arithmetic(expression.clone()),
+                                trailing_commas: None,
+                            })
+                            .collect();
+                        if let Some(defer_span) = defer_span {
+                            result.push(CommaDelimitedFragment {
+                                span: *defer_span,
+                                leading_commas: None,
+                                holdbit: HoldBit::Unspecified,
+                                fragment: InstructionFragment::DeferredAddressing(*defer_span),
+                                trailing_commas: None,
+                            });
+                        }
+                        debug_assert!(last < result.len());
+                        SymbolSubstitution::Structured(
+                            *span,
+                            UntaggedProgramInstruction {
+                                fragments: OneOrMore::try_from_vec(result)
+                                    .expect("a structured macro parameter has fragments"),
+                            },
+                        )
+                    }
+                    Some((span, None)) => {
+                        // symbol_name was a parameter name, but the
+                        // macro invocation did not specify it, so we
+                        // either elide the instruction or behave if
+                        // it is zero, according to on_missing.
+                        match on_missing {
+                            OnUnboundMacroParameter::ElideReference => SymbolSubstitution::Omit,
+                            OnUnboundMacroParameter::SubstituteZero => {
+                                SymbolSubstitution::Zero(*span)
+                            }
+                        }
+                    }
+                    None => {
+                        // symbol_name is not a macro parameter.
+                        SymbolSubstitution::AsIs(self.clone())
+                    }
+                }
+            }
+            SymbolOrLiteral::Literal(literal) => {
+                SymbolSubstitution::AsIs(SymbolOrLiteral::Literal(literal.clone()))
+            }
+            SymbolOrLiteral::Here(script, span) => {
+                SymbolSubstitution::AsIs(SymbolOrLiteral::Here(*script, *span))
+            }
+        }
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        _explicit_symtab: &ExplicitSymbolTable,
+        _implicit_symtab: &mut ImplicitSymbolTable,
+        _rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        // We use Result for consistency with the allocate_rc_words()
+        // methods of other AST elements.
+        #![allow(clippy::unnecessary_wraps)]
+        // SymbolOrliteral doesn't contain anything that would reserve
+        // RC-words, so there is nothing to do here.
+        let _ = self; // placate the unused_self Clippy lint.
+        Ok(())
+    }
+}
+
+impl Spanned for SymbolOrLiteral {
+    fn span(&self) -> Span {
+        match self {
+            SymbolOrLiteral::Literal(literal_value) => literal_value.span,
+            SymbolOrLiteral::Symbol(_, _, span) | SymbolOrLiteral::Here(_, span) => *span,
+        }
+    }
+}
+
+impl Display for SymbolOrLiteral {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SymbolOrLiteral::Here(script, _span) => match script {
+                Script::Super => f.write_str("@super_hash@"),
+                Script::Normal => f.write_char('#'),
+                Script::Sub => f.write_str("@sub_hash@"),
+            },
+            SymbolOrLiteral::Symbol(script, name, _) => {
+                elevated_string(&name.to_string(), *script).fmt(f)
+            }
+            SymbolOrLiteral::Literal(value) => value.fmt(f),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) struct SpannedSymbolOrLiteral {
+    pub(crate) item: SymbolOrLiteral,
+    pub(crate) span: Span,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) struct SpannedArithmeticExpression {
+    pub(crate) item: ArithmeticExpression,
+    pub(crate) span: Span,
+}
+
+/// Part of a TX-2 instruction.
+///
+/// In the M4 assembly language, each part is evaluated separately and
+/// then they are combined.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum InstructionFragment {
+    /// Arithmetic expressions are permitted in normal case according
+    /// to the Users Handbook, but currently this implementation
+    /// allows them in subscript/superscript too.
+    Arithmetic(ArithmeticExpression),
+    /// Insicates that the current instruction should use the deferred
+    /// addressing mode.
+    ///
+    /// The programmer indicates this with `*`.  The
+    /// programmer can also make use of deferred addressing by using
+    /// the "pipe construct" (which is represented by
+    /// [`InstructionFragment::PipeConstruct`])
+    DeferredAddressing(Span),
+    /// A configuration syllable (specified either in superscript or with a ‖).
+    Config(ConfigValue),
+    /// Described in section 6-2.8 "SPECIAL SYMBOLS" of the Users Handbook.
+    PipeConstruct {
+        index: SpannedArithmeticExpression,
+        rc_word_span: Span,
+        rc_word_value: RegisterContaining,
+    },
+    /// Purely an implementation artifact.
+    ///
+    /// Used by the assembler when parsing a
+    /// [`CommaDelimitedFragment`] to represent the commas at the
+    /// beginning or end of a part of the input program which gets
+    /// parsed as an [`UntaggedProgramInstruction`].
+    Null(Span),
+}
+
+impl Spanned for InstructionFragment {
+    fn span(&self) -> Span {
+        match self {
+            InstructionFragment::Arithmetic(arithmetic_expression) => arithmetic_expression.span(),
+            InstructionFragment::Config(config_value) => config_value.span(),
+            InstructionFragment::PipeConstruct {
+                index,
+                rc_word_span,
+                rc_word_value: _,
+            } => {
+                let start = index.span.start;
+                let end = rc_word_span.end;
+                span(start..end)
+            }
+            InstructionFragment::DeferredAddressing(span) | InstructionFragment::Null(span) => {
+                *span
+            }
+        }
+    }
+}
+
+impl InstructionFragment {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        match self {
+            InstructionFragment::Arithmetic(expression) => {
+                expression.resolve_rc_word_macros(macros);
+            }
+            InstructionFragment::Config(config) => config.expr.resolve_rc_word_macros(macros),
+            InstructionFragment::PipeConstruct {
+                index,
+                rc_word_value,
+                ..
+            } => {
+                index.item.resolve_rc_word_macros(macros);
+                rc_word_value
+                    .instruction_mut()
+                    .resolve_rc_word_macros(macros);
+            }
+            InstructionFragment::DeferredAddressing(_) | InstructionFragment::Null(_) => {}
+        }
+    }
+
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        let mut uses: Vec<Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> =
+            Vec::new();
+        match self {
+            InstructionFragment::Arithmetic(expr) => {
+                uses.extend(expr.symbol_uses(block_id, block_offset));
+            }
+            InstructionFragment::Null(_) | InstructionFragment::DeferredAddressing(_) => (),
+            InstructionFragment::Config(value) => {
+                uses.extend(value.symbol_uses(block_id, block_offset));
+            }
+            InstructionFragment::PipeConstruct {
+                index,
+                rc_word_span: _,
+                rc_word_value,
+            } => {
+                for r in index.item.symbol_uses(block_id, block_offset) {
+                    match r {
+                        Ok((name, span, mut symbol_use)) => {
+                            if let SymbolUse::Reference(context) = &mut symbol_use {
+                                assert!(
+                                    !context.is_address(),
+                                    "pipe index {name} at {span:?} has address context {context:?}"
+                                );
+                                if let Err(e) = context.also_set_index(&name, span) {
+                                    uses.push(Err(e));
+                                } else {
+                                    uses.push(Ok((name, span, symbol_use)));
+                                }
+                            } else {
+                                uses.push(Ok((name, span, symbol_use)));
+                            }
+                        }
+                        Err(e) => {
+                            uses.push(Err(e));
+                        }
+                    }
+                }
+                uses.extend(rc_word_value.symbol_uses(block_id, block_offset));
+            }
+        }
+        uses.into_iter()
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<InstructionFragment> {
+        match self {
+            InstructionFragment::Arithmetic(arithmetic_expression) => arithmetic_expression
+                .substitute_macro_parameters(param_values, on_missing, macros)
+                .map(InstructionFragment::Arithmetic),
+            InstructionFragment::DeferredAddressing(span) => {
+                Some(InstructionFragment::DeferredAddressing(*span))
+            }
+            InstructionFragment::Config(config_value) => config_value
+                .substitute_macro_parameters(param_values, on_missing, macros)
+                .map(InstructionFragment::Config),
+            InstructionFragment::PipeConstruct {
+                index,
+                rc_word_span,
+                rc_word_value,
+            } => index
+                .item
+                .substitute_macro_parameters(param_values, on_missing, macros)
+                .and_then(|item| {
+                    rc_word_value
+                        .substitute_macro_parameters(param_values, on_missing, macros)
+                        .map(|rc_word_value| InstructionFragment::PipeConstruct {
+                            index: SpannedArithmeticExpression {
+                                item,
+                                span: index.span,
+                            },
+                            rc_word_span: *rc_word_span,
+                            rc_word_value,
+                        })
+                }),
+            InstructionFragment::Null(span) => Some(InstructionFragment::Null(*span)),
+        }
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        match self {
+            InstructionFragment::Null(_) | InstructionFragment::DeferredAddressing(_) => Ok(()),
+            InstructionFragment::Arithmetic(expr) => {
+                expr.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+            }
+            InstructionFragment::Config(cfg) => {
+                cfg.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+            }
+            InstructionFragment::PipeConstruct {
+                index: _,
+                rc_word_span,
+                rc_word_value,
+            } => {
+                let span: Span = *rc_word_span;
+                let w = rc_word_value.clone();
+                let reuse_key = rc_word_reuse_key(&w, None);
+                let mut local_symbols = None;
+                *rc_word_value = w.assign_rc_word(
+                    RcWordSource {
+                        span,
+                        kind: RcWordKind::PipeConstruct,
+                    },
+                    reuse_key,
+                    explicit_symtab,
+                    &mut local_symbols,
+                    implicit_symtab,
+                    rc_allocator,
+                )?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl From<(Span, Script, Unsigned36Bit)> for InstructionFragment {
+    fn from((span, script, v): (Span, Script, Unsigned36Bit)) -> InstructionFragment {
+        // TODO: use the atomic variant instead.
+        InstructionFragment::Arithmetic(ArithmeticExpression::from(Atom::from((span, script, v))))
+    }
+}
+
+impl From<ArithmeticExpression> for InstructionFragment {
+    fn from(expr: ArithmeticExpression) -> Self {
+        InstructionFragment::Arithmetic(expr)
+    }
+}
+
+/// Represents the origin of a block of program code.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(crate) enum Origin {
+    /// An origin specified directly as a number.
+    Literal(Span, Address),
+    /// An origin specified by name (which would refer to e.g. an
+    /// equality).
+    Symbolic(Span, SymbolName),
+    /// An origin specified by an arithmetic expression.
+    Expression(Span, ArithmeticExpression),
+    /// A symbolic origin where the symbol had no definition and
+    /// therefore the origin value had to be deduced (hence providing
+    /// an implicit definition for the symbol).
+    Deduced(Span, SymbolName, Address),
+}
+
+impl Display for Origin {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Origin::Literal(_span, addr) => fmt::Display::fmt(&addr, f),
+            Origin::Symbolic(_span, sym) => fmt::Display::fmt(&sym, f),
+            Origin::Expression(_span, expr) => fmt::Display::fmt(&expr, f),
+            Origin::Deduced(_span, name, addr) => {
+                write!(f, "{name} (deduced to be at address {addr:o})")
+            }
+        }
+    }
+}
+
+impl Origin {
+    pub(super) fn default_address() -> Address {
+        // Section 6-2.5 of the User Manual states that if the
+        // manuscript contains no origin specification (no vertical
+        // bar) the whole program is located (correctly) at 200_000
+        // octal.
+        Address::new(u18!(0o200_000))
+    }
+
+    pub(super) fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        let mut result = Vec::with_capacity(1);
+        match self {
+            Origin::Literal(_span, _) => (),
+            Origin::Expression(_, expr) => {
+                result.extend(expr.symbol_uses(block_id, Unsigned18Bit::ZERO));
+            }
+            org @ Origin::Deduced(span, name, _) => {
+                // We won't have any deduced origin values at this
+                // time the symbol uses are enumerate, but this case
+                // is just here for completeness.
+                event!(
+                    Level::WARN,
+                    "unexpectedly saw a deduced value for origin {name} in symbol_uses"
+                );
+                result.push(Ok((
+                    name.clone(),
+                    *span,
+                    SymbolUse::Definition(ExplicitDefinition::Origin(org.clone(), block_id)),
+                )));
+            }
+            org @ Origin::Symbolic(span, name) => {
+                result.push(Ok((
+                    name.clone(),
+                    *span,
+                    SymbolUse::Definition(ExplicitDefinition::Origin(org.clone(), block_id)),
+                )));
+            }
+        }
+        result.into_iter()
+    }
+}
+
+impl Spanned for Origin {
+    fn span(&self) -> Span {
+        match self {
+            Origin::Deduced(span, _, _)
+            | Origin::Literal(span, _)
+            | Origin::Symbolic(span, _)
+            | Origin::Expression(span, _) => *span,
+        }
+    }
+}
+
+impl Octal for Origin {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Origin::Deduced(_span, name, address) => {
+                write!(f, "{name} (deduced to be at {address:o})")
+            }
+            Origin::Literal(_span, address) => fmt::Octal::fmt(&address, f),
+            Origin::Symbolic(_span, name) => fmt::Display::fmt(&name, f),
+            Origin::Expression(_span, expr) => fmt::Display::fmt(&expr, f),
+        }
+    }
+}
+
+/// Indicates whether the hold bit is set, cleared or unspecified.
+///
+/// The hold bit is bit 4.9 of the instruction word (see section 6-2
+/// of the Users Handbook).
+///
+/// The effect of the hold bit is explained in section 4-3.2 of the
+/// Users Handbook.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum HoldBit {
+    /// The value of the hold bit was not specified.
+    Unspecified,
+    /// The hold bit should be set.
+    Hold,
+    /// The hold bit should be cleared.  The user might want to do
+    /// this because some opcodes (`LDE`, `ITE`, `JPX`, `JNX`) would
+    /// otherwise automatically set it.
+    NotHold,
+}
+
+/// One, two or three commas.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Commas {
+    One(Span),
+    Two(Span),
+    Three(Span),
+}
+
+impl Spanned for Commas {
+    fn span(&self) -> Span {
+        match &self {
+            Commas::One(span) | Commas::Two(span) | Commas::Three(span) => *span,
+        }
+    }
+}
+
+/// Part of a TX-2 instruction, convertible to a 36-bit value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct FragmentWithHold {
+    /// Location within the source code
+    pub(super) span: Span,
+    /// Indicates that this fragment sets the hold bit.
+    pub(super) holdbit: HoldBit,
+    /// The remaining value of the instruction fragment (without the
+    /// possible hold bit).
+    pub(super) fragment: InstructionFragment,
+}
+
+/// An instruction fragment ([`FragmentWithHold`]) or one or more
+/// commas.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum CommasOrInstruction {
+    I(FragmentWithHold),
+    C(Option<Commas>),
+}
+
+/// A component (usually a number) of an assembly-language instruction
+/// with possible leading or trailing commas.
+///
+/// These are described in section 6-2.4 of the Users Handbook.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct CommaDelimitedFragment {
+    /// Indicates where in the input we found it.
+    pub(super) span: Span,
+    /// Indicates how many commas preceded it (if any).
+    pub(super) leading_commas: Option<Commas>,
+    /// Indicates whether the item inside the commas includes a hold
+    /// bit.
+    pub(super) holdbit: HoldBit,
+    /// The quantity itself, within the commas
+    pub(super) fragment: InstructionFragment,
+    /// Indicates how many commas followed it (if any).
+    pub(super) trailing_commas: Option<Commas>,
+}
+
+impl CommaDelimitedFragment {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        self.fragment.resolve_rc_word_macros(macros);
+    }
+
+    pub(super) fn new(
+        leading_commas: Option<Commas>,
+        instruction: FragmentWithHold,
+        trailing_commas: Option<Commas>,
+    ) -> Self {
+        let span: Span = {
+            let spans: [Option<Span>; 3] = [
+                leading_commas.as_ref().map(Spanned::span),
+                Some(instruction.span),
+                trailing_commas.as_ref().map(Spanned::span),
+            ];
+            match spans {
+                [_, None, _] => {
+                    unreachable!("CommaDelimitedInstruction cannot be completely empty")
+                }
+                [None, Some(m), None] => m,
+                [None, Some(m), Some(r)] => span(m.start..r.end),
+                [Some(l), _, Some(r)] => span(l.start..r.end),
+                [Some(l), Some(m), None] => span(l.start..m.end),
+            }
+        };
+        Self {
+            span,
+            leading_commas,
+            holdbit: instruction.holdbit,
+            fragment: instruction.fragment,
+            trailing_commas,
+        }
+    }
+
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + '_
+    {
+        self.fragment.symbol_uses(block_id, block_offset)
+    }
+
+    fn structured_substitution(
+        &self,
+        param_values: &MacroParameterBindings,
+    ) -> Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)> {
+        let InstructionFragment::Arithmetic(expression) = &self.fragment else {
+            return None;
+        };
+        expression.structured_substitution(param_values)
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<CommaDelimitedFragment> {
+        self.fragment
+            .substitute_macro_parameters(param_values, on_missing, macros)
+            .map(|fragment| Self {
+                fragment,
+                ..self.clone()
+            })
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        self.fragment
+            .allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+    }
+}
+
+impl Spanned for CommaDelimitedFragment {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+/// An instruction word in a TX-2 program.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct UntaggedProgramInstruction {
+    pub(crate) fragments: OneOrMore<CommaDelimitedFragment>,
+}
+
+impl From<OneOrMore<CommaDelimitedFragment>> for UntaggedProgramInstruction {
+    fn from(fragments: OneOrMore<CommaDelimitedFragment>) -> Self {
+        Self { fragments }
+    }
+}
+
+impl UntaggedProgramInstruction {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        for fragment in self.fragments.iter_mut() {
+            fragment.resolve_rc_word_macros(macros);
+        }
+    }
+
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<'_>
+    {
+        self.fragments
+            .iter()
+            .flat_map(move |fragment| fragment.symbol_uses(block_id, offset))
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        for inst in self.fragments.iter_mut() {
+            inst.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)?;
+        }
+        Ok(())
+    }
+
+    fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<UntaggedProgramInstruction> {
+        let mut result = Vec::new();
+        for fragment in self.fragments.iter() {
+            if let Some((argument_holdbit, defer_span, fragments)) =
+                fragment.structured_substitution(param_values)
+            {
+                let last = fragments.len() - 1;
+                result.extend(fragments.iter().enumerate().map(|(index, (_, expr))| {
+                    CommaDelimitedFragment {
+                        span: expr.span(),
+                        leading_commas: (index == 0)
+                            .then(|| fragment.leading_commas.clone())
+                            .flatten(),
+                        holdbit: if index == 0 {
+                            match (fragment.holdbit, argument_holdbit) {
+                                (HoldBit::Unspecified, supplied) => supplied,
+                                (body, HoldBit::Unspecified) => body,
+                                (body, supplied) if body == supplied => body,
+                                (body, supplied) => panic!(
+                                    "macro body hold bit {body:?} conflicts with argument hold bit {supplied:?}"
+                                ),
+                            }
+                        } else {
+                            HoldBit::Unspecified
+                        },
+                        fragment: InstructionFragment::Arithmetic(expr.clone()),
+                        trailing_commas: (index == last && defer_span.is_none())
+                            .then(|| fragment.trailing_commas.clone())
+                            .flatten(),
+                    }
+                }));
+                if let Some(defer_span) = defer_span {
+                    result.push(CommaDelimitedFragment {
+                        span: defer_span,
+                        leading_commas: None,
+                        holdbit: HoldBit::Unspecified,
+                        fragment: InstructionFragment::DeferredAddressing(defer_span),
+                        trailing_commas: fragment.trailing_commas.clone(),
+                    });
+                }
+                continue;
+            }
+            result.push(fragment.substitute_macro_parameters(param_values, on_missing, macros)?);
+        }
+        Some(UntaggedProgramInstruction {
+            fragments: OneOrMore::try_from_vec(result).ok()?,
+        })
+    }
+}
+
+impl Spanned for UntaggedProgramInstruction {
+    fn span(&self) -> Span {
+        span(self.fragments.first().span.start..self.fragments.last().span.end)
+    }
+}
+
+/// The right-hand-side of an [`Equality`].
+///
+/// In other words, the value being assigned.
+///
+/// Equalities are described in section 6-2.2 of the Users Handbook.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct EqualityValue {
+    // Implementation choices:
+    //
+    // The RHS of an equality can be "any 36-bit value" (see TX-2 Users
+    // Handbook, section 6-2.2, page 156 = 6-6).  Therefore it needs to
+    // be possible to specify the value of the hold bit (since that is
+    // one of those 36 bits).
+    //
+    // That means that if the right-hand-side of the assignment is
+    // symbolic, the user needs to be able to set the hold bit with "h",
+    // and we need to use in the representation something that records
+    // that the hold bit is set.
+    //
+    // Although a [`TaggedProgramInstruction`] meets this requirement,
+    // we do not use that, since we don't allow tags on the RHS, the
+    // value cannot be a [`TaggedProgramInstruction`].
+    //
+    /// Location in the source code.
+    pub(super) span: Span,
+    /// The value which is assigned.
+    pub(super) inner: UntaggedProgramInstruction,
+}
+
+impl Spanned for EqualityValue {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl From<(Span, UntaggedProgramInstruction)> for EqualityValue {
+    fn from((span, inner): (Span, UntaggedProgramInstruction)) -> Self {
+        Self { span, inner }
+    }
+}
+
+impl EqualityValue {
+    pub(crate) fn constant(value: Unsigned36Bit) -> EqualityValue {
+        let source_span = Span::from(0..0);
+        let fragment = CommaDelimitedFragment::new(
+            None,
+            FragmentWithHold {
+                span: source_span,
+                holdbit: HoldBit::Unspecified,
+                fragment: InstructionFragment::from((source_span, Script::Normal, value)),
+            },
+            None,
+        );
+        EqualityValue {
+            span: source_span,
+            inner: UntaggedProgramInstruction::from(OneOrMore::new(fragment)),
+        }
+    }
+
+    pub(crate) fn resolve_rc_word_macros(
+        &mut self,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) {
+        self.inner.resolve_rc_word_macros(macros);
+    }
+
+    pub(crate) fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        self.inner
+            .allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+    }
+
+    pub(super) fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> EqualityValue {
+        // If we set an equality to the value of an unspecified macro
+        // parameter, then that equality is set to zero.  This is
+        // required by item (7) of section 6-4.6 ("The Defining
+        // Subprogram") of the TX-2 User's Handbook.
+        //
+        // However, that item does not cover more complex cases like
+        // "G = DUM2 + 4".  Our current interpretation will assign G
+        // the value 4 when DUM2 is an unspecified macro parameter.
+        // However, analysis of actual TX-2 programs may show that
+        // this is not the correct interpretation.
+        if let Some(inner) = self.inner.substitute_macro_parameters(
+            param_values,
+            // We use SubstituteZero here for the reasons
+            // described in the block comment above.
+            OnUnboundMacroParameter::SubstituteZero,
+            macros,
+        ) {
+            EqualityValue {
+                span: self.span,
+                inner,
+            }
+        } else {
+            unreachable!(
+                "substitute_macro_parameters should not return None when OnUnboundMacroParameter::SubstituteZero is in effect"
+            )
+        }
+    }
+}
+
+/// A "Tag" is a symex used as a name for a place in a program.  A tag
+/// is always terminated by an arrow ("->") and [in the symbol table]
+/// it set to the numerical location of the word that it tags. [from
+/// section 6-2.2 of the User's Handbook].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Tag {
+    pub(crate) name: SymbolName,
+    pub(crate) span: Span,
+}
+
+impl Tag {
+    fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        block_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        [Ok((
+            self.name.clone(),
+            self.span,
+            SymbolUse::Definition(ExplicitDefinition::Tag(TagDefinition::Unresolved {
+                block_id,
+                block_offset,
+                span: self.span,
+            })),
+        ))]
+        .into_iter()
+    }
+}
+
+impl PartialOrd for Tag {
+    /// Ordering for tags ignores the span.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Tag {
+    /// Ordering for tags ignores the span.
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name.cmp(&other.name)
+    }
+}
+
+/// A TX-2 instruction with zero or more [`Tag`]s.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TaggedProgramInstruction {
+    /// Location in the program
+    pub(crate) span: Span,
+    /// Tags which point to this instruction.
+    pub(crate) tags: Vec<Tag>,
+    /// The instruction itself.
+    pub(crate) instruction: UntaggedProgramInstruction,
+}
+
+impl TaggedProgramInstruction {
+    fn resolve_rc_word_macros(&mut self, macros: &BTreeMap<SymbolName, MacroDefinition>) {
+        self.instruction.resolve_rc_word_macros(macros);
+    }
+
+    pub(super) fn standalone_symbol(&self) -> Option<&SymbolName> {
+        if !self.tags.is_empty() || self.instruction.fragments.len() != 1 {
+            return None;
+        }
+        let fragment = self.instruction.fragments.first();
+        if fragment.leading_commas.is_some()
+            || fragment.trailing_commas.is_some()
+            || fragment.holdbit != HoldBit::Unspecified
+        {
+            return None;
+        }
+        match &fragment.fragment {
+            InstructionFragment::Arithmetic(ArithmeticExpression { first, tail })
+                if tail.is_empty() && !first.negated =>
+            {
+                match &first.magnitude {
+                    Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(_, name, _)) => Some(name),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub(crate) fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        let mut result: Vec<Result<_, _>> = Vec::new();
+        result.extend(
+            self.tags
+                .iter()
+                .flat_map(|tag| tag.symbol_uses(block_id, offset)),
+        );
+        result.extend(self.instruction.symbol_uses(block_id, offset));
+        result.into_iter()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn single(
+        tags: Vec<Tag>,
+        holdbit: HoldBit,
+        inst_span: Span,
+        frag_span: Span,
+        frag: InstructionFragment,
+    ) -> TaggedProgramInstruction {
+        TaggedProgramInstruction {
+            tags,
+            span: inst_span,
+            instruction: UntaggedProgramInstruction::from(OneOrMore::new(CommaDelimitedFragment {
+                span: frag_span,
+                leading_commas: None,
+                holdbit,
+                fragment: frag,
+                trailing_commas: None,
+            })),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn multiple(
+        tags: Vec<Tag>,
+        span: Span,
+        first_fragment: CommaDelimitedFragment,
+        more_fragments: Vec<CommaDelimitedFragment>,
+    ) -> TaggedProgramInstruction {
+        TaggedProgramInstruction {
+            tags,
+            span,
+            instruction: UntaggedProgramInstruction::from(OneOrMore::with_tail(
+                first_fragment,
+                more_fragments,
+            )),
+        }
+    }
+
+    fn emitted_word_count(&self) -> Unsigned18Bit {
+        let _ = self;
+        Unsigned18Bit::ONE
+    }
+
+    pub(super) fn substitute_macro_parameters(
+        &self,
+        param_values: &MacroParameterBindings,
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<TaggedProgramInstruction> {
+        self.instruction
+            .substitute_macro_parameters(param_values, on_missing, macros)
+            .map(|instruction| TaggedProgramInstruction {
+                span: self.span,
+                tags: self.tags.clone(),
+                instruction,
+            })
+    }
+
+    fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        self.instruction
+            .allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)
+    }
+}
+
+impl Spanned for TaggedProgramInstruction {
+    fn span(&self) -> Span {
+        let begin = match self.tags.first() {
+            Some(t) => t.span.start,
+            None => self.instruction.span().start,
+        };
+        let end = self.instruction.span().end;
+        Span::from(begin..end)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct InstructionSequence {
+    pub(super) global_tags: BTreeSet<SymbolName>,
+    pub(super) local_symbols: Option<ExplicitSymbolTable>,
+    pub(super) instructions: Vec<TaggedProgramInstruction>,
+}
+
+#[cfg(test)]
+impl From<Vec<TaggedProgramInstruction>> for InstructionSequence {
+    fn from(v: Vec<TaggedProgramInstruction>) -> Self {
+        InstructionSequence {
+            global_tags: BTreeSet::new(),
+            local_symbols: None,
+            instructions: v,
+        }
+    }
+}
+
+impl FromIterator<TaggedProgramInstruction> for InstructionSequence {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = TaggedProgramInstruction>,
+    {
+        InstructionSequence {
+            global_tags: BTreeSet::new(),
+            local_symbols: None,
+            instructions: iter.into_iter().collect(),
+        }
+    }
+}
+
+/// Enumerate a sequence of items, decorating each with an
+/// `Unsigned18Bit` offset value.
+pub(crate) fn block_items_with_offset<T, I>(items: I) -> impl Iterator<Item = (Unsigned18Bit, T)>
+where
+    I: Iterator<Item = T>,
+{
+    items.enumerate().map(|(offset, item)| {
+        let off: Unsigned18Bit = Unsigned18Bit::try_from(offset)
+            .expect("block should not be larger than the TX-2's memory");
+        (off, item)
+    })
+}
+
+/// We failed to build a local symbol table.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) enum LocalSymbolTableBuildFailure {
+    InconsistentUsage(InconsistentSymbolUse),
+    BadDefinition(BadSymbolDefinition),
+}
+
+impl Spanned for LocalSymbolTableBuildFailure {
+    fn span(&self) -> Span {
+        match self {
+            LocalSymbolTableBuildFailure::InconsistentUsage(inconsistent_symbol_use) => {
+                inconsistent_symbol_use.span()
+            }
+            LocalSymbolTableBuildFailure::BadDefinition(bad_symbol_definition) => {
+                bad_symbol_definition.span()
+            }
+        }
+    }
+}
+
+impl Display for LocalSymbolTableBuildFailure {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            LocalSymbolTableBuildFailure::InconsistentUsage(inconsistent_symbol_use) => {
+                write!(f, "{inconsistent_symbol_use}")
+            }
+            LocalSymbolTableBuildFailure::BadDefinition(bad_symbol_definition) => {
+                write!(f, "{bad_symbol_definition}")
+            }
+        }
+    }
+}
+
+impl Error for LocalSymbolTableBuildFailure {}
+
+impl InstructionSequence {
+    pub(super) fn iter(&self) -> impl Iterator<Item = &TaggedProgramInstruction> {
+        self.instructions.iter()
+    }
+
+    pub(crate) fn resolve_rc_word_macros(
+        &mut self,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) {
+        for instruction in &mut self.instructions {
+            instruction.resolve_rc_word_macros(macros);
+        }
+    }
+
+    pub(super) fn first(&self) -> Option<&TaggedProgramInstruction> {
+        self.instructions.first()
+    }
+
+    pub(crate) fn allocate_rc_words<R: RcAllocator>(
+        &mut self,
+        explicit_symtab: &mut ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        rc_allocator: &mut R,
+    ) -> Result<(), RcWordAllocationFailure> {
+        for ref mut statement in &mut self.instructions {
+            statement.allocate_rc_words(explicit_symtab, implicit_symtab, rc_allocator)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn symbol_uses(
+        &self,
+        block_id: BlockIdentifier,
+        start_offset: Unsigned18Bit,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        let no_symbols = ExplicitSymbolTable::default();
+        let local_scope: &ExplicitSymbolTable = self.local_symbols.as_ref().unwrap_or(&no_symbols);
+        let mut result: Vec<Result<_, _>> = Vec::new();
+
+        for (off, statement) in block_items_with_offset(self.instructions.iter()) {
+            let off = start_offset
+                .checked_add(off)
+                .expect("block should not be larger than the TX-2's memory");
+            result.extend(statement.symbol_uses(block_id, off).filter(|r| match r {
+                Ok((symbol, _, _)) => !local_scope.is_defined(symbol),
+                Err(_) => true,
+            }));
+        }
+        result.into_iter()
+    }
+
+    pub(crate) fn emitted_word_count(&self) -> Unsigned18Bit {
+        self.iter()
+            .map(TaggedProgramInstruction::emitted_word_count)
+            .sum()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn build_binary_block<R: RcUpdater>(
+        &self,
+        location: Address,
+        start_offset: Unsigned18Bit,
+        explicit_symtab: &ExplicitSymbolTable,
+        implicit_symtab: &mut ImplicitSymbolTable,
+        memory_map: &MemoryMap,
+        index_register_assigner: &mut IndexRegisterAssigner,
+        rc_allocator: &mut R,
+        final_symbols: &mut FinalSymbolTable,
+        body: &Source<'_>,
+        listing: &mut Listing,
+        bad_symbol_definitions: &mut BTreeMap<SymbolName, ProgramError>,
+    ) -> Result<Vec<Unsigned36Bit>, AssemblerFailure> {
+        let mut words: Vec<Unsigned36Bit> = Vec::with_capacity(self.emitted_word_count().into());
+        for (offset, instruction) in self.iter().enumerate() {
+            let offset: Unsigned18Bit = Unsigned18Bit::try_from(offset)
+                .ok()
+                .and_then(|offset| offset.checked_add(start_offset))
+                .expect("assembled code block should fit within physical memory");
+            let address: Address = location.index_by(offset);
+            for tag in &instruction.tags {
+                final_symbols.define(
+                    tag.name.clone(),
+                    FinalSymbolType::Tag,
+                    body.extract(tag.span.start..tag.span.end).to_string(),
+                    FinalSymbolDefinition::PositionIndependent(address.into()),
+                );
+            }
+
+            let scoped_symbols = self
+                .local_symbols
+                .as_ref()
+                .map(|local| explicit_symtab.with_overrides(local));
+            let symbols = scoped_symbols.as_ref().unwrap_or(explicit_symtab);
+            let mut ctx = EvaluationContext {
+                explicit_symtab: symbols,
+                implicit_symtab,
+                memory_map,
+                here: HereValue::Address(address),
+                index_register_assigner,
+                rc_updater: rc_allocator,
+                lookup_operation: Default::default(),
+            };
+            let scope = ScopeIdentifier::global();
+            match instruction.evaluate(&mut ctx, scope) {
+                Ok(word) => {
+                    listing.push_line(ListingLine {
+                        span: Some(instruction.span),
+                        rc_source: None,
+                        content: Some((address, word)),
+                    });
+                    words.push(word);
+                }
+                Err(e) => {
+                    record_undefined_symbol_or_return_failure(body, e, bad_symbol_definitions)?;
+                }
+            }
+        }
+        Ok(words)
+    }
+}
+
+/// An "Equality" (modern term: assignment).
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Equality {
+    pub(crate) span: Span,
+    pub(crate) name: SymbolName,
+    pub(crate) value: EqualityValue,
+}
+
+impl Equality {
+    pub(super) fn symbol_uses(
+        &self,
+    ) -> impl Iterator<Item = Result<(SymbolName, Span, SymbolUse), InconsistentSymbolUse>> + use<>
+    {
+        let mut result = vec![Ok((
+            self.name.clone(),
+            self.span,
+            SymbolUse::Definition(
+                // TODO: the expression.clone() on the next line is expensive.
+                ExplicitDefinition::Equality(self.value.clone()),
+            ),
+        ))];
+
+        result.extend(
+            self.value
+                .inner
+                .symbol_uses(BlockIdentifier::from(0), Unsigned18Bit::ZERO)
+                .filter_map(|symbol_use| match symbol_use {
+                    Ok((_, _, SymbolUse::Definition(_))) => None,
+                    other => Some(other),
+                }),
+        );
+        result.into_iter()
+    }
+}

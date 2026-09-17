@@ -1,0 +1,53 @@
+[package]
+name = "assembler"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/TX-2/TX-2-simulator.git"
+
+[dependencies]
+base = {path = "../base" }
+regex = "1"
+
+# Clap is dual-licensed MIT/Apache
+# https://github.com/clap-rs/clap/blob/master/LICENSE-MIT
+# https://github.com/clap-rs/clap/blob/master/LICENSE-APACHE
+clap = { version = "4", features = ["derive"] }
+
+chumsky = { version="=1.0.0-alpha.8", features = ["extension"] }
+
+
+logos = { version = "0.15" }
+
+# tempfile has an "MIT or Apache-2.0" copyright license
+tempfile = "3"
+
+# tracing has an MIT copyright license.
+# https://github.com/tokio-rs/tracing/blob/master/LICENSE
+tracing = "0.1"
+
+# tracing-subscriber has an MIT copyright license.
+# https://github.com/tokio-rs/tracing/blob/master/LICENSE
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+backtrace-on-stack-overflow = "0.3.0"
+
+[lib]
+name = "assembler"
+path = "src/asmlib/lib.rs"
+
+[[bin]]
+name = "tx2m4as"
+path = "src/tx2m4as/main.rs"
+
+[[bin]]
+name = "tx2dis"
+path = "src/tx2dis/main.rs"
+
+[[bin]]
+name = "tx2maketape"
+path = "src/tx2maketape/main.rs"
+
+[[bin]]
+name = "tx2mergetape"
+path = "src/tx2mergetape/main.rs"

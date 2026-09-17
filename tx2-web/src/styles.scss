@@ -1,0 +1,150 @@
+/* Many UI elements are styled directly in the React code, still. */
+
+.gridbox {
+    background: lightgray;
+    color: black;
+    border-radius: 5px;
+    padding: 10px;
+
+    padding-right: 1em;
+    padding-left: 1em;
+}
+
+details {
+    margin-top: 0.5ex;
+    margin-right: 0.5em;
+}
+
+.status_panel {
+    font-family: Sans-Serif;
+    margin: 0.5em;
+    border: 1px solid black;
+    border-collapse: collapse;
+
+    table {
+        float: left;
+        table-layout: fixed;
+
+        th {
+            text-align: left;
+        }
+
+        td {
+        }
+    }
+}
+
+.io_panel {
+    @extend .status_panel;
+}
+
+.lw__box {
+    border: 0px;
+}
+
+.lw {
+    overflow: clip;
+    border: 0px;
+}
+
+.lw__input__keyboard {
+    border: 1px solid black;
+    width: 800px;
+    margin: auto;
+    aspect-ratio: 23.8 / 14.5;
+
+    &_hits {
+        @extend .lw__input__keyboard;
+        position: absolute;
+        opacity: 0.0;
+        /* Put the hit detector canvas in front of the keyboard picture */
+        z-index: 1;
+    }
+    &_keys {
+        @extend .lw__input__keyboard;
+        position: absolute;
+        font: "12px sans-serif";
+        /* Put the keyboard picture canvas behind the hit detector canvas */
+        z-index: 0;
+    }
+}
+
+
+.lw__paper {
+    overflowY: scroll;
+    border: 1px;
+    border-color: black;
+    border-style: solid;
+
+    margin-top: 0px;
+    margin-bottom: 0px;
+    padding-left: 0.5ex;
+    padding-right: 0.5ex;
+
+    font-family: monospace;
+    background-color: rgb(255, 255, 240);
+
+    min-height: 16ex;
+}
+
+.lw__output_container {
+    border: 0px;
+    border-style: none;
+    margin: 0px 0px;
+
+    max-height: 30ex;
+    overflow: auto;
+}
+
+.lw__output {
+    font-family: monospace;
+}
+
+.lw__cursor  {
+  background-color: black;
+  animation-name: lw__cursor_animation;
+  animation-duration: 0.75s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  animation-direction: alternate;
+}
+
+@keyframes lw__cursor_animation {
+    0%   {opacity:20%; }
+    40%  {opacity:20%; }
+    41%  {opacity:100%; }
+    100% {opacity:100%; }
+}
+
+.instructions {
+  color: black;
+  font-family: sans-serif;
+  padding: 0px;
+}
+
+.tape_load_modal__buttons {
+    margin: 0.5ex;
+
+    div {
+        display: flex;
+        justify-content: space-around;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        flex: 0 1 auto;
+        align-items: stretch;
+        padding: 0px;
+        width: 30em;
+        height: auto;
+        max-width: none;
+    }
+
+    input {
+        flex-grow: 0;
+        width: auto;
+    }
+}
+
+.main_grid_flexbox {
+    display: flex;
+    flex-direction: row;
+}

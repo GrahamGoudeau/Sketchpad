@@ -1,0 +1,154 @@
+import { AlarmControlState, AlarmStatus, AlarmStatusCallback } from './controller/alarms'
+import React, { Component } from 'react';
+import Checkbox from './checkbox';
+import styles from './alarm-panel.scss'
+
+export interface AlarmControlProps {
+  name: string;
+  maskable: boolean;
+  masked: boolean,
+  active: boolean,
+  message: string | null,
+  className: string,
+  setMaskedCallback: (name: string, masked: boolean) => void;
+  registerStatusCallback: (name: string, f: AlarmStatusCallback | null) => void;
+}
+
+
+type MaskedCellProps = {
+  children: React.JSX.Element,
+}
+
+function MaskedCell(props: MaskedCellProps) {
+  return (<td
+    className={styles.masked}>
+    {props.children}
+  </td>);
+}
+
+function ActiveCell({children}: {children: React.JSX.Element | string}) {
+  return <td>{children}</td>;
+}
+
+function MessageCell({children}: {children: React.JSX.Element | string}) {
+  return <td className={styles.message}>{children}</td>;
+}
+
+class AlarmControl extends Component<AlarmControlProps, AlarmControlState> {
+  constructor(props: AlarmControlProps) {
+    super(props);
+    let msg = props.message;
+    if (msg == null) {
+      msg = ""
+      }
+    this.state = {
+      masked: props.masked,
+      active: props.active,
+      message: msg,
+    }
+  }
+
+  componentDidMount() {
+    // TODO: should more of this mount/unmount logic go into the
+    // controller somehow?
+    this.props.registerStatusCallback(this.props.name, this.updateStatus.bind(this));
+  }
+
+  componentWillUnmount() {
+    this.props.registerStatusCallback(this.props.name, null);
+  }
+
+  updateStatus(newAlarmState: AlarmControlState) {
+    this.setState(newAlarmState);
+  }
+
+  yesno(flag: boolean): string {
+    if (flag) {
+      return "yes";
+    } else {
+      return "no";
+    }
+  }
+
+  handleMaskedChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const masked: boolean = e.target.checked;
+    this.props.setMaskedCallback(this.props.name, masked);
+    this.setState({
+      masked: masked,
+      active: this.state.active,
+      message: this.state.message
+    })
+  }
+
+  masked(): React.ReactElement {
+    if (this.props.maskable) {
+      return (<Checkbox
+        isChecked={this.state.masked}
+        handleChange={this.handleMaskedChange.bind(this)}
+        label={""} />);
+    } else {
+      return <span>never</span>;
+    }
+  }
+
+  render() {
+    return (
+      <tr>
+        <th scope="row" className={styles.name}>{this.props.name}</th>
+        <MaskedCell>{this.masked()}</MaskedCell>
+        <ActiveCell>{this.yesno(this.state.active)}</ActiveCell>
+        <MessageCell>{this.state.message}</MessageCell>
+      </tr>
+    );
+  }
+}
+
+interface AlarmPanelProps {
+  alarmStatuses: AlarmStatus[];
+  maskedChangeCallback: (name: string, masked: boolean) => void;
+  registerStatusCallback: (name: string, f: AlarmStatusCallback | null) => void;
+}
+
+function make_control(
+  name: string,
+  alarmStatus: AlarmStatus,
+  maskedChangeCallback: (name: string, masked: boolean) => void,
+  registerStatusCallback: (name: string, f: AlarmStatusCallback | null) => void,
+): React.JSX.Element {
+        return (<AlarmControl className={styles.name}
+                key={name}
+                name={name}
+                maskable={alarmStatus.maskable}
+                masked={alarmStatus.masked}
+                active={alarmStatus.active}
+                message={alarmStatus.message}
+                setMaskedCallback={maskedChangeCallback}
+                registerStatusCallback={registerStatusCallback} />);
+}
+
+
+export default class AlarmPanel extends Component<AlarmPanelProps> {
+  constructor(props: AlarmPanelProps) {
+    super(props);
+  }
+
+  render() {
+    const alarmControls: React.JSX.Element[] = this.props.alarmStatuses.map((status) =>
+      make_control(status.name, status, this.props.maskedChangeCallback, this.props.registerStatusCallback));
+    return (
+      <table className={styles.alarm_panel} aria-label="Alarm Status">
+        <thead>
+          <tr>
+            <th className={styles.name} scope="col">Alarm</th>
+            <th className={styles.masked} scope="col">Masked</th>
+            <th scope="col">Active</th>
+            <th className={styles.message} scope="col">Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {alarmControls}
+        </tbody>
+      </table>
+    );
+  }
+}

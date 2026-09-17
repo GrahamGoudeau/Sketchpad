@@ -1,0 +1,28 @@
+[package]
+name = "cpu"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+# This is an open source project but not really intended to be
+# published on crates.io.  So we don't want to do that accidentally.
+publish = false
+repository = "https://github.com/TX-2/TX-2-simulator.git"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+base = { path = "../base" }
+conv = "0.3"                    # MIT license
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"                 # MIT license
+wasm-bindgen = "0.2"
+# Using version 1.0 of idna_adapter removes punycode URL support from
+# the url crate.  In general this is a bad idea, but we know that the
+# only URLs we will generate are for a domain name that does not use
+# punycode.
+idna_adapter = "1.0"
+url = "2.5.7"
+
+[lib]
+name = "cpu"
+path = "src/lib.rs"

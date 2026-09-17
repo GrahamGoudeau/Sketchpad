@@ -1,0 +1,89 @@
+** This TX-2 program accepts keyboard input.  We will eventually make
+** it echo the input back to the Lincoln Writer, but for now the
+** functionality is much more limited.
+**
+** Assemble this program like this:
+**
+** cargo run  --bin tx2m4as --  --output ../examples/echo.tape examples/echo.tx2as
+**
+**
+
+******************************************************************************
+** Constants
+******************************************************************************
+
+** Some invalid instruction words inticating various program
+** termination conditions.  The emulator stops when it executes an
+** invalid opcode (and the opcode part of all of these words is zero,
+** which is not a valid opcode).
+EXIT START FAIL = 1
+EXIT PREMATURE OUTPUT = 2
+EXIT SUCCESS    = 42 ** Sorry Douglas, this is octal.
+
+DREG = 377607
+EREG = 377610
+
+******************************************************************************
+** Program start
+******************************************************************************
+** The first Lincoln Writer's input is unit 65.  We will put the code
+** for its sequence at 200, so the program counter for sequence 65
+** (which is X₆₅) should start at 200.
+100|      REX₆₅ INPUT        ** Set X₆₅ to the address of the input routine
+          REX₆₆ TOOSOON      ** Not ready for output yet.
+      h ²¹IOS₆₅  30000       ** Connect LW input 1 (unit 65), dismiss current sequence
+        ²¹IOS₆₆  30000       ** Connect LW output 1 (unit 66)
+          EXIT START FAIL    ** Something has gone wrong; execute an invalid instruction.
+
+******************************************************************************
+** Sequence 65: Input
+******************************************************************************
+
+** The IOS instruction connecting unit 65 has the side effect of
+** making sequence 65 runnable. Because bit 020 of the configuration
+** syllable of the IOS instruction is set, the flag of the current
+** sequence is also dropped, meaning that the current sequence (which
+** happens to be 52, the paper tape reader, because of the way the
+** standard leader works) is dropped.  Therefore sequence 52 will no
+** longer run.
+
+** Next we read from the LW input to Q1 of the E register (which lives
+** at 377610).  As a side effect of the TSD instruction, the same
+** value would in any case be left in the E register. See figure 15-18
+** in Volume 2 of the TX-2 Techical Manual.  In our current case,
+** there is no need to write this data to any other location than E.
+
+INPUT|     ³TSD    PRINTME   ** read code
+        h  ³SED    STOPCODE  ** compare with STOP, skip if different.
+                             ** use configuration 3 to compare only Q1.
+            EXIT SUCCESS     ** STOP entered, so we are finished
+
+** To print our character, we simply activate sequence 65 (the output
+** half of the Lincoln Writer).  That sequence just prints a single
+** character which we leave in PRINTME.   When we loop, the current
+** sequence will be dismissed, giving the output sequence a chance
+** to run.
+        h ³⁰SKX₆₆ OUTPUT  ** Raise flag, on LW output, start at OUTPUT
+            JMP    INPUT  ** Loop to read the next character.
+
+******************************************************************************
+** Sequence 66: Output
+******************************************************************************
+
+OUTPUT ->  ³TSD   PRINTME   ** Print the output character.
+            IOS₆₆   40000   ** Drop flag
+          ²⁰JMP    OUTPUT   ** loop, dismissing the current sequence.
+
+TOOSOON-> IOS₆₆   40000   ** Drop flag
+        ²⁰JMP    OUTPUT   ** loop, dismissing the current sequence.
+
+******************************************************************************
+** Data
+******************************************************************************
+PRINTME ->  0           ** Temporary for the character to print.
+STOPCODE-> 76           ** the LW code for STOP
+
+** Indicate to the assembler that it should generate a punched tape
+** output (with the standard header) and that the header should begin
+** the program by juming to location 100.
+☛☛PUNCH 100

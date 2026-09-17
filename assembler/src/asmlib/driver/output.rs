@@ -1,0 +1,291 @@
+//! Generate the output binary, as a tape image file.
+use std::io::Write;
+use std::path::Path;
+
+use tracing::{Level, event, span};
+
+use base::prelude::{
+    Address, Instruction, Opcode, OperandAddress, Signed18Bit, SymbolicInstruction, Unsigned6Bit,
+    Unsigned18Bit, Unsigned36Bit, join_halves, split_halves, u5, u6, u18, unsplay,
+};
+
+use super::super::readerleader::reader_leader;
+use super::super::types::{AssemblerFailure, IoAction, IoFailed, IoTarget};
+use super::Binary;
+
+/// Write a sequence of 36-bit words in splayed/assembly mode.
+///
+/// We write the output in splayed mode simply because
+///
+/// - this is how the standard reader leader program expects to read it
+/// - the plugboard read-in program expects to read the standard
+///   reader-leader itself (from the tape) in that format.
+///
+fn write_data<W: Write>(
+    writer: &mut W,
+    output_file_name: &Path,
+    data: &[Unsigned36Bit],
+) -> Result<(), AssemblerFailure> {
+    let mut inner = || -> Result<(), std::io::Error> {
+        const OUTPUT_CHUNK_SIZE: usize = 1024;
+        for chunk in data.chunks(OUTPUT_CHUNK_SIZE) {
+            let mut buf: Vec<u8> = Vec::with_capacity(chunk.len() * 6);
+            for word in chunk {
+                let unsplayed: [Unsigned6Bit; 6] = unsplay(*word);
+                buf.extend(unsplayed.into_iter().map(|u| u8::from(u) | (1 << 7)));
+            }
+            writer.write_all(&buf)?;
+        }
+        Ok(())
+    };
+    inner().map_err(|e| {
+        AssemblerFailure::Io(IoFailed {
+            action: IoAction::Write,
+            target: IoTarget::File(output_file_name.to_path_buf()),
+            error: e,
+        })
+    })
+}
+
+/// Update the checksum of an output block (incorporating an 18-bit value).
+fn update_checksum_by_halfword(sum: Signed18Bit, halfword: Signed18Bit) -> Signed18Bit {
+    sum.wrapping_add(halfword)
+}
+
+/// Update the checksum of an output block (incorporating a 36-bit value).
+fn update_checksum(sum: Signed18Bit, word: Unsigned36Bit) -> Signed18Bit {
+    let (l, r) = split_halves(word);
+    update_checksum_by_halfword(
+        update_checksum_by_halfword(l.reinterpret_as_signed(), sum),
+        r.reinterpret_as_signed(),
+    )
+}
+
+/// Create (and return) a block of data ready to be punched to tape
+/// such that the standard reader leader can load it.
+///
+/// See ../readerleader.rs for documentation on the format of a block.
+fn create_tape_block(
+    address: Address,
+    code: &[Unsigned36Bit],
+    last: bool,
+) -> Result<Vec<Unsigned36Bit>, AssemblerFailure> {
+    let length = code.len();
+    if code.is_empty() {
+        return Err(AssemblerFailure::BadTapeBlock {
+            address,
+            length,
+            msg: "tape block is empty but tape blocks are not allowed to be empty (the format does not support it)".to_string()
+        });
+    }
+    let len: Unsigned18Bit = match Unsigned18Bit::try_from(code.len()) {
+        Err(_) => {
+            return Err(AssemblerFailure::BadTapeBlock {
+                address,
+                length,
+                msg: "block is too long for output format".to_string(),
+            });
+        }
+        Ok(len) => len,
+    };
+    let end: Unsigned18Bit = match Unsigned18Bit::from(address)
+        .checked_add(len)
+        .and_then(|n| n.checked_sub(Unsigned18Bit::ONE))
+    {
+        None => {
+            return Err(AssemblerFailure::BadTapeBlock {
+                address,
+                length,
+                msg: "end of block does not fit into physical memory".to_string(),
+            });
+        }
+        Some(end) => end,
+    };
+    event!(
+        Level::DEBUG,
+        "creating a tape block with origin={address:>06o}, len={len:o}, end={end:>06o}"
+    );
+    let mut block = Vec::with_capacity(code.len().saturating_add(2usize));
+    let encoded_len: Unsigned18Bit = match Signed18Bit::try_from(len) {
+        Ok(n) => Signed18Bit::ONE.checked_sub(n),
+        Err(_) => None,
+    }
+    .expect("overflow in length encoding")
+    .reinterpret_as_unsigned();
+    let mut checksum = Signed18Bit::ZERO;
+    block.push(join_halves(encoded_len, end));
+    block.extend(code);
+
+    for w in &block {
+        checksum = update_checksum(checksum, *w);
+    }
+    let next: Unsigned18Bit = { if last { 0o27_u8 } else { 0o3_u8 } }.into();
+    checksum = update_checksum_by_halfword(checksum, next.reinterpret_as_signed());
+    let balance = Signed18Bit::ZERO.wrapping_sub(checksum);
+    checksum = update_checksum_by_halfword(checksum, balance);
+    block.push(join_halves(balance.reinterpret_as_unsigned(), next));
+    assert_eq!(checksum, Signed18Bit::ZERO);
+    Ok(block)
+}
+
+/// Assemble a pair of instructions to go into registers 0o27 and
+/// 0o28, immediately after the reader leader.  This instruction calls
+/// the user's program (which begins at the address specified by the
+/// PUNCH meta command).
+fn create_begin_block(
+    program_start: Option<Address>,
+    empty_program: bool,
+) -> Result<Vec<Unsigned36Bit>, AssemblerFailure> {
+    // Page 6-23 (dated October 1961) of the Users Handbook states
+    // that this instruction goes into register 26 (and that 27
+    // contains a JPQ or JPD instruction).  But on the immediately
+    // following page (6-24, same date) it says "The special block for
+    // register 27...".
+    //
+    // Page 5-26 (dated November 1963) gives a listing of the standard
+    // reader leader which shows the IOS instruction at location 27:
+    //
+    // 26    ¹⁵BPQ₅₄ 0
+    // 27     ¹IOS₅₂ 20000
+    //
+    // So, one explanation for the apparent inconsistency is that
+    // changes were made between October 1961 and November 1963.
+    let disconnect_tape = SymbolicInstruction {
+        // 027: ¹IOS₅₂ 20000     ** Disconnect PETR, load report word into E.
+        held: false,
+        configuration: u5!(1), // signals that PETR report word should be loaded into E
+        opcode: Opcode::Opr,
+        index: u6!(0o52),
+        operand_address: OperandAddress::direct(Address::from(u18!(0o020_000))),
+    };
+    let jump: SymbolicInstruction = if let Some(start) = program_start {
+        let (physical, deferred) = start.split();
+        if deferred {
+            // If we simply passed though the defer bit, everything
+            // would likely work.  It's just that for this case we
+            // should closely examine what appear to be the original
+            // (TX-2 assembly language) programmer's assumptions about
+            // what will happen.
+            unimplemented!(
+                "PUNCH directive specifies deferred start address {start:o}; this is (deliberately) not yet supported - check carefully!"
+            );
+        }
+        // When there is a known start address `start` we emit a `JPQ
+        // start` instruction into memory register 0o27.
+        SymbolicInstruction {
+            held: false,
+            configuration: u5!(0o14), // JPQ
+            opcode: Opcode::Jmp,
+            index: Unsigned6Bit::ZERO,
+            operand_address: OperandAddress::direct(Address::from(physical)),
+        }
+    } else {
+        // Emit a JPD (jump, dismiss) instruction which loops back to
+        // itself.  This puts the machine into the LIMBO state.
+        SymbolicInstruction {
+            held: false,
+            configuration: u5!(0o20), // JPD
+            opcode: Opcode::Jmp,
+            index: Unsigned6Bit::ZERO,
+            operand_address: OperandAddress::direct(Address::from(u18!(0o27))),
+        }
+    };
+    let location = Address::from(Unsigned18Bit::from(0o27_u8));
+    let code = vec![
+        Instruction::from(&disconnect_tape).bits(),
+        Instruction::from(&jump).bits(),
+    ];
+    create_tape_block(location, &code, empty_program)
+}
+
+/// Write the user's program as a tape image file.
+///
+/// # Errors
+///
+/// - A tape block is longer than will fit into an
+///   18-bit offset value
+/// - The program is larger than the TX-2's physical
+///   memory
+/// - A block's origin and length mean that it would
+///   extend past the end of the TX-2's physical
+///   memory.
+/// - Failure to write the output file.
+pub fn write_user_program<W: Write>(
+    binary: &Binary,
+    writer: &mut W,
+    output_file_name: &Path,
+) -> Result<(), AssemblerFailure> {
+    let span = span!(Level::ERROR, "write binary program");
+    let _enter = span.enter();
+
+    // The boot code reads the paper tape in PETR mode 0o30106
+    // (see base/src/memory.rs) which looks for an END MARK
+    // (code 0o76, no seventh bit set).  But, our PETR device
+    // emulation currently "invents" the END MARK (coinciding
+    // with the beginnng of the tape file) so we don't need to
+    // write it.
+    write_data(writer, output_file_name, &reader_leader())?;
+
+    // Write the special block for register 27.
+    //
+    // We used to write this block after the final block of the user's
+    // program, so that we could signal that this special block was
+    // the final one.  But this is not correct, because the Users
+    // Handbook states on page 6-24 (in the description of the PUNCH
+    // meta command):
+    //
+    // Note also: The special block for register 27 comes before the
+    // program on the tape.  Program material that is to go in
+    // register 27 therefore supercedes this special block created by
+    // M4.
+    write_data(
+        writer,
+        output_file_name,
+        &create_begin_block(binary.entry_point(), binary.is_empty())?,
+    )?;
+
+    // Write the blocks of the user program.
+    let mut iter = binary.chunks().iter().peekable();
+    while let Some(chunk) = iter.next() {
+        if chunk.is_empty() {
+            event!(
+                Level::ERROR,
+                "Will not write empty block at {:o}; the assembler should not have generated one; this is a bug.",
+                chunk.address,
+            );
+            continue;
+        }
+        let last: bool = iter.peek().is_none();
+        let block = create_tape_block(chunk.address, &chunk.words, last)?;
+        write_data(writer, output_file_name, &block)?;
+    }
+
+    writer.flush().map_err(|e| {
+        AssemblerFailure::Io(IoFailed {
+            action: IoAction::Write,
+            target: IoTarget::File(output_file_name.to_owned()),
+            error: e,
+        })
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{create_begin_block, split_halves, u18};
+
+    #[test]
+    fn nonempty_program_continues_after_begin_block() {
+        let block = create_begin_block(None, false).expect("the begin block is valid");
+        let (_, next) = split_halves(*block.last().expect("the block has a trailer"));
+
+        assert_eq!(next, u18!(0o3));
+    }
+
+    #[test]
+    fn empty_program_ends_after_begin_block() {
+        let block = create_begin_block(None, true).expect("the begin block is valid");
+        let (_, next) = split_halves(*block.last().expect("the block has a trailer"));
+
+        assert_eq!(next, u18!(0o27));
+    }
+}
