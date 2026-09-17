@@ -42,7 +42,7 @@ modes, but it does not show a fixed grid on the display.
 The bundled tape contains seven compatible historical Sketchpad jobs and one
 separate inferred initialization word.  Its entry point is octal address
 `200140`.  Its SHA-256 is
-`231c26d9881552d05518bd59d9a6faeb41c0dc7f7b120ca55655989106a00de6`.
+`5216fb90a50aa9a512d4da90f78b870641e86e3ee1ca6e83ec516f91c4bbca88`.
 
 The browser runs the paper tape through the CPU and WebAssembly.  It draws the
 unit-60 output on the canvas.  Pointer motion over the scope always sets the
@@ -90,18 +90,55 @@ Its button titles name every routine found in the recovered `READIT` dispatch
 table.
 
 `DRAWASFIX` at `377720` bit 4.9 and `SHOWBLKS` at `377725` bit 4.9 are on by
-default.  They keep interactive display and light-pen selection active.  `FIX`
-is off during boot.  Turning it on before the model is ready makes the original
-program enter `RELAX` too early and raise `OCSAL`.  Turn on `FIX` after a
-constraint exists.
+default.  They keep interactive display and light-pen selection active.  The
+`FIX` switch starts the constraint regression's `RELAX` pass.  An earlier
+revision warned that an early `FIX` raised `OCSAL`; after source repair R066
+the full assembly harness completes with `FIX` enabled from boot and raises
+no alarm.
 
 The browser does not create geometry.  Every visible scope point comes from a
 unit-60 event emitted by the emulated TX-2.  Pointer input drives only the
 modeled unit-55 light pen.  The shaft encoders and External Input Register are
 the program's other interactive inputs.  A regression run now proves the full
 path from an assembly-created line, through original light-pen selection and
-`TRUEUP`, to an assembly-created HOV constraint and a residual-reducing pass of
-the original `RELAX` solver.
+`TRUEUP`, to an assembly-created HOV constraint, its finite-difference probes,
+and entry into the original `SOLVEM` routine.
+
+The same constraint workflow can emit a read-only, deterministic trace of the
+original `RELAX` solver:
+
+```sh
+CONSTRAINT_ONLY=1 RELAX_TRACE=1 node tests/assembly-interaction.mjs
+```
+
+The trace mode changes no assembly word, CPU semantic, geometry, or solver
+behaviour.  It steps the machine one tick at a time and records a sample each
+time control crosses a boundary justified by the printed source, the APY5
+assembler listing, and the assembled tape: the `hJPQ RELAX` call vector
+`0200060`, the APY5 pass heads `RELB 012105` and `RELC 012112`, the
+`ADCONER 012166` constraint application, the two `STA *ADVC` variable stores
+at `012235` and `012257`, the `SOLVEM|2` expansion head `013727`, and the
+degeneracy retry head `013770` with its closing `JPQ SLVR1-2` word at
+`014222`.  Each sample carries the tick, the simulated time, the executed
+instruction, both endpoint coordinate words read at fixed recorded addresses,
+the constraint's link word, master, and HOVCODE word, and a derived HOV
+residual.  Observed machine words and derived measurements are labelled
+separately in the artifact.
+
+The trace is deterministic: three runs are byte-identical.  The checked-in
+artifact `evidence/relax-hov-trace.json` records the current behaviour.  One
+`RELAX` invocation runs one `RELB` pass, applies the constraint through
+`ADCONER`, measures two variable coordinates with `ADCON3`/`ADVC` probe
+pairs, and opens the `RELC` pass. Its `SOLVEM|2` solve then repeats the
+`SLVAD` degeneracy retry without returning. The window ends at the tick limit
+with both endpoint records unchanged from the `RELAX` call. No convergence,
+completed `RELAX` pass, or second pass is claimed. `npm run
+test:relax-trace` regenerates the trace from the checked-in tape, validates
+its structure, provenance, store decode, and residual derivation, and requires
+a byte-identical match.  `RELAX_TRACE_TICKS` bounds the traced window in
+machine ticks; the default is `20000`.  After an intentional machine or
+assembly change, rewrite the artifact with
+`RELAX_TRACE_UPDATE=1 node tests/relax-trace.mjs`.
 
 A second regression presses Q3.3 on the selected assembly-created line.  The
 original `FIXIT` routine links that line into Sketchpad's `FIXEDS` list without
@@ -152,6 +189,7 @@ npm run test:assembly
 npm run test:circle
 npm run test:constraint
 npm run test:fix
+npm run test:relax-trace
 ```
 
 Deploy the current release:

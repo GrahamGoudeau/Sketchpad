@@ -66,7 +66,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R064 and the validator changes let the complete source
+Repairs R001 through R066 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -79,9 +79,9 @@ Seven historical jobs form the current compatible machine image.  The load order
 `2XMX`, `GX7A`, `BOO7`, `ONLW`, `APY5`, `LYUO`, and `Y3HT`.  The earlier and
 shorter `OPLW` job is not in this set.  A separate one-word inferred
 initialization tape sets the no-old-designation sentinel used by `DESIGNATE`.
-The merged tape has 12,947 words in 29 blocks.  It starts at octal address
-`200140`.  It is 78,174 bytes.  Its SHA-256 is
-`562199e46ba7975d37076b5d3ab2be601be87d2a18bf3c02d0845ea62177af73`.
+The merged tape has 12,946 words in 29 blocks.  It starts at octal address
+`200140`.  It is 78,168 bytes.  Its SHA-256 is
+`5216fb90a50aa9a512d4da90f78b870641e86e3ee1ca6e83ec516f91c4bbca88`.
 
 The simulator runs this image through WebAssembly.  The executing assembly
 draws `INK`, creates a line, selects it with the emulated light pen, creates a
@@ -266,6 +266,7 @@ file marks it clearly and the log records the alternatives.
 | R063 | `sk2.tx2as:6008` | verified | High-resolution view of Sketchpad part 2, PDF page 137; the printed word has the same comma pattern as the earlier `{-0,400,,-0,400}` word | Remove the extra comma before the final `400`.  M4 now reuses the earlier RC word and restores every later Y3HT RC address. |
 | R064 | `sk2.tx2as:6099` | verified | High-resolution view of Sketchpad part 2, PDF page 139; the printed operand clearly reads `LMEND+1`; adjacent calls use the same coordinate-pair form | Read `LMEND1` as `LMEND+1`.  This removes the false automatic symbol and one Y3HT RC word. |
 | R065 | `sk2.tx2as:6175` | inferred | Operator recording; complete unit-60 sweep; `LMAG4` trace; TX-2 Users Handbook pages 3-62 and 3-63 | Send a boundary-key divide overflow to `LMAG5`, which tests the real endpoints, instead of discarding the display file before those tests. |
+| R066 | `sk2.tx2as:2412` | verified | 300-DPI render of Sketchpad part 2, PDF page 58 (document page 208), `NORMATM` macro: the mnemonic's first letter has the three-stroke `N` form of `NORX` on the same page and differs from the four-stroke `M` of `MUL` and the `**NEW MAX` comment; TX-2 Users Handbook pages 3-40 and 3-41 print `NAB` as octal 066 ("NORMALIZE AB (Extended Accumulator)") with the sample `MUL Y / NAB (35.,)` and its opcode Table 7-3 lists `66 - NAB` with no `MAB`; the preceding `MUL NORX` leaves the double-length product in `AB`, which `NAB` normalizes | Read `hMAB {35.,}` as `hNAB {35.,}`.  This replaces the invalid opcode word at `013671` with `h NAB 13712` and removes the extra trailing pool word the undefined symbol produced. |
 
 ## Publication Gate
 

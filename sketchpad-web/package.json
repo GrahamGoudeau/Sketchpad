@@ -6,7 +6,8 @@
   "scripts": {
     "build": "wasm-pack build --target web --out-dir web/pkg --release",
     "dev": "python3 -m http.server 8082 --directory web",
-    "test": "npm run test:display && npm run test:pen && npm run test:input && npm run test:capture && npm run test:worker && npm run test:first-line && npm run test:diagonal && npm run test:axes && npm run test:horizontal && npm run test:vertical && npm run test:vertical-down && npm run test:sweep && npm run test:jump-loss && npm run test:timed-loss && npm run test:timed-draw && npm run test:draw-release && npm run test:circle && npm run test:constraint && npm run test:fix",
+    "test": "npm run test:display && npm run test:pen && npm run test:input && npm run test:capture && npm run test:worker && npm run test:first-line && npm run test:diagonal && npm run test:axes && npm run test:horizontal && npm run test:vertical && npm run test:vertical-down && npm run test:sweep && npm run test:jump-loss && npm run test:timed-loss && npm run test:timed-draw && npm run test:draw-release && npm run test:circle && npm run test:constraint && npm run test:fix && npm run test:relax-trace",
+    "test:relax-trace": "node tests/relax-trace.mjs",
     "test:display": "node tests/scope-model.mjs",
     "test:pen": "node tests/pen-transport.mjs",
     "test:input": "node tests/external-input.mjs",

@@ -2409,7 +2409,7 @@ LDE NORX1
 @sup_1@@sup_8@SED@sub_x@@sub_1@
 @sup_1@@sup_8@LDA@sub_x@@sub_1@ **M
 MUL NORX        **NEW MAX
-hMAB {35.,}
+hNAB {35.,}
 STD NORX
 COM NORX
 

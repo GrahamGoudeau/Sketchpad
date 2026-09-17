@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -31,7 +32,9 @@ function setSelectedCommand(held) {
 // non-drawing display records visible to the light pen.
 machine.set_toggle_register(0o20, 0o400, 0, 0, 0, process.env.FIX_FROM_BOOT === "1");
 machine.set_toggle_register(0o25, 0o400, 0, 0, 0, false);
-machine.mount_tape(sketchpad_tape(), 0);
+const sketchpadTapeBytes = sketchpad_tape();
+const sketchpadTapeSha256 = createHash("sha256").update(sketchpadTapeBytes).digest("hex");
+machine.mount_tape(sketchpadTapeBytes, 0);
 machine.set_light_pen(
   575 / 1022,
   1 - 575 / 1022,
@@ -1842,37 +1845,341 @@ if (process.env.CONSTRAINT_ONLY === "1") {
   }
   const selectedLineWord = machine.memory_word(0o200045, machine.simulated_time).value;
   const geometryBeforeRelax = lineGeometry(selectedLineWord);
+  if (process.env.RELAX_TRACE === "1") {
+    // Read-only deterministic trace of the original RELAX solver inside this
+    // authentic one-line HOV constraint workflow.  The mode changes no
+    // assembly word, CPU semantic, geometry, or solver behaviour.  It only
+    // inspects memory and control state and moves the same FIX toggle that
+    // the ordinary constraint regression below moves.
+    const firstPointAddress = geometryBeforeRelax.firstAddress;
+    const secondPointAddress = geometryBeforeRelax.secondAddress;
+    const coordinateAddresses = {
+      firstX: firstPointAddress + 0o20,
+      firstY: firstPointAddress + 0o21,
+      secondX: secondPointAddress + 0o20,
+      secondY: secondPointAddress + 0o21,
+    };
+    const boundaryTable = [
+      {
+        kind: "relax_call",
+        address: "200060",
+        justification: "The ONLW equality list names this vector RELAX = 200060 "
+          + "(sk2.tx2as:482) and the FIX-switch path calls it with hJPQ RELAX "
+          + "(sk2.tx2as:1596); APY5 prints 200060| hJMP STARTS (sk2.tx2as:2982-2983) "
+          + "and the assembled word is h JMP 12000, so the vector enters the APY5 "
+          + "STARTS routine.",
+      },
+      {
+        kind: "variable_pass_head",
+        address: "012105",
+        justification: "APY5 expands LGORR VCON×α =S RELB RELC (sk2.tx2as:3017) "
+          + "into one pass per constraint of the relaxed variable; RELB "
+          + "(sk2.tx2as:3018) assembles to ¹STE 12111 at 012105.",
+      },
+      {
+        kind: "constraint_application",
+        address: "012166",
+        justification: "APY5 ADCONER (sk2.tx2as:3054) is the hJPQ ADCONER target "
+          + "of RELB (sk2.tx2as:3021); it applies one constraint to the variable "
+          + "and accumulates ADCSUM.",
+      },
+      {
+        kind: "variable_store",
+        address: "012235",
+        justification: "The ADCON3 store STA *ADVC (sk2.tx2as:3095) probes one "
+          + "variable coordinate by adding ADCONSTEP; the assembled word is "
+          + "STA [12255] at 012235.",
+      },
+      {
+        kind: "variable_store",
+        address: "012257",
+        justification: "The ADVC store STA *ADVC (sk2.tx2as:3117) removes the "
+          + "probe and folds the measured sensitivity into ADCSUM; the assembled "
+          + "word is STA [12255] at 012257.",
+      },
+      {
+        kind: "constraint_pass_head",
+        address: "012112",
+        justification: "APY5 RELC (sk2.tx2as:3023) assembles to RSX 140 (REEQ) at "
+          + "012112 and ends in SOLVE|REEQ REANS (sk2.tx2as:3038).",
+      },
+      {
+        kind: "solve_entry",
+        address: "013727",
+        justification: "SOLVE|P,Q dispatches a two-equation system to "
+          + "hJPQ {SOLVEM|2} (sk2.tx2as:2974); the APY5 assembler listing places "
+          + "that call at 012151 and the SOLVEM expansion's first word ¹STE SLVDR "
+          + "at 013727.",
+      },
+      {
+        kind: "solve_retry_head",
+        address: "013770",
+        justification: "SOLVEM's degeneracy block ends in JPQ SLVR1-2 "
+          + "(sk2.tx2as:2919); the assembler listing places SLVR1-2 - the "
+          + "statement @sup_1@REX@sub_x@@sub_3@ K+1, whose assembled word the "
+          + "machine displays as 1SKX13 3 - at 013770. Each crossing restarts "
+          + "SOLVEM after the SLVAD degeneracy path adds constraints.",
+      },
+      {
+        kind: "solve_retry_tail",
+        address: "014222",
+        justification: "The JPQ SLVR1-2 word itself (sk2.tx2as:2919) at 014222; "
+          + "its executed form names the loop head 013770 that it returns to.",
+      },
+    ];
+    const boundaryByAddress = new Map(boundaryTable.map(
+      (entry) => [Number.parseInt(entry.address, 8), entry],
+    ));
+    const wordAt = (address) => machine.memory_word(address, machine.simulated_time).value;
+    // An address field keeps its defer bit in bit 2.9, so the named location
+    // is the low 18 bits of the right half without that bit.
+    const addressField = (word) => rightHalf(word) % 0o400000;
+    const observedEndpoints = () => ({
+      first: {
+        pointAddress: octal(firstPointAddress, 6),
+        x: octal(wordAt(coordinateAddresses.firstX)),
+        y: octal(wordAt(coordinateAddresses.firstY)),
+      },
+      second: {
+        pointAddress: octal(secondPointAddress, 6),
+        x: octal(wordAt(coordinateAddresses.secondX)),
+        y: octal(wordAt(coordinateAddresses.secondY)),
+      },
+    });
+    const observedConstraint = () => ({
+      address: octal(constraintAddress, 6),
+      linkWord: octal(wordAt(constraintAddress)),
+      master: octal(rightHalf(wordAt(constraintAddress)), 6),
+      hovCode: octal(rightHalf(wordAt(constraintAddress + 0o14))),
+    });
+    const observedStore = (boundary) => {
+      if (boundary.kind !== "variable_store") return null;
+      // STA *ADVC defers through the ADVC cell, whose runtime-modified address
+      // field plus index register 10 names the coordinate just written.
+      const programWord = wordAt(Number.parseInt(boundary.address, 8));
+      const pointerCell = addressField(programWord);
+      const pointerCellWord = wordAt(pointerCell);
+      const indexRegisterT = machine.index_register(0o10);
+      return {
+        programWord: octal(programWord),
+        pointerCell: octal(pointerCell, 6),
+        pointerCellWord: octal(pointerCellWord),
+        indexRegisterT: octal(indexRegisterT, 6),
+        effectiveAddress: octal(addressField(pointerCellWord) + indexRegisterT, 6),
+      };
+    };
+    const derivedResidual = (endpoints) => {
+      const delta = (axis) => Math.abs(
+        Number.parseInt(endpoints.first[axis], 8) - Number.parseInt(endpoints.second[axis], 8),
+      );
+      return {
+        x: { wordDelta: octal(delta("x")), decimal: delta("x") },
+        y: { wordDelta: octal(delta("y")), decimal: delta("y") },
+      };
+    };
+    const trace = {
+      schema: "sketchpad-web/relax-hov-trace",
+      schemaVersion: 2,
+      generator: {
+        command: "CONSTRAINT_ONLY=1 RELAX_TRACE=1 node tests/assembly-interaction.mjs",
+        harness: "sketchpad-web/tests/assembly-interaction.mjs",
+      },
+      provenance: {
+        tape: "sketchpad-web/rust/assets/sketchpad-combined.tape",
+        tapeSha256: sketchpadTapeSha256,
+        tapeBytes: sketchpadTapeBytes.length,
+        selectCommand: selectedCommand,
+        lineAddress: octal(geometryBeforeRelax.lineAddress, 6),
+        endpoints: {
+          first: octal(firstPointAddress, 6),
+          second: octal(secondPointAddress, 6),
+        },
+        coordinateWords: Object.fromEntries(Object.entries(coordinateAddresses).map(
+          ([name, address]) => [name, octal(address, 6)],
+        )),
+        tickLimit: null,
+      },
+      boundaries: boundaryTable,
+      derived: {
+        hovResidual: {
+          definition: "absolute difference of the two linked coordinate words per "
+            + "axis; the TX-2 stores a coordinate as one fixed-point word, so the "
+            + "word difference is proportional to the coordinate difference while "
+            + "both words keep the same scale",
+          constrainedAxis: null,
+          constrainedAxisNote: "the constraint's HOVCODE word is 0, and sk2.tx2as:380 "
+            + "defines EITHER = 0, so the assembly rather than the constraint record "
+            + "selects the axis; no axis is claimed",
+        },
+      },
+      samples: [],
+      outcome: null,
+      labels: {
+        observed: [
+          "tick",
+          "simulatedTimeSeconds",
+          "boundary.instruction",
+          "observed.control",
+          "observed.endpoints",
+          "observed.constraint",
+          "observed.store",
+        ],
+        derived: [
+          "derived.hovResidual",
+        ],
+        notes: [
+          "observed.control is the control state at the end of the tick that "
+            + "executed the boundary instruction, so its sequence can be a hardware "
+            + "display sequence servicing the scope and its program counter belongs "
+            + "to that sequence, not to RELAX.",
+          "The two endpoint records are resolved once, from the selected line "
+            + "record, before the traced window opens; every sample then reads the "
+            + "same four coordinate words at the addresses recorded in "
+            + "provenance.coordinateWords.",
+          "observed.constraint reads the HOV constraint's link word, master, and "
+            + "HOVCODE word directly; sk2.tx2as:380 defines HOVCODE at octal offset "
+            + "14 with HORIZ = 1, VERTICAL = 2, EITHER = 0.",
+          "observed.store appears only for the two STA *ADVC boundaries: "
+            + "programWord is the raw instruction word, pointerCell is its deferred "
+            + "address field (the ADVC cell), pointerCellWord is that cell's "
+            + "runtime-modified content, and effectiveAddress is its address field "
+            + "plus index register 10, which the executed instruction text confirms.",
+          "One instruction can occupy two ticks, so a boundary is recorded only "
+            + "when a new instruction executes.",
+        ],
+      },
+    };
+    let invocations = 0;
+    let passes = 0;
+    let retries = 0;
+    let coordinateChangeTicks = 0;
+    let previousWords = null;
+    let previousInstructionAddress = null;
+    let fault = null;
+    const crossings = new Map();
+    machine.set_toggle_register(0o20, 0o400, 0, 0, 0, true);
+    const tickLimit = Number(process.env.RELAX_TRACE_TICKS ?? "20000");
+    trace.provenance.tickLimit = tickLimit;
+    let traceTick = 0;
+    while (traceTick < tickLimit) {
+      try {
+        stepBatch(1);
+      } catch (error) {
+        fault = String(error);
+        break;
+      }
+      traceTick += 1;
+      const words = Object.values(coordinateAddresses).map((address) => wordAt(address)).join(",");
+      if (previousWords !== null && words !== previousWords) coordinateChangeTicks += 1;
+      previousWords = words;
+      const state = machine.control_state();
+      // One instruction can occupy two ticks; record a boundary only when a
+      // new instruction executes, so a two-tick instruction yields one sample.
+      const isNewInstruction = state.instruction_address !== previousInstructionAddress;
+      previousInstructionAddress = state.instruction_address;
+      if (!isNewInstruction) continue;
+      const boundary = boundaryByAddress.get(state.instruction_address);
+      if (boundary === undefined) continue;
+      if (boundary.kind === "relax_call") invocations += 1;
+      if (boundary.kind === "variable_pass_head") passes += 1;
+      if (boundary.kind === "solve_retry_head") retries += 1;
+      crossings.set(boundary.address, (crossings.get(boundary.address) ?? 0) + 1);
+      const endpoints = observedEndpoints();
+      trace.samples.push({
+        index: trace.samples.length,
+        invocation: invocations,
+        pass: passes,
+        retry: retries,
+        boundary: {
+          kind: boundary.kind,
+          address: boundary.address,
+          instruction: state.instruction,
+        },
+        tick: traceTick,
+        simulatedTimeSeconds: machine.simulated_time,
+        observed: {
+          control: {
+            sequence: state.sequence,
+            programCounter: octal(state.program_counter, 6),
+          },
+          endpoints,
+          constraint: observedConstraint(),
+          store: observedStore(boundary),
+        },
+        derived: {
+          hovResidual: derivedResidual(endpoints),
+        },
+      });
+    }
+    machine.set_toggle_register(0o20, 0o400, 0, 0, 0, false);
+    const endState = machine.control_state();
+    trace.outcome = {
+      kind: fault === null ? "tick_limit" : "machine_fault",
+      tick: traceTick,
+      simulatedTimeSeconds: machine.simulated_time,
+      observedCoordinateChangeTicks: coordinateChangeTicks,
+      endCoordinateWords: Object.fromEntries(Object.entries(coordinateAddresses).map(
+        ([name, address]) => [name, octal(wordAt(address))],
+      )),
+      boundaryCrossings: boundaryTable.map((boundary) => ({
+        kind: boundary.kind,
+        address: boundary.address,
+        crossings: crossings.get(boundary.address) ?? 0,
+      })),
+      lastInstruction: {
+        address: octal(endState.instruction_address, 6),
+        instruction: endState.instruction,
+      },
+      fault,
+    };
+    const crossed = (kind) => trace.samples.some(
+      (sample) => sample.boundary.kind === kind,
+    );
+    assert.ok(crossed("relax_call"),
+      "the traced workflow must call the original RELAX vector at 0200060");
+    assert.ok(crossed("variable_pass_head"),
+      "the traced RELAX invocation must open one RELB pass");
+    assert.ok(crossed("constraint_application"),
+      "the traced RELB pass must apply the constraint through ADCONER");
+    assert.ok(crossed("variable_store"),
+      "the traced RELAX invocation must write a constrained coordinate");
+    assert.ok(crossed("constraint_pass_head"),
+      "the traced RELAX invocation must open the RELC solve pass");
+    assert.ok(crossed("solve_entry"),
+      "the traced RELC pass must enter the original SOLVEM expansion");
+    // The artifact is large enough that a plain process.exit can cut the
+    // pipe before Node flushes stdout, so exit from the write callback and
+    // never fall through into the ordinary constraint regression.
+    await new Promise((resolve) => {
+      process.stdout.write(`${JSON.stringify(trace, null, 2)}\n`, resolve);
+    });
+    process.exit(0);
+  }
   machine.set_toggle_register(0o20, 0o400, 0, 0, 0, true);
   const relaxDeadline = machine.simulated_time + 200;
   let enteredRelax = false;
-  let geometryAfterRelax = lineGeometry(selectedLineWord);
-  while (machine.simulated_time < relaxDeadline) {
-    const state = machine.control_state();
-    if (state.instruction_address === 0o200060) {
-      enteredRelax = true;
-    }
+  let enteredSolve = false;
+  let probeChangeTicks = 0;
+  let previousGeometry = geometryBeforeRelax;
+  let geometryAfterProbes = geometryBeforeRelax;
+  while (!enteredSolve && machine.simulated_time < relaxDeadline) {
     stepBatch(1);
     assert.equal(machine.alarm_active, false, machine.last_alarm);
-    geometryAfterRelax = lineGeometry(selectedLineWord);
-    if (
-      geometryAfterRelax.first.some((value, index) => value !== geometryBeforeRelax.first[index])
-      || geometryAfterRelax.second.some((value, index) => value !== geometryBeforeRelax.second[index])
-    ) {
-      break;
-    }
+    const state = machine.control_state();
+    if (state.instruction_address === 0o200060) enteredRelax = true;
+    if (state.instruction_address === 0o013727) enteredSolve = true;
+    geometryAfterProbes = lineGeometry(selectedLineWord);
+    const changedThisTick = (
+      geometryAfterProbes.first.some((value, index) => value !== previousGeometry.first[index])
+      || geometryAfterProbes.second.some((value, index) => value !== previousGeometry.second[index])
+    );
+    if (changedThisTick) probeChangeTicks += 1;
+    previousGeometry = geometryAfterProbes;
   }
   machine.set_toggle_register(0o20, 0o400, 0, 0, 0, false);
-  const geometryChanged = (
-    geometryAfterRelax.first.some((value, index) => value !== geometryBeforeRelax.first[index])
-    || geometryAfterRelax.second.some((value, index) => value !== geometryBeforeRelax.second[index])
-  );
   const afterConstraintList = machine.memory_word(0o024000, machine.simulated_time).value;
   const constraintObject = Array.from({ length: 0o24 }, (_, offset) =>
     machine.memory_word(constraintAddress + offset, machine.simulated_time).value);
-  const residualBefore = geometryBeforeRelax.first.map((value, index) =>
-    Math.abs(value - geometryBeforeRelax.second[index]));
-  const residualAfter = geometryAfterRelax.first.map((value, index) =>
-    Math.abs(value - geometryAfterRelax.second[index]));
   console.log(JSON.stringify({
     beforeAtBits,
     selectedAtBits,
@@ -1884,11 +2191,10 @@ if (process.env.CONSTRAINT_ONLY === "1") {
     enteredTrueup,
     returnedFromTrueup,
     enteredRelax,
-    geometryChanged,
+    enteredSolve,
+    probeChangeTicks,
     geometryBeforeRelax: geometryForReport(geometryBeforeRelax),
-    geometryAfterRelax: geometryForReport(geometryAfterRelax),
-    residualBefore: residualBefore.map((value) => octal(value)),
-    residualAfter: residualAfter.map((value) => octal(value)),
+    geometryAfterProbes: geometryForReport(geometryAfterProbes),
     controlAfterConstraint: machine.control_state(),
     alarm: machine.last_alarm,
   }, null, 2));
@@ -1898,9 +2204,9 @@ if (process.env.CONSTRAINT_ONLY === "1") {
   assert.equal(rightHalf(constraintObject[0]), 0o561,
     "the new constraint must use the HOV master");
   assert.equal(enteredRelax, true, "the enabled FIX toggle must call the original RELAX routine");
-  assert.equal(geometryChanged, true, "the original RELAX routine must change the constrained line");
-  assert.ok(
-    residualAfter.some((value, index) => value < residualBefore[index]),
-    "the original RELAX routine must reduce one HOV coordinate residual",
-  );
+  assert.equal(enteredSolve, true, "the RELAX path must enter the original SOLVEM expansion");
+  assert.equal(probeChangeTicks, 4,
+    "ADCONER must make and remove one finite-difference probe on each coordinate");
+  assert.deepEqual(geometryAfterProbes, geometryBeforeRelax,
+    "the finite-difference probes must restore the line before SOLVEM starts");
 }

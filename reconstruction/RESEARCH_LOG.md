@@ -3206,3 +3206,125 @@ Production release `20260917T043513Z` deployed commit `d58abff`.  Caddy
 validated and reloaded.  The live page reached `RUNNING`, loaded cache key
 `20260917-22`, reported the configured 12-unit pickup radius, and produced no
 browser warnings or errors.  GitHub Actions run `35182468548` passed.
+
+## Checkpoint 76: The hNAB Repair and What RELAX Actually Reaches
+
+Date: 2026-09-17
+
+The constraint regression stopped at the first geometry change, so the
+machine evidence for repeated `RELAX` passes did not exist.  This checkpoint
+adds a read-only trace mode to the assembly harness, repairs the one
+transcription error that blocked the solver's arithmetic, and records what the
+original solver actually does inside the authentic one-line HOV workflow.
+
+### Rejected claim: a missing `MAB` instruction
+
+An earlier revision of this checkpoint read the printed mnemonic at
+`sk2.tx2as:2412` as `hMAB {35.,}`, watched the machine fault on the assembled
+word `400000 017756` at `013671`, and concluded that `MAB` was a missing
+TX-2 instruction that the cross-assembler silently encoded as opcode zero.
+That conclusion is wrong and is withdrawn.  The primary sources reject it:
+
+- A 300-DPI render of Sketchpad part 2, PDF page 58 (document page 208),
+  shows the `NORMATM` macro line with the hold bar, then a three-stroke `N`,
+  then `AB`.  The letter matches the `N` of `NORX` in the neighbouring lines
+  `MUL NORX`, `STD NORX`, and `COM NORX`, and it differs from the four-stroke
+  `M` of `MUL` and of the comment `**NEW MAX` two lines above.
+- The TX-2 Users Handbook, November 1963, prints on page 3-40 "NORMALIZE
+  ACCUMULATOR `NOA` 64" and "NORMALIZE AB (Extended Accumulator) `NAB` 66",
+  and on page 3-41 the sample program `LDA X / MUL Y / NAB (0) ... MUL Z /
+  SAB T` with the note "if the NAB instruction above were replaced with
+  `NAB(35.,)` the answer in AB can be considered a 71 bit integer" - the
+  printed operand `{35.,}` is exactly that form.  Page 3-41 note 3 adds
+  "NAB is essentially the same instruction - using the double length word
+  (AB) instead."
+- The handbook's opcode Table 7-3 lists `66 - NAB` in numerical order and
+  `NAB - 66` alphabetically, with no `MAB` entry anywhere.
+- The repository already implements the instruction: the cross-assembler
+  maps `NAB` to opcode octal 066 (`assembler/src/asmlib/parser.rs`), and the
+  CPU implements it citing the same handbook pages
+  (`cpu/src/control/op_arithmetic.rs`).  The `NOR`/`NAB` pair sits next to
+  the other arithmetic opcodes; nothing is missing.
+- The context fits: `MUL NORX` at `013670` leaves the double-length product
+  in `AB`, and the next instruction normalizes `AB`, which is `NAB`'s job.
+
+Repair R066 reads the line as `hNAB {35.,}`.  The assembled word at `013671`
+changes from `400000 017756` (hold bit plus invalid opcode zero) to
+`h NAB 13712`, the address `013712` being the literal word `{35.,}` from the
+assembler listing.  The undefined-symbol path had also emitted one extra
+trailing pool word, so the APY5 tape loses one word: the merged image is now
+12,946 words in 29 blocks, 78,168 bytes, SHA-256
+`5216fb90a50aa9a512d4da90f78b870641e86e3ee1ca6e83ec516f91c4bbca88`
+(`sketchpad-apy5.tape` is
+`50be2f3a9a3cf960fba168a84e6f6c50883dfa4bef96f0e357eec0a82f74c7c2`).  There
+was never a machine capability gap: the alarm was the transcription's fault.
+
+### The trace mode
+
+The trace mode is `CONSTRAINT_ONLY=1 RELAX_TRACE=1 node
+tests/assembly-interaction.mjs`.  It changes no assembly word, CPU semantic,
+geometry, or solver behaviour.  It steps one tick at a time and records a
+sample whenever control crosses a boundary that the printed source, the APY5
+assembler listing, and the assembled tape jointly justify: the `hJPQ RELAX`
+call vector `0200060`, which holds `h JMP 12000` and enters the APY5 `STARTS`
+routine; the pass heads `RELB 012105` and `RELC 012112`; the `hJPQ ADCONER`
+target `012166`; the two `STA *ADVC` stores at `012235` (`ADCON3`) and
+`012257` (`ADVC`); the `SOLVEM|2` expansion head `013727`; and the elimination
+degeneracy retry head `013770` with its closing `JPQ SLVR1-2` word at
+`014222`.  Every
+sample carries the tick, the simulated time, the executed instruction text,
+both endpoint coordinate words read at fixed recorded addresses, the
+constraint's link word, master, and HOVCODE word, and, for the store
+boundaries, the raw instruction word, the deferred `ADVC` cell and its
+runtime-modified content, index register 10, and the decoded effective
+address.  Derived HOV residuals are recorded separately from the observed
+machine words.
+
+### What the solver actually does
+
+One invocation, one pass, one probe pair per variable coordinate.  The FIX
+toggle path calls the vector at tick 618 of the traced window.  Control runs
+one `RELB` pass, applies the constraint through `ADCONER`, and runs two
+`ADCON3`/`ADVC` probe iterations, writing first point y at `025236` and then
+first point x at `025235`.  Each probe pair is a displacement measurement:
+`ADCON3` adds one `ADCONSTEP` to one coordinate so `ADCSUB` can measure the
+constraint's response, and `ADVC` removes the step while it accumulates
+`ADCSUM`.  The four coordinate changes of the window are those two probes and
+their removals.  The constraint's HOVCODE word holds `0` (`EITHER`,
+`sk2.tx2as:380`), so the assembly rather than the constraint record selects
+the axis, and the trace claims no axis.  The earlier regression's residual
+reduction observed the probe step, not a solver step.
+
+Control then opens the `RELC` pass at `012112`, whose `SOLVE|REEQ REANS`
+dispatch enters the `SOLVEM|2` expansion at `013727`.  `NORMATM` at `013641`
+now runs through the repaired `h NAB 13712` at `013671` without a fault.
+The solver then repeats the `SLVAD` degeneracy path.  Its restart point at
+`013770` and closing `JPQ SLVR1-2` at `014222` alternate for the rest of the
+window with no further change to either endpoint's coordinate words.
+
+Repeated, defensible retry boundary: the restart point `013770` is crossed 33
+times in the default 20,000-tick window. The tail closes 32 retries, and the
+window ends inside the next retry. A separate 2,000,000-tick measurement
+crossed the restart point 3,797 times, linearly with ticks. It still showed no
+coordinate change, no alarm, and no return from `SOLVEM`. The repaired machine
+does not complete the `SOLVEM` call or move the line. No convergence, completed
+`RELAX` pass, or second pass is claimed. The traced
+window ends at the tick limit with both endpoint records identical to their
+values at the `RELAX` call.  Why the `SLVAD` degeneracy path loops is the
+next open question; the repair only proves that the fault is gone.
+
+### Artifacts and checks
+
+The checked-in artifact `sketchpad-web/evidence/relax-hov-trace.json` records
+the boundary crossings of the default window.  `npm run test:relax-trace`
+regenerates the trace from the checked-in tape, checks the schema, the tape
+SHA-256, the octal fields, the sample ordering, the endpoint identity, the
+constraint linkage at `RELAX` entry, the store decode against the executed
+instruction text, and the residual derivation, then requires a byte-identical
+match.  Three runs are byte-identical.  `RELAX_TRACE_UPDATE=1 node
+tests/relax-trace.mjs` rewrites the artifact after an intentional change;
+`RELAX_TRACE_TICKS` bounds the traced window (default `20000`).
+
+The tape digests in `RECONSTRUCTION.md` and `sketchpad-web/README.md` carry
+the repaired combined tape.  The complete browser interaction suite and the
+complete Rust workspace tests pass.
