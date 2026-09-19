@@ -3628,3 +3628,10 @@ axis-crossing, tracking-loss, circle, HOV, `FIXIT`, and `UNFIX` regressions
 before it runs the new P and flange cases. The historical tape comparison
 prints expected mismatches because it records older pre-repair artifacts. The
 reader-leader, block, and checksum validator passes for every current tape.
+
+Commit `0a2bf48` was pushed to `main`. Production release
+`20260919T224337Z` deployed to `https://sketchpad.acyclic.sh/`. The deployment
+reran the complete web suite before upload. Caddy validated and reloaded. A
+live Chrome check confirms the P selector, point display, constraint handles,
+line suppression, running machine state, and zero horizontal overflow. Chrome
+reports no page errors. GitHub Actions run `35474142487` passed.
