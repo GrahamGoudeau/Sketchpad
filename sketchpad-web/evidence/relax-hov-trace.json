@@ -7,8 +7,8 @@
   },
   "provenance": {
     "tape": "sketchpad-web/rust/assets/sketchpad-combined.tape",
-    "tapeSha256": "5d78aba492c87a7e3a6935c785bff1437e6a29ef03ff151f2083de1172066fcf",
-    "tapeBytes": 78156,
+    "tapeSha256": "a149adcf9911a7cc5a12fad351d52840de11e4b44a402a3069b725f199dca0a4",
+    "tapeBytes": 78144,
     "selectCommand": "2.9",
     "lineAddress": "025261",
     "endpoints": {
@@ -220,7 +220,7 @@
         "instruction": "h JMP 12000"
       },
       "tick": 618,
-      "simulatedTimeSeconds": 215.092916208,
+      "simulatedTimeSeconds": 215.062870606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -377,7 +377,7 @@
         "instruction": "¹⁴JPQ 12034"
       },
       "tick": 756,
-      "simulatedTimeSeconds": 215.094495008,
+      "simulatedTimeSeconds": 215.064449406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -534,7 +534,7 @@
         "instruction": "¹STE 12111"
       },
       "tick": 895,
-      "simulatedTimeSeconds": 215.095893008,
+      "simulatedTimeSeconds": 215.065847406,
       "observed": {
         "control": {
           "sequence": 48,
@@ -691,7 +691,7 @@
         "instruction": "¹STE 12301"
       },
       "tick": 908,
-      "simulatedTimeSeconds": 215.096016608,
+      "simulatedTimeSeconds": 215.065971006,
       "observed": {
         "control": {
           "sequence": 48,
@@ -848,7 +848,7 @@
         "instruction": "STA 14336"
       },
       "tick": 1527,
-      "simulatedTimeSeconds": 215.102543808,
+      "simulatedTimeSeconds": 215.072498206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -1005,7 +1005,7 @@
         "instruction": "STA 25236"
       },
       "tick": 1600,
-      "simulatedTimeSeconds": 215.103257408,
+      "simulatedTimeSeconds": 215.073211806,
       "observed": {
         "control": {
           "sequence": 48,
@@ -1168,7 +1168,7 @@
         "instruction": "h ¹⁴JPQ 23771"
       },
       "tick": 1610,
-      "simulatedTimeSeconds": 215.103375808,
+      "simulatedTimeSeconds": 215.073330206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -1325,7 +1325,7 @@
         "instruction": "STA₁₀ 141"
       },
       "tick": 1872,
-      "simulatedTimeSeconds": 215.106374008,
+      "simulatedTimeSeconds": 215.076328406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -1482,7 +1482,7 @@
         "instruction": "STA 25236"
       },
       "tick": 1891,
-      "simulatedTimeSeconds": 215.106556808,
+      "simulatedTimeSeconds": 215.076511206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -1645,7 +1645,7 @@
         "instruction": "STA 25235"
       },
       "tick": 2137,
-      "simulatedTimeSeconds": 215.109406008,
+      "simulatedTimeSeconds": 215.079360406,
       "observed": {
         "control": {
           "sequence": 48,
@@ -1808,7 +1808,7 @@
         "instruction": "h ¹⁴JPQ 23771"
       },
       "tick": 2144,
-      "simulatedTimeSeconds": 215.109478808,
+      "simulatedTimeSeconds": 215.079433206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -1965,7 +1965,7 @@
         "instruction": "STA₁₀ 141"
       },
       "tick": 2375,
-      "simulatedTimeSeconds": 215.111979008,
+      "simulatedTimeSeconds": 215.081933406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -2122,7 +2122,7 @@
         "instruction": "STA 25235"
       },
       "tick": 2394,
-      "simulatedTimeSeconds": 215.112161808,
+      "simulatedTimeSeconds": 215.082116206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -2285,7 +2285,7 @@
         "instruction": "STA₁₀ 140"
       },
       "tick": 2439,
-      "simulatedTimeSeconds": 215.112609808,
+      "simulatedTimeSeconds": 215.082564206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -2442,7 +2442,7 @@
         "instruction": "RSX₃ 140"
       },
       "tick": 2490,
-      "simulatedTimeSeconds": 215.113101408,
+      "simulatedTimeSeconds": 215.083055806,
       "observed": {
         "control": {
           "sequence": 48,
@@ -2599,7 +2599,7 @@
         "instruction": "¹STE 14117"
       },
       "tick": 2594,
-      "simulatedTimeSeconds": 215.114158608,
+      "simulatedTimeSeconds": 215.084113006,
       "observed": {
         "control": {
           "sequence": 48,
@@ -2756,7 +2756,7 @@
         "instruction": "¹SKX₁₃ 3"
       },
       "tick": 3464,
-      "simulatedTimeSeconds": 215.123794408,
+      "simulatedTimeSeconds": 215.093748806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -2913,7 +2913,7 @@
         "instruction": "¹¹LDA 14040"
       },
       "tick": 3655,
-      "simulatedTimeSeconds": 215.125620408,
+      "simulatedTimeSeconds": 215.095574806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -3070,7 +3070,7 @@
         "instruction": "JNA 14137"
       },
       "tick": 3662,
-      "simulatedTimeSeconds": 215.125700008,
+      "simulatedTimeSeconds": 215.095654406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -3227,7 +3227,7 @@
         "instruction": "LDA₁₂ 104"
       },
       "tick": 3721,
-      "simulatedTimeSeconds": 215.126241208,
+      "simulatedTimeSeconds": 215.096195606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -3384,7 +3384,7 @@
         "instruction": "¹⁴JPQ 14164"
       },
       "tick": 3736,
-      "simulatedTimeSeconds": 215.126388008,
+      "simulatedTimeSeconds": 215.096342406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -3541,7 +3541,7 @@
         "instruction": "STA₁₂ 104"
       },
       "tick": 3740,
-      "simulatedTimeSeconds": 215.126421208,
+      "simulatedTimeSeconds": 215.096375606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -3698,7 +3698,7 @@
         "instruction": "LDA₁₂ 101"
       },
       "tick": 3750,
-      "simulatedTimeSeconds": 215.126510808,
+      "simulatedTimeSeconds": 215.096465206,
       "observed": {
         "control": {
           "sequence": 48,
@@ -3855,7 +3855,7 @@
         "instruction": "LDA₁₁ 101"
       },
       "tick": 3757,
-      "simulatedTimeSeconds": 215.126578408,
+      "simulatedTimeSeconds": 215.096532806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -4012,7 +4012,7 @@
         "instruction": "MUL₁₄ 2"
       },
       "tick": 3761,
-      "simulatedTimeSeconds": 215.126612408,
+      "simulatedTimeSeconds": 215.096566806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -4169,7 +4169,7 @@
         "instruction": "DIV₁₂ 101"
       },
       "tick": 3768,
-      "simulatedTimeSeconds": 215.126695608,
+      "simulatedTimeSeconds": 215.096650006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -4326,7 +4326,7 @@
         "instruction": "STA₁₂ 104"
       },
       "tick": 4021,
-      "simulatedTimeSeconds": 215.129882608,
+      "simulatedTimeSeconds": 215.099837006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -4483,7 +4483,7 @@
         "instruction": "MUL₁₄ 76"
       },
       "tick": 4098,
-      "simulatedTimeSeconds": 215.130623008,
+      "simulatedTimeSeconds": 215.100577406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -4640,7 +4640,7 @@
         "instruction": "STA₁₃ 2"
       },
       "tick": 4110,
-      "simulatedTimeSeconds": 215.130728608,
+      "simulatedTimeSeconds": 215.100683006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -4797,7 +4797,7 @@
         "instruction": "MUL₁₄ 76"
       },
       "tick": 4119,
-      "simulatedTimeSeconds": 215.130816608,
+      "simulatedTimeSeconds": 215.100771006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -4954,7 +4954,7 @@
         "instruction": "STA₁₃ 2"
       },
       "tick": 4134,
-      "simulatedTimeSeconds": 215.130967808,
+      "simulatedTimeSeconds": 215.100922206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -5111,7 +5111,7 @@
         "instruction": "¹¹LDA 14040"
       },
       "tick": 4176,
-      "simulatedTimeSeconds": 215.131394608,
+      "simulatedTimeSeconds": 215.101349006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -5268,7 +5268,7 @@
         "instruction": "¹⁷STA 14040"
       },
       "tick": 4180,
-      "simulatedTimeSeconds": 215.131428608,
+      "simulatedTimeSeconds": 215.101383006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -5425,7 +5425,7 @@
         "instruction": "¹⁴JPQ 13767"
       },
       "tick": 4184,
-      "simulatedTimeSeconds": 215.131463008,
+      "simulatedTimeSeconds": 215.101417406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -5582,7 +5582,7 @@
         "instruction": "¹SKX₁₃ 3"
       },
       "tick": 4188,
-      "simulatedTimeSeconds": 215.131496208,
+      "simulatedTimeSeconds": 215.101450606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -5739,7 +5739,7 @@
         "instruction": "¹¹LDA 14040"
       },
       "tick": 4435,
-      "simulatedTimeSeconds": 215.133871808,
+      "simulatedTimeSeconds": 215.103826206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -5896,7 +5896,7 @@
         "instruction": "JNA 14137"
       },
       "tick": 4439,
-      "simulatedTimeSeconds": 215.133905808,
+      "simulatedTimeSeconds": 215.103860206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -6053,7 +6053,7 @@
         "instruction": "LDA₁₂ 2"
       },
       "tick": 4470,
-      "simulatedTimeSeconds": 215.134197808,
+      "simulatedTimeSeconds": 215.104152206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -6210,7 +6210,7 @@
         "instruction": "DIV₁₁ 104"
       },
       "tick": 4478,
-      "simulatedTimeSeconds": 215.134366608,
+      "simulatedTimeSeconds": 215.104321006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -6367,7 +6367,7 @@
         "instruction": "STA₁₁ 107"
       },
       "tick": 4489,
-      "simulatedTimeSeconds": 215.134550408,
+      "simulatedTimeSeconds": 215.104504806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -6524,7 +6524,7 @@
         "instruction": "LDA₁₂ 2"
       },
       "tick": 4499,
-      "simulatedTimeSeconds": 215.134640008,
+      "simulatedTimeSeconds": 215.104594406,
       "observed": {
         "control": {
           "sequence": 48,
@@ -6681,7 +6681,7 @@
         "instruction": "DIV₁₁ 101"
       },
       "tick": 4506,
-      "simulatedTimeSeconds": 215.134808808,
+      "simulatedTimeSeconds": 215.104763206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -6838,7 +6838,7 @@
         "instruction": "STA₁₁ 107"
       },
       "tick": 4514,
-      "simulatedTimeSeconds": 215.134947008,
+      "simulatedTimeSeconds": 215.104901406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -6995,7 +6995,7 @@
         "instruction": "STA₁₁ 101"
       },
       "tick": 4534,
-      "simulatedTimeSeconds": 215.135151808,
+      "simulatedTimeSeconds": 215.105106206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -7152,7 +7152,7 @@
         "instruction": "STA₁₁ 101"
       },
       "tick": 4543,
-      "simulatedTimeSeconds": 215.135239808,
+      "simulatedTimeSeconds": 215.105194206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -7309,7 +7309,7 @@
         "instruction": "¹⁴JPQ 12154"
       },
       "tick": 4556,
-      "simulatedTimeSeconds": 215.135361008,
+      "simulatedTimeSeconds": 215.105315406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -7466,7 +7466,7 @@
         "instruction": "REX₃ 2"
       },
       "tick": 4563,
-      "simulatedTimeSeconds": 215.135439808,
+      "simulatedTimeSeconds": 215.105394206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -7623,7 +7623,7 @@
         "instruction": "LDA₃ 101"
       },
       "tick": 4573,
-      "simulatedTimeSeconds": 215.135528208,
+      "simulatedTimeSeconds": 215.105482606,
       "observed": {
         "control": {
           "sequence": 48,
@@ -7780,7 +7780,7 @@
         "instruction": "STA₃ 25235"
       },
       "tick": 4589,
-      "simulatedTimeSeconds": 215.135686608,
+      "simulatedTimeSeconds": 215.105641006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -7937,7 +7937,7 @@
         "instruction": "LDA₃ 101"
       },
       "tick": 4595,
-      "simulatedTimeSeconds": 215.135740608,
+      "simulatedTimeSeconds": 215.105695006,
       "observed": {
         "control": {
           "sequence": 48,
@@ -8094,7 +8094,7 @@
         "instruction": "STA₃ 25235"
       },
       "tick": 4614,
-      "simulatedTimeSeconds": 215.135944608,
+      "simulatedTimeSeconds": 215.105899006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -8251,7 +8251,7 @@
         "instruction": "¹⁴JPQ 12051"
       },
       "tick": 4620,
-      "simulatedTimeSeconds": 215.135998608,
+      "simulatedTimeSeconds": 215.105953006,
       "observed": {
         "control": {
           "sequence": 48,
@@ -8408,7 +8408,7 @@
         "instruction": "¹STE 12111"
       },
       "tick": 4947,
-      "simulatedTimeSeconds": 215.139645008,
+      "simulatedTimeSeconds": 215.109599406,
       "observed": {
         "control": {
           "sequence": 48,
@@ -8565,7 +8565,7 @@
         "instruction": "¹STE 12301"
       },
       "tick": 4963,
-      "simulatedTimeSeconds": 215.139814208,
+      "simulatedTimeSeconds": 215.109768606,
       "observed": {
         "control": {
           "sequence": 48,
@@ -8722,7 +8722,7 @@
         "instruction": "STA 14336"
       },
       "tick": 5258,
-      "simulatedTimeSeconds": 215.142918608,
+      "simulatedTimeSeconds": 215.112873006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -8879,7 +8879,7 @@
         "instruction": "STA 25260"
       },
       "tick": 5331,
-      "simulatedTimeSeconds": 215.143632208,
+      "simulatedTimeSeconds": 215.113586606,
       "observed": {
         "control": {
           "sequence": 48,
@@ -9042,7 +9042,7 @@
         "instruction": "h ¹⁴JPQ 23771"
       },
       "tick": 5341,
-      "simulatedTimeSeconds": 215.143750608,
+      "simulatedTimeSeconds": 215.113705006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -9199,7 +9199,7 @@
         "instruction": "STA₁₀ 141"
       },
       "tick": 5572,
-      "simulatedTimeSeconds": 215.146246808,
+      "simulatedTimeSeconds": 215.116201206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -9356,7 +9356,7 @@
         "instruction": "STA 25260"
       },
       "tick": 5588,
-      "simulatedTimeSeconds": 215.146384008,
+      "simulatedTimeSeconds": 215.116338406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -9519,7 +9519,7 @@
         "instruction": "STA 25257"
       },
       "tick": 5623,
-      "simulatedTimeSeconds": 215.146732008,
+      "simulatedTimeSeconds": 215.116686406,
       "observed": {
         "control": {
           "sequence": 48,
@@ -9682,7 +9682,7 @@
         "instruction": "h ¹⁴JPQ 23771"
       },
       "tick": 5630,
-      "simulatedTimeSeconds": 215.146804808,
+      "simulatedTimeSeconds": 215.116759206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -9839,7 +9839,7 @@
         "instruction": "STA₁₀ 141"
       },
       "tick": 6071,
-      "simulatedTimeSeconds": 215.151818208,
+      "simulatedTimeSeconds": 215.121772606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -9996,7 +9996,7 @@
         "instruction": "STA 25257"
       },
       "tick": 6087,
-      "simulatedTimeSeconds": 215.151955408,
+      "simulatedTimeSeconds": 215.121909806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -10159,7 +10159,7 @@
         "instruction": "STA₁₀ 140"
       },
       "tick": 6132,
-      "simulatedTimeSeconds": 215.152403408,
+      "simulatedTimeSeconds": 215.122357806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -10316,7 +10316,7 @@
         "instruction": "RSX₃ 140"
       },
       "tick": 6191,
-      "simulatedTimeSeconds": 215.153015808,
+      "simulatedTimeSeconds": 215.122970206,
       "observed": {
         "control": {
           "sequence": 48,
@@ -10473,7 +10473,7 @@
         "instruction": "¹STE 14117"
       },
       "tick": 6321,
-      "simulatedTimeSeconds": 215.154499808,
+      "simulatedTimeSeconds": 215.124454206,
       "observed": {
         "control": {
           "sequence": 48,
@@ -10630,7 +10630,7 @@
         "instruction": "¹SKX₁₃ 3"
       },
       "tick": 7146,
-      "simulatedTimeSeconds": 215.163503608,
+      "simulatedTimeSeconds": 215.133458006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -10787,7 +10787,7 @@
         "instruction": "¹¹LDA 14040"
       },
       "tick": 7371,
-      "simulatedTimeSeconds": 215.165877208,
+      "simulatedTimeSeconds": 215.135831606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -10944,7 +10944,7 @@
         "instruction": "JNA 14137"
       },
       "tick": 7375,
-      "simulatedTimeSeconds": 215.165911208,
+      "simulatedTimeSeconds": 215.135865606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -11101,7 +11101,7 @@
         "instruction": "LDA₁₂ 104"
       },
       "tick": 7437,
-      "simulatedTimeSeconds": 215.166498008,
+      "simulatedTimeSeconds": 215.136452406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -11258,7 +11258,7 @@
         "instruction": "¹⁴JPQ 14164"
       },
       "tick": 7449,
-      "simulatedTimeSeconds": 215.166599208,
+      "simulatedTimeSeconds": 215.136553606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -11415,7 +11415,7 @@
         "instruction": "STA₁₂ 104"
       },
       "tick": 7453,
-      "simulatedTimeSeconds": 215.166632408,
+      "simulatedTimeSeconds": 215.136586806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -11572,7 +11572,7 @@
         "instruction": "LDA₁₂ 101"
       },
       "tick": 7466,
-      "simulatedTimeSeconds": 215.166767608,
+      "simulatedTimeSeconds": 215.136722006,
       "observed": {
         "control": {
           "sequence": 48,
@@ -11729,7 +11729,7 @@
         "instruction": "LDA₁₁ 101"
       },
       "tick": 7684,
-      "simulatedTimeSeconds": 215.169336408,
+      "simulatedTimeSeconds": 215.139290806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -11886,7 +11886,7 @@
         "instruction": "MUL₁₄ 2"
       },
       "tick": 7688,
-      "simulatedTimeSeconds": 215.169370408,
+      "simulatedTimeSeconds": 215.139324806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -12043,7 +12043,7 @@
         "instruction": "DIV₁₂ 101"
       },
       "tick": 7692,
-      "simulatedTimeSeconds": 215.169408008,
+      "simulatedTimeSeconds": 215.139362406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -12200,7 +12200,7 @@
         "instruction": "STA₁₂ 104"
       },
       "tick": 7703,
-      "simulatedTimeSeconds": 215.169591808,
+      "simulatedTimeSeconds": 215.139546206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -12357,7 +12357,7 @@
         "instruction": "MUL₁₄ 76"
       },
       "tick": 7780,
-      "simulatedTimeSeconds": 215.170332208,
+      "simulatedTimeSeconds": 215.140286606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -12514,7 +12514,7 @@
         "instruction": "STA₁₃ 2"
       },
       "tick": 7792,
-      "simulatedTimeSeconds": 215.170437808,
+      "simulatedTimeSeconds": 215.140392206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -12671,7 +12671,7 @@
         "instruction": "MUL₁₄ 76"
       },
       "tick": 7801,
-      "simulatedTimeSeconds": 215.170525808,
+      "simulatedTimeSeconds": 215.140480206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -12828,7 +12828,7 @@
         "instruction": "STA₁₃ 2"
       },
       "tick": 7816,
-      "simulatedTimeSeconds": 215.170677008,
+      "simulatedTimeSeconds": 215.140631406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -12985,7 +12985,7 @@
         "instruction": "¹¹LDA 14040"
       },
       "tick": 7858,
-      "simulatedTimeSeconds": 215.171103808,
+      "simulatedTimeSeconds": 215.141058206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -13142,7 +13142,7 @@
         "instruction": "¹⁷STA 14040"
       },
       "tick": 7862,
-      "simulatedTimeSeconds": 215.171137808,
+      "simulatedTimeSeconds": 215.141092206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -13299,7 +13299,7 @@
         "instruction": "¹⁴JPQ 13767"
       },
       "tick": 7866,
-      "simulatedTimeSeconds": 215.171172208,
+      "simulatedTimeSeconds": 215.141126606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -13456,7 +13456,7 @@
         "instruction": "¹SKX₁₃ 3"
       },
       "tick": 7870,
-      "simulatedTimeSeconds": 215.171205408,
+      "simulatedTimeSeconds": 215.141159806,
       "observed": {
         "control": {
           "sequence": 62,
@@ -13613,7 +13613,7 @@
         "instruction": "¹¹LDA 14040"
       },
       "tick": 8117,
-      "simulatedTimeSeconds": 215.173581008,
+      "simulatedTimeSeconds": 215.143535406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -13770,7 +13770,7 @@
         "instruction": "JNA 14137"
       },
       "tick": 8121,
-      "simulatedTimeSeconds": 215.173615008,
+      "simulatedTimeSeconds": 215.143569406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -13927,7 +13927,7 @@
         "instruction": "LDA₁₂ 2"
       },
       "tick": 8152,
-      "simulatedTimeSeconds": 215.173907008,
+      "simulatedTimeSeconds": 215.143861406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -14084,7 +14084,7 @@
         "instruction": "DIV₁₁ 104"
       },
       "tick": 8160,
-      "simulatedTimeSeconds": 215.174075808,
+      "simulatedTimeSeconds": 215.144030206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -14241,7 +14241,7 @@
         "instruction": "STA₁₁ 107"
       },
       "tick": 8171,
-      "simulatedTimeSeconds": 215.174259608,
+      "simulatedTimeSeconds": 215.144214006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -14398,7 +14398,7 @@
         "instruction": "LDA₁₂ 2"
       },
       "tick": 8181,
-      "simulatedTimeSeconds": 215.174349208,
+      "simulatedTimeSeconds": 215.144303606,
       "observed": {
         "control": {
           "sequence": 48,
@@ -14555,7 +14555,7 @@
         "instruction": "DIV₁₁ 101"
       },
       "tick": 8188,
-      "simulatedTimeSeconds": 215.174518008,
+      "simulatedTimeSeconds": 215.144472406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -14712,7 +14712,7 @@
         "instruction": "STA₁₁ 107"
       },
       "tick": 8196,
-      "simulatedTimeSeconds": 215.174656208,
+      "simulatedTimeSeconds": 215.144610606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -14869,7 +14869,7 @@
         "instruction": "STA₁₁ 101"
       },
       "tick": 8216,
-      "simulatedTimeSeconds": 215.174861008,
+      "simulatedTimeSeconds": 215.144815406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -15026,7 +15026,7 @@
         "instruction": "STA₁₁ 101"
       },
       "tick": 8225,
-      "simulatedTimeSeconds": 215.174949008,
+      "simulatedTimeSeconds": 215.144903406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -15183,7 +15183,7 @@
         "instruction": "¹⁴JPQ 12154"
       },
       "tick": 8238,
-      "simulatedTimeSeconds": 215.175070208,
+      "simulatedTimeSeconds": 215.145024606,
       "observed": {
         "control": {
           "sequence": 62,
@@ -15340,7 +15340,7 @@
         "instruction": "REX₃ 2"
       },
       "tick": 8245,
-      "simulatedTimeSeconds": 215.175149008,
+      "simulatedTimeSeconds": 215.145103406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -15497,7 +15497,7 @@
         "instruction": "LDA₃ 101"
       },
       "tick": 8255,
-      "simulatedTimeSeconds": 215.175237408,
+      "simulatedTimeSeconds": 215.145191806,
       "observed": {
         "control": {
           "sequence": 48,
@@ -15654,7 +15654,7 @@
         "instruction": "STA₃ 25257"
       },
       "tick": 8271,
-      "simulatedTimeSeconds": 215.175395808,
+      "simulatedTimeSeconds": 215.145350206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -15811,7 +15811,7 @@
         "instruction": "LDA₃ 101"
       },
       "tick": 8277,
-      "simulatedTimeSeconds": 215.175449808,
+      "simulatedTimeSeconds": 215.145404206,
       "observed": {
         "control": {
           "sequence": 48,
@@ -15968,7 +15968,7 @@
         "instruction": "STA₃ 25257"
       },
       "tick": 8296,
-      "simulatedTimeSeconds": 215.175653808,
+      "simulatedTimeSeconds": 215.145608206,
       "observed": {
         "control": {
           "sequence": 62,
@@ -16125,7 +16125,7 @@
         "instruction": "¹⁴JPQ 12051"
       },
       "tick": 8302,
-      "simulatedTimeSeconds": 215.175707808,
+      "simulatedTimeSeconds": 215.145662206,
       "observed": {
         "control": {
           "sequence": 48,
@@ -16282,7 +16282,7 @@
         "instruction": "¹⁴JPQ 12051"
       },
       "tick": 8614,
-      "simulatedTimeSeconds": 215.179426608,
+      "simulatedTimeSeconds": 215.149381006,
       "observed": {
         "control": {
           "sequence": 62,
@@ -16439,7 +16439,7 @@
         "instruction": "³MKN₄.₁₀ 200034"
       },
       "tick": 8673,
-      "simulatedTimeSeconds": 215.180003008,
+      "simulatedTimeSeconds": 215.149957406,
       "observed": {
         "control": {
           "sequence": 62,
@@ -16588,7 +16588,7 @@
   "outcome": {
     "kind": "relax_return",
     "tick": 8673,
-    "simulatedTimeSeconds": 215.180003008,
+    "simulatedTimeSeconds": 215.149957406,
     "completedSolve": true,
     "completedRelax": true,
     "eliminationPasses": 4,

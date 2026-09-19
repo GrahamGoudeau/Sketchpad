@@ -86,7 +86,7 @@ echo "Built $output_dir/sketchpad-2xmx-runtime-init.tape"
 "$merger" \
   --output "$output_dir/sketchpad-combined.tape" \
   --entry 200140 \
-  --allow-overwrite 011413 \
+  --allow-overwrite 011411 \
   --allow-overwrite 022000 \
   --relocate-input-range 3:022000:022000:032000 \
   --relocate-input-range 4:022001:022440:032001 \

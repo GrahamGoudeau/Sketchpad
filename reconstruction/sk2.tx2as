@@ -3736,7 +3736,7 @@ LDD A+D
 STA A
 STB A+B
 STC A+C
-STA A+D
+STD A+D
 @hand@@hand@EMD
 
 @hand@@hand@DEF CLCROSS@hamb@C@arr@L=R@arr@S,T

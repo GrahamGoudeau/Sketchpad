@@ -14,6 +14,15 @@ await init({ module_or_path: await readFile(fileURLToPath(wasmUrl)) });
 const machine = new SketchpadMachine();
 const activatePenAfterBoot = process.env.PEN_AFTER_BOOT === "1";
 const selectedCommand = process.env.SELECT_COMMAND ?? "2.9";
+const constraintCode = Number.parseInt(process.env.CONSTRAINT_CODE ?? "0", 8);
+assert.ok(Number.isInteger(constraintCode) && constraintCode >= 0 && constraintCode <= 0o777,
+  "CONSTRAINT_CODE must be a nine-bit octal value");
+const perpendicularFlangeMode = process.env.PERPENDICULAR_FLANGE === "1";
+const perpendicularMode = process.env.PERPENDICULAR_ONLY === "1" || perpendicularFlangeMode;
+const polylineMode = process.env.POLYLINE_ONLY === "1" || perpendicularMode;
+const perpendicularStagingPoint = { x: 455, y: 455 };
+const constraintEditingQuarter4 = 0o510;
+const pointMappingQuarter4 = 0o100;
 const selectedCommandParts = selectedCommand.split(".").map(Number);
 assert.equal(selectedCommandParts.length, 2, "SELECT_COMMAND must use quarter.bit form");
 const [selectedCommandQuarter, selectedCommandBit] = selectedCommandParts;
@@ -22,16 +31,27 @@ assert.ok(selectedCommandQuarter >= 1 && selectedCommandQuarter <= 4,
 assert.ok(selectedCommandBit >= 1 && selectedCommandBit <= 9,
   "SELECT_COMMAND bit must be 1 through 9");
 
-function setSelectedCommand(held) {
+function setCommand(quarter, bit, held) {
   const quarters = [0, 0, 0, 0];
-  if (held) quarters[4 - selectedCommandQuarter] = 1 << (selectedCommandBit - 1);
+  if (held) quarters[4 - quarter] = 1 << (bit - 1);
   machine.set_external_input_register(...quarters, false);
+}
+
+function setSelectedCommand(held) {
+  setCommand(selectedCommandQuarter, selectedCommandBit, held);
 }
 // Physical console switches used by the original program during interactive work.
 // DRAWASFIX returns to the display cycle after READIT. SHOWBLKS keeps selectable
 // non-drawing display records visible to the light pen.
 machine.set_toggle_register(0o20, 0o400, 0, 0, 0, process.env.FIX_FROM_BOOT === "1");
-machine.set_toggle_register(0o25, 0o400, 0, 0, 0, false);
+machine.set_toggle_register(
+  0o25,
+  perpendicularMode ? 0o700 : 0o400 | (polylineMode ? 0o100 : 0),
+  perpendicularMode ? 0o400 : 0,
+  0,
+  constraintCode,
+  false,
+);
 const sketchpadTapeBytes = sketchpad_tape();
 const sketchpadTapeSha256 = createHash("sha256").update(sketchpadTapeBytes).digest("hex");
 machine.mount_tape(sketchpadTapeBytes, 0);
@@ -54,6 +74,14 @@ const phaseScope = new Map();
 const verificationScope = [];
 const circleVerificationScope = [];
 const pseudoTrace = [];
+const recentControlStates = [];
+let fineAssemblyTrace = false;
+let watchedRingValue = null;
+const ringOperationTrace = [];
+const sequence47Trace = [];
+const atBitsWriteTrace = [];
+let tracedAtBitsObject = null;
+let stopMovingCallCount = 0;
 
 function capturePseudoTrace(state) {
   if (
@@ -154,7 +182,182 @@ function fitCircularLocus(points) {
 }
 
 function stepBatch(ticks = 20_000) {
-  const events = machine.step_batch(machine.simulated_time, ticks);
+  const tracingConstraintInput = process.env.TRACE_47 === "1"
+    && ["expose-perpendicular-handles", "attach-perpendicular-handle"].includes(phase);
+  if ((fineAssemblyTrace
+      || tracingConstraintInput)
+    && ticks > 1) {
+    const events = [];
+    for (let tick = 0; tick < ticks; tick += 1) events.push(...stepBatch(1));
+    return events;
+  }
+  const tracedControl = machine.control_state();
+  if (tracingConstraintInput) {
+    const currentAtBitsObject = machine.memory_word(
+      0o200045,
+      machine.simulated_time,
+    ).value;
+    if (tracedAtBitsObject !== currentAtBitsObject) {
+      atBitsWriteTrace.push({
+        time: machine.simulated_time,
+        before: tracedAtBitsObject === null ? null : octal(tracedAtBitsObject),
+        after: octal(currentAtBitsObject),
+        control: tracedControl,
+        trackerWords: Array.from({ length: 0o50 }, (_, offset) => ({
+          address: octal(0o003540 + offset, 6),
+          value: octal(machine.memory_word(
+            0o003540 + offset,
+            machine.simulated_time,
+          ).value),
+        })),
+      });
+      if (atBitsWriteTrace.length > 20) atBitsWriteTrace.shift();
+      tracedAtBitsObject = currentAtBitsObject;
+    }
+  }
+  if (process.env.TRACE_47 === "1"
+    && tracedControl.sequence === 0o47
+    && tracedControl.instruction_address >= 0o004020
+    && tracedControl.instruction_address <= 0o004126) {
+    sequence47Trace.push({
+      time: machine.simulated_time,
+      address: octal(tracedControl.instruction_address, 6),
+      instruction: tracedControl.instruction,
+      indexes: Array.from({ length: 16 }, (_, index) =>
+        octal(machine.index_register(index) & 0o777777, 6)),
+      atBits: [0o200044, 0o200045, 0o200046, 0o200047].map((address) =>
+        octal(machine.memory_word(address, machine.simulated_time).value)),
+      page1: octal(machine.memory_word(0o011423, machine.simulated_time).value),
+      switch: [0o003610, 0o003611, 0o003612, 0o003613].map((address) =>
+        octal(machine.memory_word(address, machine.simulated_time).value)),
+      input: [0o377621, 0o011425, 0o011426, 0o011404, 0o011405, 0o004127]
+        .map((address) => octal(machine.memory_word(address, machine.simulated_time).value)),
+    });
+    if (sequence47Trace.length > 400) sequence47Trace.shift();
+  }
+  if (fineAssemblyTrace
+    && tracedControl.sequence === 0o76
+    && tracedControl.instruction_address >= 0o006435
+    && tracedControl.instruction_address <= 0o006460) {
+    ringOperationTrace.push({
+      address: octal(tracedControl.instruction_address, 6),
+      instruction: tracedControl.instruction,
+      indexes: Array.from({ length: 16 }, (_, index) =>
+        octal(machine.index_register(index) & 0o777777, 6)),
+      links: [
+        0o024114, 0o025170, 0o025176, 0o025222, 0o025340, 0o025434, 0o025435,
+        0o025436,
+      ]
+        .map((address) => [octal(address, 6), octal(
+          machine.memory_word(address, machine.simulated_time).value,
+        )]),
+      atBits: [0o200044, 0o200045, 0o200046].map((address) =>
+        octal(machine.memory_word(address, machine.simulated_time).value)),
+    });
+    if (ringOperationTrace.length > 160) ringOperationTrace.shift();
+  }
+  if (!fineAssemblyTrace || (
+    tracedControl.sequence === 0o76
+      && tracedControl.instruction_address >= 0o205700
+      && tracedControl.instruction_address <= 0o205735
+  )) {
+    recentControlStates.push(fineAssemblyTrace ? {
+      address: octal(tracedControl.instruction_address, 6),
+      instruction: tracedControl.instruction,
+      xr1: octal(machine.index_register(0o1) & 0o777777, 6),
+      xr3: octal(machine.index_register(0o3) & 0o777777, 6),
+      xr7: octal(machine.index_register(0o7) & 0o777777, 6),
+      xr10: octal(machine.index_register(0o10) & 0o777777, 6),
+    } : {
+      phase,
+      time: machine.simulated_time,
+      control: tracedControl,
+      indexes: Array.from({ length: 16 }, (_, index) => machine.index_register(index)),
+    });
+    if (recentControlStates.length > 160) recentControlStates.shift();
+  }
+  let events;
+  try {
+    events = machine.step_batch(machine.simulated_time, ticks);
+  } catch (error) {
+    console.error(JSON.stringify({
+      failure: "step batch",
+      phase,
+      ticks,
+      control: machine.control_state(),
+      indexes: Object.fromEntries(Array.from({ length: 16 }, (_, index) => [
+        octal(index, 2),
+        machine.index_register(index),
+      ])),
+      picture: perpendicularMode && process.env.TRACE_47 !== "1"
+        ? perpendicularPictureState()
+        : undefined,
+      recentControlStates: perpendicularMode && process.env.TRACE_47 !== "1"
+        ? recentControlStates
+        : undefined,
+      sequence47Trace: process.env.TRACE_47 === "1" ? sequence47Trace : undefined,
+      atBitsWriteTrace: process.env.TRACE_47 === "1" ? atBitsWriteTrace : undefined,
+      pseudoSelectionState: process.env.TRACE_47 === "1" ? {
+        lpsee: Array.from({ length: 10 }, (_, offset) => ({
+          address: octal(0o001101 + offset, 6),
+          value: octal(machine.memory_word(
+            0o001101 + offset,
+            machine.simulated_time,
+          ).value),
+        })),
+        psnps: Array.from({ length: 16 }, (_, offset) => ({
+          address: octal(0o000740 + offset, 6),
+          value: octal(machine.memory_word(
+            0o000740 + offset,
+            machine.simulated_time,
+          ).value),
+        })),
+      } : undefined,
+      matchingDisplayWords: process.env.TRACE_47 === "1"
+        ? Array.from({ length: rightHalf(
+          machine.memory_word(0o200032, machine.simulated_time).value,
+        ) }, (_, offset) => ({
+          address: octal(0o100000 + offset, 6),
+          value: machine.memory_word(0o100000 + offset, machine.simulated_time).value,
+        })).filter(({ value }) => value === machine.memory_word(
+          0o200045,
+          machine.simulated_time,
+        ).value).map(({ address, value }) => ({ address, value: octal(value) }))
+        : undefined,
+      matchingDisplayTags: process.env.TRACE_47 === "1"
+        ? Array.from({ length: rightHalf(
+          machine.memory_word(0o200032, machine.simulated_time).value,
+        ) }, (_, offset) => ({
+          address: octal(0o100000 + offset, 6),
+          value: BigInt(machine.memory_word(
+            0o100000 + offset,
+            machine.simulated_time,
+          ).value),
+        })).filter(({ value }) => {
+          const tag = BigInt(machine.index_register(0o10) & 0o377);
+          return (value & 0o377n) === tag || ((value >> 18n) & 0o377n) === tag;
+        }).map(({ address, value }) => ({ address, value: octal(value) }))
+        : undefined,
+    }, null, 2));
+    throw error;
+  }
+  if (fineAssemblyTrace) {
+    const currentRingValue = machine.memory_word(0o025434, machine.simulated_time).value;
+    if (watchedRingValue !== null
+      && currentRingValue !== watchedRingValue
+      && rightHalf(currentRingValue) === 0) {
+      console.error("stage: ring mutation", JSON.stringify({
+        before: octal(watchedRingValue),
+        after: octal(currentRingValue),
+        controlBefore: tracedControl,
+        controlAfter: machine.control_state(),
+        indexes: Array.from({ length: 16 }, (_, index) =>
+          octal(machine.index_register(index) & 0o777777, 6)),
+        operationTrace: ringOperationTrace,
+      }, null, 2));
+    }
+    watchedRingValue = currentRingValue;
+  }
   for (const event of events) {
     if (event?.kind === "scope_point" && event.unit === 0o60) {
       scopePoints += 1;
@@ -249,6 +452,94 @@ function rightHalf(value) {
   return value % 0o1000000;
 }
 
+function leftHalf(value) {
+  return Math.floor(value / 0o1000000);
+}
+
+function displayPointsForListIndex(index) {
+  const displayCount = rightHalf(machine.memory_word(0o200032, machine.simulated_time).value);
+  const displayName = index & 0o377;
+  const displayPage = (index >> 8) & 0o377;
+  const physicalCoordinate = (raw) => (raw & 0o1000 ? raw - 0o1000 : raw + 0o777);
+  const points = [];
+  for (let offset = 0; offset < displayCount; offset += 1) {
+    const value = BigInt(machine.memory_word(0o100000 + offset, machine.simulated_time).value);
+    if (Number(value & 0o377n) !== displayName
+      || Number((value >> 18n) & 0o377n) !== displayPage) continue;
+    points.push({
+      x: physicalCoordinate(Number((value >> 26n) & 0o1777n)),
+      y: physicalCoordinate(Number((value >> 8n) & 0o1777n)),
+    });
+  }
+  return points;
+}
+
+function displayPointCandidatesForListIndex(index) {
+  const points = displayPointsForListIndex(index);
+  if (points.length === 0) return [];
+  const xs = points.map(({ x }) => x);
+  const ys = points.map(({ y }) => y);
+  const center = {
+    x: Math.round((Math.min(...xs) + Math.max(...xs)) / 2),
+    y: Math.round((Math.min(...ys) + Math.max(...ys)) / 2),
+  };
+  const byDistance = [...points].sort((first, second) =>
+    Math.hypot(first.x - center.x, first.y - center.y)
+      - Math.hypot(second.x - center.x, second.y - center.y));
+  return [center, ...byDistance].filter((point, position, candidates) =>
+    candidates.findIndex((candidate) => candidate.x === point.x && candidate.y === point.y)
+      === position);
+}
+
+function perpendicularPictureState() {
+  const word = (address) => machine.memory_word(address, machine.simulated_time).value;
+  const listTop = rightHalf(word(0o024000));
+  const findType = (type) => {
+    const matches = [];
+    for (let index = 1; index < listTop; index += 1) {
+      if (rightHalf(word(0o024000 + index)) === type) matches.push(index);
+    }
+    return matches;
+  };
+  const constraintIndexes = findType(0o1141);
+  const pictureIndexes = new Set();
+  for (const constraintIndex of constraintIndexes) {
+    pictureIndexes.add(rightHalf(word(0o024000 + constraintIndex + 0o4)));
+  }
+  const block = (index, length) => Array.from({ length }, (_, offset) => ({
+    address: octal(0o024000 + index + offset, 6),
+    offset: octal(offset, 2),
+    value: octal(word(0o024000 + index + offset)),
+  }));
+  const failureIndex = machine.index_register(0o10);
+  const inboundLinks = [];
+  for (let index = 1; index < listTop; index += 1) {
+    const value = word(0o024000 + index);
+    if (leftHalf(value) === failureIndex || rightHalf(value) === failureIndex) {
+      inboundLinks.push({
+        address: octal(0o024000 + index, 6),
+        index: octal(index, 6),
+        value: octal(value),
+      });
+    }
+  }
+  return {
+    listTop: octal(listTop, 6),
+    listHeaders: block(0o110, 0o24),
+    constraintBlocks: constraintIndexes.map((index) => ({
+      index: octal(index, 6),
+      words: block(index, 0o10),
+    })),
+    pictureBlocks: [...pictureIndexes].map((index) => ({
+      index: octal(index, 6),
+      words: block(index, 0o12),
+    })),
+    nearbyFailureWords: block(0o1220, 0o40),
+    failureIndex: octal(failureIndex, 6),
+    inboundLinks,
+  };
+}
+
 function lineGeometryAt(lineAddress) {
   const pointAddress = (fieldOffset) => (
     0o024000 + rightHalf(machine.memory_word(lineAddress + fieldOffset, machine.simulated_time).value)
@@ -333,6 +624,116 @@ function runUntil(predicate, timeoutSeconds, ticks = 2_000) {
     assert.equal(machine.alarm_active, false, machine.last_alarm);
   }
   return predicate();
+}
+
+function inCommandDispatcher() {
+  const state = machine.control_state();
+  return state.sequence === 0o76
+    && state.instruction_address >= 0o004135
+    && state.instruction_address < 0o004700;
+}
+
+function afterStopMovingCommand() {
+  const state = machine.control_state();
+  return state.sequence === 0o76
+    && state.instruction_address >= 0o004161
+    && state.instruction_address <= 0o004300;
+}
+
+function afterStartDrawCommand() {
+  const state = machine.control_state();
+  return state.sequence === 0o76 && state.instruction_address === 0o004163;
+}
+
+function afterMovePointCommand() {
+  const state = machine.control_state();
+  return state.sequence === 0o76
+    && state.instruction_address >= 0o004171
+    && state.instruction_address <= 0o004300;
+}
+
+function inStopMovingEntry() {
+  const state = machine.control_state();
+  return state.sequence === 0o76
+    && state.instruction_address >= 0o006040
+    && state.instruction_address <= 0o006130;
+}
+
+function stopMovingAndWaitForReturn(message, timeoutSeconds = 300) {
+  stopMovingCallCount += 1;
+  const trace = [];
+  setCommand(1, 6, false);
+  assert.ok(runUntil(
+    () => machine.memory_word(0o011426, machine.simulated_time).value === 0,
+    40,
+    1,
+  ), `${message}: sequence 47 must record the prior Q1.6 release`);
+  setCommand(1, 6, true);
+  const enteredStopMoving = runUntil(inStopMovingEntry, 40, 1);
+  if (!enteredStopMoving) {
+    console.error(JSON.stringify({
+      failure: "Q1.6 did not enter STOPMOVEP",
+      message,
+      stopMovingCallCount,
+      control: machine.control_state(),
+      externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
+      switch1: octal(machine.memory_word(0o011425, machine.simulated_time).value),
+      switch2: octal(machine.memory_word(0o011426, machine.simulated_time).value),
+      queue: Array.from({ length: 0o22 }, (_, offset) =>
+        octal(machine.memory_word(0o004127 + offset, machine.simulated_time).value)),
+      atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+      selections: Array.from({ length: 8 }, (_, offset) =>
+        octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+    }, null, 2));
+  }
+  assert.ok(enteredStopMoving, `${message}: Q1.6 must enter STOPMOVEP`);
+  setCommand(1, 6, false);
+  const returnDeadline = machine.simulated_time + timeoutSeconds;
+  while (!afterStopMovingCommand() && machine.simulated_time < returnDeadline) {
+    const state = machine.control_state();
+    if (message === "coincident flange corner"
+      && state.instruction_address >= 0o006040
+      && state.instruction_address <= 0o006130) {
+      trace.push({
+        state,
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        selections: Array.from({ length: 4 }, (_, offset) =>
+          octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        indexes: [0o1, 0o2, 0o3, 0o7, 0o10].map((index) =>
+          octal(machine.index_register(index) & 0o777777, 6)),
+      });
+    }
+    stepBatch(1);
+  }
+  assert.ok(afterStopMovingCommand(),
+    `${message}: STOPMOVEP must return to the command dispatcher`);
+  runUntil(
+    () => octal(machine.memory_word(0o024114, machine.simulated_time).value)
+      === "000114000114",
+    20,
+    1,
+  );
+  if (octal(machine.memory_word(0o024114, machine.simulated_time).value)
+    !== "000114000114") {
+    console.error(JSON.stringify({
+      failure: "moving list did not clear",
+      message,
+      movingHead: octal(machine.memory_word(0o024114, machine.simulated_time).value),
+      atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+      selections: Array.from({ length: 8 }, (_, offset) =>
+        octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+      movingWords: Array.from({ length: 0o30 }, (_, offset) => ({
+        address: octal(0o025440 + offset, 6),
+        value: octal(machine.memory_word(0o025440 + offset, machine.simulated_time).value),
+      })),
+    }, null, 2));
+  }
+  assert.ok(runUntil(
+    () => machine.memory_word(0o011426, machine.simulated_time).value === 0,
+    40,
+    1,
+  ), `${message}: sequence 47 must observe the Q1.6 release`);
+  return trace;
 }
 
 function traceTicks(count) {
@@ -465,7 +866,9 @@ function traceNextDisplayBuild(timeoutSeconds = 10) {
   let completed = false;
   while (!completed && machine.simulated_time < deadline) {
     const state = machine.control_state();
-    if (state.sequence === 0o76 && state.instruction_address === 0o205643) {
+    if (state.sequence === 0o76
+      && state.instruction_address >= 0o205643
+      && state.instruction_address <= 0o205662) {
       entered = true;
     }
     if (
@@ -487,7 +890,10 @@ function traceNextDisplayBuild(timeoutSeconds = 10) {
         ndisp: octal(machine.memory_word(0o200031, machine.simulated_time).value),
       });
     }
-    if (entered && state.sequence === 0o76 && state.instruction_address === 0o205662) {
+    if (entered
+      && state.sequence === 0o76
+      && state.instruction_address >= 0o205277
+      && state.instruction_address < 0o205643) {
       completed = true;
     }
     machine.step(machine.simulated_time);
@@ -517,6 +923,316 @@ assert.ok(
   runUntil(() => !machine.memory_word(0o200042, machine.simulated_time).meta, 200),
   "the original tracker must acquire the initial stationary pen",
 );
+let precreatedPerpendicularConstraint = null;
+function createPerpendicularConstraint(startPoint = { x: 575, y: 575 }, recenter = true) {
+  phase = "stage-perpendicular-constraint";
+  assert.equal(constraintCode, 0o37,
+    "PERPENDICULAR_ONLY requires CONSTRAINT_CODE=37");
+  for (let step = 1; step <= 120; step += 1) {
+    const x = startPoint.x
+      + (perpendicularStagingPoint.x - startPoint.x) * step / 120;
+    const y = startPoint.y
+      + (perpendicularStagingPoint.y - startPoint.y) * step / 120;
+    const detectionsBeforeStep = Number(machine.light_pen_detection_count);
+    machine.set_light_pen(x / 1022, 1 - y / 1022, 26 / 1022, true);
+    assert.ok(
+      runUntil(() => Number(machine.light_pen_detection_count) > detectionsBeforeStep, 2, 1),
+      "the tracker must reach the clear constraint staging point",
+    );
+    runUntilTime(machine.simulated_time + 0.02);
+  }
+  assert.ok(
+    runUntil(
+      () => !machine.memory_word(0o200042, machine.simulated_time).meta
+        && machine.memory_word(0o200044, machine.simulated_time).value === 0,
+      100,
+      1,
+    ),
+    "the constraint staging point must be tracked with no selected drawing object",
+  );
+  const constraintListBefore = rightHalf(
+    machine.memory_word(0o024000, machine.simulated_time).value,
+  );
+  setCommand(2, 8, true);
+  phase = "create-perpendicular-constraint";
+  let enteredMakeConstraint = false;
+  const constraintDeadline = machine.simulated_time + 40;
+  while (
+    rightHalf(machine.memory_word(0o024000, machine.simulated_time).value)
+      < constraintListBefore + 0o112
+    && machine.simulated_time < constraintDeadline
+  ) {
+    const state = machine.control_state();
+    if (state.instruction_address === 0o004745) {
+      enteredMakeConstraint = true;
+    }
+    stepBatch(1);
+  }
+  assert.equal(enteredMakeConstraint, true, "Q2.8 must enter the original MAKECONS routine");
+  assert.ok(
+    rightHalf(machine.memory_word(0o024000, machine.simulated_time).value)
+      >= constraintListBefore + 0o112,
+    "Q2.8 must allocate one P constraint and four typical variables",
+  );
+  setCommand(2, 8, false);
+  runUntilTime(machine.simulated_time + 5);
+
+  const constraintAddress = 0o024000 + Number(constraintListBefore);
+  const dummyAddresses = [0o10, 0o12, 0o14, 0o16].map((offset) =>
+    0o024000 + rightHalf(machine.memory_word(
+      constraintAddress + offset,
+      machine.simulated_time,
+    ).value));
+  assert.equal(rightHalf(machine.memory_word(constraintAddress, machine.simulated_time).value), 0o1141,
+    "Q2.8 must select the original CN10 P-constraint master");
+  machine.set_toggle_register(0o25, 0o500, 0o400, 0, constraintCode, false);
+  const movingDisplayTrace = {
+    typicalEntered: 0,
+    typicalDrawn: 0,
+    constraintEntered: 0,
+    constraintDrawn: 0,
+    maximumDisplayCount: 0,
+  };
+  const movingDisplayDeadline = machine.simulated_time + 5;
+  while (machine.simulated_time < movingDisplayDeadline) {
+    const address = machine.control_state().instruction_address;
+    if (address === 0o206056) movingDisplayTrace.typicalEntered += 1;
+    if (address === 0o206061) movingDisplayTrace.typicalDrawn += 1;
+    if (address === 0o206125) movingDisplayTrace.constraintEntered += 1;
+    if (address === 0o206130) movingDisplayTrace.constraintDrawn += 1;
+    movingDisplayTrace.maximumDisplayCount = Math.max(
+      movingDisplayTrace.maximumDisplayCount,
+      rightHalf(machine.memory_word(0o200031, machine.simulated_time).value),
+    );
+    stepBatch(1);
+  }
+  if (!recenter) {
+    for (let step = 1; step <= 56; step += 1) {
+      const coordinate = perpendicularStagingPoint.x + step;
+      const detectionsBeforeStep = Number(machine.light_pen_detection_count);
+      machine.set_light_pen(
+        coordinate / 1022,
+        1 - coordinate / 1022,
+        26 / 1022,
+        true,
+      );
+      assert.ok(runUntil(
+        () => Number(machine.light_pen_detection_count) > detectionsBeforeStep,
+        2,
+        1,
+      ), "the tracker must move the new P constraint to the screen center");
+    }
+  }
+  phase = "stop-perpendicular-constraint";
+  stopMovingAndWaitForReturn("new P constraint");
+  if (process.env.SKIP_CONSTRAINT_RECENTER !== "1") {
+    const displayCountBeforeRebuild = machine.memory_word(
+      0o200032,
+      machine.simulated_time,
+    ).value;
+    setCommand(1, 1, true);
+    assert.ok(
+      runUntil(() => machine.control_state().instruction_address === 0o005056, 20, 1),
+      "Q1.1 must enter the original MOVEPIC routine",
+    );
+    setCommand(1, 1, false);
+    assert.ok(runUntil(
+      () => machine.memory_word(0o200032, machine.simulated_time).value
+        !== displayCountBeforeRebuild,
+      100,
+      1,
+    ), "Q1.1 must publish a rebuilt display file");
+    assert.ok(runUntil(
+      () => machine.memory_word(0o200032, machine.simulated_time).value
+        === machine.memory_word(0o200031, machine.simulated_time).value,
+      100,
+      1,
+    ), "Q1.1 must finish the original display-file swap");
+  }
+  phase = "expose-perpendicular-handles";
+  const dummyIndexes = dummyAddresses.map((address) => address - 0o024000);
+  if (process.env.DEBUG_STAGES === "1") {
+    const dummyDisplayNames = new Set(dummyIndexes.map((index) => index & 0o377));
+    const displayCount = rightHalf(machine.memory_word(0o200032, machine.simulated_time).value);
+    const physicalCoordinate = (raw) => (raw & 0o1000 ? raw - 0o1000 : raw + 0o777);
+    const dummyDisplayEntries = [];
+    for (let offset = 0; offset < displayCount; offset += 1) {
+      const value = BigInt(machine.memory_word(0o100000 + offset, machine.simulated_time).value);
+      const firstName = Number((value >> 18n) & 0o377n);
+      const secondName = Number(value & 0o377n);
+      if (dummyDisplayNames.has(firstName) || dummyDisplayNames.has(secondName)) {
+        const rawX = Number((value >> 26n) & 0o1777n);
+        const rawY = Number((value >> 8n) & 0o1777n);
+        dummyDisplayEntries.push({
+          address: octal(0o100000 + offset, 6),
+          value: octal(value),
+          x: physicalCoordinate(rawX),
+          y: physicalCoordinate(rawY),
+          firstName: octal(firstName, 3),
+          secondName: octal(secondName, 3),
+        });
+      }
+    }
+    console.error("stage: P-variable display entries", dummyDisplayEntries.slice(0, 80));
+  }
+  const penStatusBeforeScan = machine.unit_status(0o55, machine.simulated_time);
+  let typicalVariableHit = null;
+  const scanHits = [];
+  for (const dummyIndex of dummyIndexes) {
+    for (const { x, y } of displayPointCandidatesForListIndex(dummyIndex)) {
+      const detectionsBeforeScanPoint = Number(machine.light_pen_detection_count);
+      machine.set_light_pen(x / 1022, 1 - y / 1022, 8 / 1022, true);
+      runUntilTime(machine.simulated_time + 0.15);
+      const selectedWords = Array.from({ length: 8 }, (_, offset) =>
+        machine.memory_word(0o200045 + offset, machine.simulated_time).value);
+      if (Number(machine.light_pen_detection_count) > detectionsBeforeScanPoint) {
+        scanHits.push({
+          x,
+          y,
+          selections: selectedWords.map((word) => octal(word)),
+        });
+      }
+      const selectedWord = machine.memory_word(0o200044, machine.simulated_time).value === 0
+        ? undefined
+        : selectedWords.find((word) =>
+          leftHalf(word) === 0o321 && dummyIndexes.includes(rightHalf(word)));
+      if (selectedWord !== undefined) {
+        typicalVariableHit = {
+          x,
+          y,
+          index: rightHalf(selectedWord),
+          switch: "Q3.9",
+        };
+        break;
+      }
+    }
+    if (typicalVariableHit !== null) break;
+  }
+  const typicalVariableSelected = typicalVariableHit !== null;
+  if (!typicalVariableSelected) {
+    const dummyDisplayNames = new Set(dummyIndexes.map((index) => index & 0o377));
+    const displayCount = rightHalf(machine.memory_word(0o200032, machine.simulated_time).value);
+    const dummyDisplayEntries = [];
+    const nearbyDisplayEntries = [];
+    const sampleDisplayEntries = [];
+    const physicalCoordinate = (raw) => (raw & 0o1000 ? raw - 0o1000 : raw + 0o777);
+    for (let offset = 0; offset < displayCount; offset += 1) {
+      const value = BigInt(machine.memory_word(0o100000 + offset, machine.simulated_time).value);
+      const firstName = Number((value >> 18n) & 0o377n);
+      const secondName = Number(value & 0o377n);
+      const rawX = Number((value >> 26n) & 0o1777n);
+      const rawY = Number((value >> 8n) & 0o1777n);
+      const x = physicalCoordinate(rawX);
+      const y = physicalCoordinate(rawY);
+      if (sampleDisplayEntries.length < 40 && value !== 0n) {
+        sampleDisplayEntries.push({
+          address: octal(0o100000 + offset, 6),
+          value: octal(value),
+          x,
+          y,
+          firstName: octal(firstName, 3),
+          secondName: octal(secondName, 3),
+        });
+      }
+      if ((Math.abs(x - 464) <= 24 && Math.abs(y - 464) <= 24)
+        || (Math.abs(x - 575) <= 24 && Math.abs(y - 575) <= 24)) {
+        nearbyDisplayEntries.push({
+          address: octal(0o100000 + offset, 6),
+          value: octal(value),
+          x,
+          y,
+          firstName: octal(firstName, 3),
+          secondName: octal(secondName, 3),
+        });
+      }
+      if (firstName === 0o321 || secondName === 0o321
+        || dummyDisplayNames.has(firstName) || dummyDisplayNames.has(secondName)) {
+        dummyDisplayEntries.push({
+          address: octal(0o100000 + offset, 6),
+          value: octal(value),
+          firstName: octal(firstName, 3),
+          secondName: octal(secondName, 3),
+          rawX: octal(Number((value >> 26n) & 0o1777n), 4),
+          rawY: octal(Number((value >> 8n) & 0o1777n), 4),
+        });
+      }
+    }
+    console.error(JSON.stringify({
+      failure: "typical variable selection",
+      pen: [0o200042, 0o200043].map((address) =>
+        octal(machine.memory_word(address, machine.simulated_time).value)),
+      dummyCoordinates: dummyAddresses.map((address) => ({
+        address: octal(address, 6),
+        xy: [0o14, 0o15].map((offset) =>
+          octal(machine.memory_word(address + offset, machine.simulated_time).value)),
+      })),
+      atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+      selections: Array.from({ length: 8 }, (_, offset) =>
+        octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+      penStatusBeforeScan,
+      raisedFlags: raisedFlags(),
+      displayCount: octal(displayCount),
+      dummyDisplayEntries: dummyDisplayEntries.slice(0, 80),
+      nearbyDisplayEntries: nearbyDisplayEntries.slice(0, 120),
+      sampleDisplayEntries,
+      scanHits: scanHits.slice(0, 30),
+      typicalDisplayWords: Object.fromEntries([
+        0o207430, 0o207431, 0o200022, 0o200023, 0o200024, 0o200025,
+        0o200030, 0o200031, 0o200033, 0o200034,
+      ].map((address) => [
+        octal(address, 6),
+        octal(machine.memory_word(address, machine.simulated_time).value),
+      ])),
+    }, null, 2));
+  }
+  assert.ok(typicalVariableSelected,
+    "the moving constraint must expose a selectable typical variable");
+  const publishedTypicalVariable = runUntil(() => {
+    const selectedWord = machine.memory_word(0o200045, machine.simulated_time).value;
+    return machine.memory_word(0o200044, machine.simulated_time).value !== 0
+      && leftHalf(selectedWord) === 0o321
+      && dummyIndexes.includes(rightHalf(selectedWord));
+  }, 100, 1);
+  if (!publishedTypicalVariable) {
+    console.error(JSON.stringify({
+      failure: "PSEUDO typical-variable publication",
+      hit: typicalVariableHit,
+      atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+      penloc: [0o001712, 0o001713].map((address) =>
+        octal(machine.memory_word(address, machine.simulated_time).value)),
+      pspl: [0o200042, 0o200043].map((address) =>
+        octal(machine.memory_word(address, machine.simulated_time).value)),
+      dummyCoordinates: dummyAddresses.map((address) => [0o14, 0o15].map((offset) =>
+        octal(machine.memory_word(address + offset, machine.simulated_time).value))),
+      selections: Array.from({ length: 8 }, (_, offset) =>
+        octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+      transform: [0o200034, 0o200035, 0o200036].map((address) =>
+        octal(machine.memory_word(address, machine.simulated_time).value)),
+    }, null, 2));
+  }
+  assert.ok(publishedTypicalVariable, "PSEUDO must publish the selected P variable to ATBITS");
+
+  precreatedPerpendicularConstraint = {
+    constraintAddress,
+    dummyAddresses,
+    typicalVariableHit,
+    stagedCoordinates: dummyAddresses.map((address) => [
+      machine.memory_word(address + 0o14, machine.simulated_time).value,
+      machine.memory_word(address + 0o15, machine.simulated_time).value,
+    ]),
+    transform: [0o200034, 0o200035, 0o200036].map((address) =>
+      machine.memory_word(address, machine.simulated_time).value),
+  };
+  if (process.env.DEBUG_STAGES === "1") {
+    console.error("stage: constraint ring", {
+      picture: octal(machine.memory_word(0o025170, machine.simulated_time).value),
+      dummies: dummyAddresses.map((address) => ({
+        address: octal(address + 0o5, 6),
+        link: octal(machine.memory_word(address + 0o5, machine.simulated_time).value),
+      })),
+    });
+  }
+}
 const displayWordsBeforeDraw = Array.from({ length: 0o100 }, (_, offset) => ({
   address: octal(0o100000 + offset, 6),
   word: octal(machine.memory_word(0o100000 + offset, machine.simulated_time).value),
@@ -552,7 +1268,24 @@ while (
       movingHead: octal(machine.memory_word(0o024114, machine.simulated_time).value),
     });
   }
-  stepBatch(1);
+  try {
+    stepBatch(1);
+  } catch (error) {
+    console.error(JSON.stringify({
+      failure: "draw alarm",
+      before: state,
+      after: machine.control_state(),
+      indexes: Object.fromEntries(Array.from({ length: 16 }, (_, index) => [
+        octal(index, 2),
+        machine.index_register(index),
+      ])),
+      atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+      selections: Array.from({ length: 8 }, (_, offset) =>
+        octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+      listEnd: octal(machine.memory_word(0o024000, machine.simulated_time).value),
+    }, null, 2));
+    throw error;
+  }
   assert.equal(machine.alarm_active, false, machine.last_alarm);
 }
 const drawAllocated = machine.memory_word(0o024000, machine.simulated_time).value > listBefore;
@@ -623,8 +1356,8 @@ const penLostAfterDraw = machine.memory_word(0o200042, machine.simulated_time).m
 const movingHeadAfterDraw = octal(machine.memory_word(0o024114, machine.simulated_time).value);
 const buttonsAfterDraw = Object.fromEntries([
   0o004127,
+  0o011405,
   0o011406,
-  0o011407,
   0o011427,
   0o011430,
   0o377621,
@@ -927,6 +1660,7 @@ if (movementPath === "diagonal" && movementDurationMilliseconds === null) {
 if (
   ["horizontal", "vertical", "vertical-down"].includes(movementPath)
   && movementDurationMilliseconds === null
+  && !perpendicularMode
 ) {
   const finalScope = movement.at(-1)?.scope;
   const lowerX = Math.min(575, finalPhysicalX) - 40;
@@ -1051,8 +1785,10 @@ const verificationHeight = Math.max(...verificationY) - Math.min(...verification
 
 if (movementPath === "horizontal" && movementDurationMilliseconds === null) {
   assert.ok(verificationWidth >= 120, "the horizontal line must retain its length");
-  assert.ok(verificationHeight <= 40,
-    "the horizontal line and tracker must remain in their narrow vertical band");
+  if (!perpendicularMode) {
+    assert.ok(verificationHeight <= 40,
+      "the horizontal line and tracker must remain in their narrow vertical band");
+  }
 }
 if (movementPath.startsWith("vertical") && movementDurationMilliseconds === null) {
   assert.ok(verificationHeight >= 120, "the vertical line must retain its length");
@@ -1206,6 +1942,1332 @@ const penAtEnd = [
 const memoryAfterStop = snapshot();
 const trackerAfterStop = trackerWords();
 
+if (polylineMode) {
+  assert.equal(movementPath, "horizontal", "POLYLINE_ONLY starts with the horizontal line profile");
+  assert.equal(stopCompleted, true,
+    "the first line must stop before the next polyline action");
+
+  const flangePoints = [
+    { x: 575, y: 575 },
+    { x: 735, y: 575 },
+    { x: 735, y: 675 },
+    { x: 655, y: 675 },
+    { x: 655, y: 775 },
+    { x: 575, y: 775 },
+    { x: 575, y: 575 },
+  ];
+  const shapePoints = perpendicularFlangeMode
+    ? flangePoints
+    : (perpendicularMode ? flangePoints.slice(0, 3) : flangePoints);
+  const lineAddresses = [drawnLineAddress];
+  const segmentReports = [];
+
+  function newlyAllocatedLineAddress(firstOffset, lastOffset) {
+    for (let offset = firstOffset; offset < lastOffset; offset += 1) {
+      const address = 0o024000 + offset;
+      if (rightHalf(machine.memory_word(address, machine.simulated_time).value) === 0o201) {
+        return address;
+      }
+    }
+    throw new Error("the connected draw command did not allocate a line record");
+  }
+
+  function drawConnectedSegment(start, end, mergeTargetAddress = null) {
+    if (process.env.DEBUG_STAGES === "1") console.error("stage: draw segment", start, end);
+    const sharedStartAddress = lineGeometryAt(lineAddresses.at(-1)).secondAddress;
+    const sharedStartIndex = sharedStartAddress - 0o024000;
+    const primarySelectionIsSharedStart = () =>
+      machine.memory_word(0o200044, machine.simulated_time).value !== 0
+      && rightHalf(machine.memory_word(0o200045, machine.simulated_time).value)
+        === sharedStartIndex;
+    const pointOffsets = [0, 9, -9, 18, -18, 27, -27, 36, -36, 45, -45];
+    const pointPickupRadius = 26;
+    const movementPickupRadius = 26;
+    let movementStart = null;
+    const startCandidates = pointOffsets.flatMap((yOffset) => pointOffsets.map((xOffset) => ({
+        x: start.x + xOffset,
+        y: start.y + yOffset,
+      })));
+    for (const candidate of startCandidates) {
+        machine.set_light_pen(
+          candidate.x / 1022,
+          1 - candidate.y / 1022,
+          pointPickupRadius / 1022,
+          true,
+        );
+        if (runUntil(primarySelectionIsSharedStart, 1, 1)) {
+          movementStart = candidate;
+          break;
+        }
+    }
+    assert.ok(movementStart,
+      "the original selector must acquire the preceding endpoint before STARTDRAW");
+    let movementEnd = end;
+    if (mergeTargetAddress !== null) {
+      const mergeTargetIndex = mergeTargetAddress - 0o024000;
+      const primarySelectionIsTarget = () =>
+        machine.memory_word(0o200044, machine.simulated_time).value !== 0
+        && rightHalf(machine.memory_word(0o200045, machine.simulated_time).value)
+          === mergeTargetIndex;
+      let mappedTarget = null;
+      for (const yOffset of pointOffsets) {
+        for (const xOffset of pointOffsets) {
+          const candidate = { x: end.x + xOffset, y: end.y + yOffset };
+          machine.set_light_pen(
+            candidate.x / 1022,
+            1 - candidate.y / 1022,
+            pointPickupRadius / 1022,
+            true,
+          );
+          if (runUntil(primarySelectionIsTarget, 1, 1)) {
+            mappedTarget = candidate;
+            break;
+          }
+        }
+        if (mappedTarget !== null) break;
+      }
+      assert.ok(mappedTarget,
+        "the original selector must map the closing point before the last line moves");
+      movementEnd = mappedTarget;
+    }
+    machine.set_light_pen(
+      movementStart.x / 1022,
+      1 - movementStart.y / 1022,
+      pointPickupRadius / 1022,
+      true,
+    );
+    const selectedSharedPoint = runUntil(
+      () => !machine.memory_word(0o200042, machine.simulated_time).meta
+        && machine.memory_word(0o200044, machine.simulated_time).value !== 0
+        && machine.memory_word(0o200045, machine.simulated_time).value
+          === 0o275000000 + sharedStartIndex,
+      100,
+      2_000,
+    );
+    if (!selectedSharedPoint) {
+      console.error(JSON.stringify({
+        failure: "shared point selection",
+        start,
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        atObject: octal(machine.memory_word(0o200045, machine.simulated_time).value),
+        pspl: [0o200042, 0o200043].map((address) =>
+          octal(machine.memory_word(address, machine.simulated_time).value)),
+        penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+        lines: lineAddresses.map((address) => geometryForReport(lineGeometryAt(address))),
+        control: machine.control_state(),
+      }, null, 2));
+    }
+    assert.ok(selectedSharedPoint,
+      `the original selector must identify the shared point at ${start.x},${start.y}`);
+    assert.equal(
+      machine.memory_word(0o200045, machine.simulated_time).value,
+      0o275000000 + sharedStartIndex,
+      "STARTDRAW must receive the preceding point as its primary selection",
+    );
+    const segmentListBefore = machine.memory_word(0o024000, machine.simulated_time).value;
+    machine.set_external_input_register(0, 0, 0, 0o200, false);
+    const startDrawTrace = [];
+    const startDrawDeadline = machine.simulated_time + 20;
+    while (
+      machine.memory_word(0o024000, machine.simulated_time).value <= segmentListBefore
+      && machine.simulated_time < startDrawDeadline
+    ) {
+      const state = machine.control_state();
+      if (process.env.TRACE_STARTDRAW === "1"
+        && ((state.instruction_address >= 0o005575 && state.instruction_address <= 0o005610)
+          || (state.instruction_address >= 0o006040 && state.instruction_address <= 0o006130))) {
+        startDrawTrace.push({
+          state,
+          atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+          selections: Array.from({ length: 4 }, (_, offset) =>
+            octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+          indexes: Array.from({ length: 11 }, (_, index) =>
+            octal(machine.index_register(index) & 0o777777, 6)),
+        });
+      }
+      stepBatch(1);
+      assert.equal(machine.alarm_active, false, machine.last_alarm);
+    }
+    assert.ok(
+      machine.memory_word(0o024000, machine.simulated_time).value > segmentListBefore,
+      "STARTDRAW must allocate the next connected segment",
+    );
+    assert.ok(
+      runUntil(
+        () => machine.control_state().sequence === 0o76
+          && machine.control_state().instruction_address === 0o005553,
+        20,
+        1,
+      ),
+      "STARTDRAW must return after it creates the next connected segment",
+    );
+    machine.set_external_input_register(0, 0, 0, 0, false);
+    stepBatch(1);
+    const segmentListAfterDraw = machine.memory_word(0o024000, machine.simulated_time).value;
+    const lineAddress = newlyAllocatedLineAddress(segmentListBefore, segmentListAfterDraw);
+
+    const distance = Math.hypot(
+      movementEnd.x - movementStart.x,
+      movementEnd.y - movementStart.y,
+    );
+    const steps = Math.max(40, Math.ceil(distance));
+    for (let step = 1; step <= steps; step += 1) {
+      const x = movementStart.x + (movementEnd.x - movementStart.x) * step / steps;
+      const y = movementStart.y + (movementEnd.y - movementStart.y) * step / steps;
+      const detectionsBeforeStep = Number(machine.light_pen_detection_count);
+      machine.set_light_pen(x / 1022, 1 - y / 1022, movementPickupRadius / 1022, true);
+      assert.ok(
+        runUntil(
+          () => Number(machine.light_pen_detection_count) > detectionsBeforeStep,
+          2,
+          1,
+        ),
+        `the original tracker must follow connected segment ${start.x},${start.y} to ${end.x},${end.y}`,
+      );
+      runUntilTime(machine.simulated_time + 0.02);
+    }
+
+    let mergeTargetSelected = null;
+    if (mergeTargetAddress !== null) {
+      const mergeTargetIndex = mergeTargetAddress - 0o024000;
+      const primarySelectionIsTarget = () =>
+        machine.memory_word(0o200044, machine.simulated_time).value !== 0
+        && rightHalf(machine.memory_word(0o200045, machine.simulated_time).value)
+          === mergeTargetIndex;
+      mergeTargetSelected = runUntil(primarySelectionIsTarget, 20, 1);
+    }
+
+    machine.set_external_input_register(0, 0, 0, 0o40, false);
+    const stopMergeTrace = [];
+    assert.ok(
+      runUntil(
+        inStopMovingEntry,
+        300,
+        1,
+      ),
+      "Q1.6 must enter STOPMOVEP for the connected segment",
+    );
+    machine.set_external_input_register(0, 0, 0, 0, false);
+    const stopDeadline = machine.simulated_time + 200;
+    while (
+      octal(machine.memory_word(0o024114, machine.simulated_time).value) !== "000114000114"
+      && machine.simulated_time < stopDeadline
+    ) {
+      const state = machine.control_state();
+      if (
+        state.sequence === 0o76
+        && state.instruction_address >= 0o006000
+        && state.instruction_address <= 0o006050
+        && stopMergeTrace.length < 80
+      ) {
+        stopMergeTrace.push({
+          state,
+          alpha: machine.index_register(0o01),
+          beta: machine.index_register(0o02),
+          atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+          selections: Array.from({ length: 4 }, (_, offset) =>
+            octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        });
+      }
+      stepBatch(1);
+      assert.equal(machine.alarm_active, false, machine.last_alarm);
+    }
+    assert.equal(
+      octal(machine.memory_word(0o024114, machine.simulated_time).value),
+      "000114000114",
+      "Q1.6 must complete the connected segment",
+    );
+    const stopCompletionDeadline = machine.simulated_time + 300;
+    let stopReturned = false;
+    while (!stopReturned && machine.simulated_time < stopCompletionDeadline) {
+      const state = machine.control_state();
+      stopReturned = afterStopMovingCommand();
+      if (stopReturned) break;
+      if (
+        state.sequence === 0o76
+        && state.instruction_address >= 0o006000
+        && state.instruction_address <= 0o006400
+        && stopMergeTrace.length < 160
+      ) {
+        stopMergeTrace.push({
+          state,
+          alpha: machine.index_register(0o01),
+          beta: machine.index_register(0o02),
+          atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+          selections: Array.from({ length: 4 }, (_, offset) =>
+            octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        });
+      }
+      stepBatch(1);
+      assert.equal(machine.alarm_active, false, machine.last_alarm);
+    }
+    assert.equal(stopReturned, true,
+      "STOPMOVEP must return before the next connected-segment action");
+    lineAddresses.push(lineAddress);
+    segmentReports.push({
+      start,
+      end,
+      movementStart,
+      mergeTarget: mergeTargetAddress === null ? null : octal(mergeTargetAddress, 6),
+      mergeTargetSelected,
+      mergeEntered: stopMergeTrace.some(({ state }) => state.instruction.includes("JPQ 6020")),
+      geometry: geometryForReport(lineGeometryAt(lineAddress)),
+      startDrawTrace,
+    });
+    if (process.env.DEBUG_STAGES === "1") console.error("stage: segment complete", start, end);
+  }
+
+  const closingPointAddress = lineGeometryAt(lineAddresses[0]).firstAddress;
+  for (let index = 1; index < shapePoints.length - 1; index += 1) {
+    const closesOutline = index === shapePoints.length - 2;
+    drawConnectedSegment(
+      shapePoints[index],
+      shapePoints[index + 1],
+      closesOutline && (!perpendicularMode || perpendicularFlangeMode)
+        ? closingPointAddress
+        : null,
+    );
+  }
+
+  if (process.env.TRACE_STARTDRAW === "1") {
+    console.error(JSON.stringify(segmentReports.map(({
+      start, end, movementStart, geometry, startDrawTrace,
+    }) => ({
+      start,
+      end,
+      movementStart,
+      geometry,
+      startDrawTrace,
+    })), null, 2));
+  }
+
+  function mergeCoincidentCorner(firstPointAddress, secondPointAddress) {
+    const pointIndexes = [firstPointAddress, secondPointAddress]
+      .map((address) => address - 0o024000);
+    machine.set_light_pen(50 / 1022, 1 - 50 / 1022, 8 / 1022, true);
+    runUntil(() => machine.memory_word(0o200044, machine.simulated_time).value === 0, 20, 1);
+    let selectedPointIndex = null;
+    const candidates = [
+      ...displayPointCandidatesForListIndex(pointIndexes[1]),
+      ...displayPointCandidatesForListIndex(pointIndexes[0]),
+    ];
+    for (const candidate of candidates) {
+      machine.set_light_pen(
+        candidate.x / 1022,
+        1 - candidate.y / 1022,
+        26 / 1022,
+        true,
+      );
+      if (runUntil(() => {
+        if (machine.memory_word(0o200044, machine.simulated_time).value === 0) return false;
+        const selected = machine.memory_word(0o200045, machine.simulated_time).value;
+        if (leftHalf(selected) !== 0o275 || !pointIndexes.includes(rightHalf(selected))) {
+          return false;
+        }
+        selectedPointIndex = rightHalf(selected);
+        return true;
+      }, 5, 1)) break;
+    }
+    assert.notEqual(selectedPointIndex, null,
+      "the original selector must acquire one coincident corner point");
+
+    setCommand(2, 1, true);
+    assert.ok(runUntil(
+      () => octal(machine.memory_word(0o024114, machine.simulated_time).value)
+        !== "000114000114",
+      40,
+      1,
+    ), "Q2.1 must move one coincident corner point");
+    setCommand(2, 1, false);
+    const targetPointIndex = pointIndexes.find((index) => index !== selectedPointIndex);
+    const targetRetained = runUntil(
+      () => machine.memory_word(0o200044, machine.simulated_time).value !== 0
+        && machine.memory_word(0o200045, machine.simulated_time).value
+          === 0o275000000 + targetPointIndex,
+      40,
+      1,
+    );
+    if (!targetRetained) {
+      const displayCount = rightHalf(
+        machine.memory_word(0o200032, machine.simulated_time).value,
+      );
+      console.error(JSON.stringify({
+        failure: "coincident merge target selection",
+        selectedPointIndex: octal(selectedPointIndex, 6),
+        targetPointIndex: octal(targetPointIndex, 6),
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        selections: Array.from({ length: 8 }, (_, offset) =>
+          octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        candidates,
+        pointRecords: pointIndexes.map((index) => ({
+          index: octal(index, 6),
+          words: Array.from({ length: 0o22 }, (_, offset) =>
+            octal(machine.memory_word(0o024000 + index + offset,
+              machine.simulated_time).value)),
+          displayCandidates: displayPointCandidatesForListIndex(index),
+        })),
+        matchingDisplayTags: Array.from({ length: displayCount }, (_, offset) => ({
+          address: 0o100000 + offset,
+          value: BigInt(machine.memory_word(0o100000 + offset,
+            machine.simulated_time).value),
+        })).filter(({ value }) => pointIndexes.some((index) =>
+          Number(value & 0o377n) === (index & 0o377)))
+          .map(({ address, value }) => ({ address: octal(address, 6), value: octal(value) })),
+        lineGeometries: lineAddresses.map((address) =>
+          geometryForReport(lineGeometryAt(address))),
+        control: machine.control_state(),
+      }, null, 2));
+    }
+    assert.ok(targetRetained,
+      "the selector must retain the other coincident point as the merge target");
+    assert.notEqual(
+      octal(machine.memory_word(0o024114, machine.simulated_time).value),
+      "000114000114",
+      "the point must still move when the merge target is selected",
+    );
+    if (process.env.FINE_TRACE === "1") fineAssemblyTrace = true;
+    const stopTrace = stopMovingAndWaitForReturn("coincident flange corner");
+    fineAssemblyTrace = false;
+    return { selectedPointIndex, targetPointIndex, stopTrace };
+  }
+
+  const mergeCornerCount = perpendicularMode && !perpendicularFlangeMode
+    ? lineAddresses.length - 1
+    : lineAddresses.length;
+  for (let index = 0; process.env.SKIP_CORNER_MERGE !== "1"
+    && index < mergeCornerCount; index += 1) {
+    const firstLine = lineGeometryAt(lineAddresses[index]);
+    const secondLine = lineGeometryAt(lineAddresses[(index + 1) % lineAddresses.length]);
+    if (firstLine.secondAddress !== secondLine.firstAddress) {
+      const mergeAttempt = mergeCoincidentCorner(
+        firstLine.secondAddress,
+        secondLine.firstAddress,
+      );
+      const mergedFirstLine = lineGeometryAt(lineAddresses[index]);
+      const mergedSecondLine = lineGeometryAt(lineAddresses[(index + 1) % lineAddresses.length]);
+      if (mergedFirstLine.secondAddress !== mergedSecondLine.firstAddress) {
+        console.error(JSON.stringify({
+          failure: "coincident point merge",
+          mergeAttempt: {
+            selectedPointIndex: octal(mergeAttempt.selectedPointIndex, 6),
+            targetPointIndex: octal(mergeAttempt.targetPointIndex, 6),
+            stopTrace: mergeAttempt.stopTrace,
+          },
+          firstBefore: geometryForReport(firstLine),
+          secondBefore: geometryForReport(secondLine),
+          firstAfter: geometryForReport(mergedFirstLine),
+          secondAfter: geometryForReport(mergedSecondLine),
+          ringOperationTrace,
+        }, null, 2));
+      }
+      assert.equal(mergedFirstLine.secondAddress, mergedSecondLine.firstAddress,
+        "the original merger must leave one shared point at each flange corner");
+    }
+  }
+
+  const endpointAddresses = lineAddresses.flatMap((address) => {
+    const geometry = lineGeometryAt(address);
+    return [geometry.firstAddress, geometry.secondAddress];
+  });
+  const uniqueEndpointAddresses = [...new Set(endpointAddresses)];
+  const endpointCoordinateKeys = endpointAddresses.map((address) =>
+    [0o20, 0o21].map((offset) =>
+      octal(machine.memory_word(address + offset, machine.simulated_time).value)).join(","));
+  const uniqueEndpointCoordinateKeys = [...new Set(endpointCoordinateKeys)];
+  const closingMerged = lineGeometryAt(lineAddresses.at(-1)).secondAddress
+    === closingPointAddress;
+  const polylineReport = {
+    shapePoints,
+    lineAddresses: lineAddresses.map((address) => octal(address, 6)),
+    uniqueEndpointAddresses: uniqueEndpointAddresses.map((address) => octal(address, 6)),
+    uniqueEndpointCoordinateKeys,
+    closedByCoordinates: uniqueEndpointCoordinateKeys.length === 6,
+    closingMerged,
+    firstSegment: geometryForReport(lineGeometryAt(lineAddresses[0])),
+    addedSegments: segmentReports,
+    listEnd: octal(machine.memory_word(0o024000, machine.simulated_time).value),
+    alarm: machine.last_alarm,
+  };
+  if (process.env.DEBUG_STAGES === "1") console.error("stage: polyline", polylineReport);
+  assert.equal(lineAddresses.length, perpendicularMode && !perpendicularFlangeMode ? 2 : 6,
+    perpendicularMode && !perpendicularFlangeMode
+      ? "the perpendicular proof must contain two original line objects"
+      : "the flange outline must contain six original line objects");
+  assert.equal(uniqueEndpointCoordinateKeys.length, perpendicularMode && !perpendicularFlangeMode ? 3 : 6,
+    perpendicularMode && !perpendicularFlangeMode
+      ? "the perpendicular proof must form one visible corner"
+      : "the six line objects must form one visibly closed outline");
+  if (!perpendicularMode || perpendicularFlangeMode) {
+    if (process.env.DEBUG_STAGES === "1") {
+      console.error("stage: closing segment", segmentReports.at(-1));
+    }
+    assert.equal(closingMerged, true,
+      "the closing endpoint must share the first point record after the original merger path");
+  }
+  if (!perpendicularMode) {
+    if (process.env.WAIT_AFTER_POLYLINE === "1") {
+      runUntilTime(machine.simulated_time + 100);
+    }
+    console.log(JSON.stringify(polylineReport, null, 2));
+    process.exit(0);
+  }
+
+  function mapPointToDisplay(target, targetPointAddress) {
+    const targetIndex = targetPointAddress - 0o024000;
+    const targetSelectionPublished = () =>
+      machine.memory_word(0o200044, machine.simulated_time).value !== 0
+      && Array.from({ length: 8 }, (_, offset) =>
+        rightHalf(machine.memory_word(0o200045 + offset, machine.simulated_time).value))
+        .includes(targetIndex);
+    phase = "map-perpendicular-target";
+    const displayCandidates = displayPointCandidatesForListIndex(targetIndex);
+    const attempts = [];
+    machine.set_light_pen(50 / 1022, 1 - 50 / 1022, 8 / 1022, true);
+    runUntil(() => machine.memory_word(0o200044, machine.simulated_time).value === 0, 20, 1);
+    for (const candidate of displayCandidates) {
+      machine.set_light_pen(
+        candidate.x / 1022,
+        1 - candidate.y / 1022,
+        26 / 1022,
+        true,
+      );
+      runUntilTime(machine.simulated_time + 0.15);
+      if (targetSelectionPublished() || runUntil(targetSelectionPublished, 1, 20)) {
+        return candidate;
+      }
+      if (attempts.length < 20) {
+        attempts.push({
+          candidate,
+          atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+          selections: Array.from({ length: 8 }, (_, offset) =>
+            octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        });
+      }
+    }
+    console.error(JSON.stringify({
+      failure: "point display mapping",
+      target,
+      targetIndex: octal(targetIndex, 6),
+      candidateCount: displayCandidates.length,
+      attempts,
+    }, null, 2));
+    assert.fail(`the original selector must map point ${octal(targetIndex, 6)} near ${target.x},${target.y}`);
+  }
+  const lineGeometries = lineAddresses.map((address) => lineGeometryAt(address));
+  const constraintPairIndexes = perpendicularFlangeMode
+    ? lineAddresses.map((_, index) => [index, (index + 1) % lineAddresses.length])
+    : [[0, 1]];
+  const constraintTargetGroups = constraintPairIndexes.map(([firstIndex, secondIndex]) => {
+    const firstLine = lineGeometries[firstIndex];
+    const secondLine = lineGeometries[secondIndex];
+    const targets = [
+      [shapePoints[firstIndex], firstLine.firstAddress],
+      [shapePoints[firstIndex + 1], firstLine.secondAddress],
+      [shapePoints[secondIndex], secondLine.firstAddress],
+      [shapePoints[secondIndex + 1], secondLine.secondAddress],
+    ];
+    return [0, 1, 2, 3].map((index) => {
+      const [target, targetPointAddress] = targets[index];
+      return { target, targetPointAddress };
+    });
+  });
+  let stagedPoint = null;
+  let penPosition = null;
+  let attachedDummyIndexes = new Set();
+  const dummyPenRadius = 12;
+
+  function primaryUnattachedDummy() {
+    if (machine.memory_word(0o200044, machine.simulated_time).value === 0
+      || !precreatedPerpendicularConstraint) return undefined;
+    const dummyIndexes = precreatedPerpendicularConstraint.dummyAddresses
+      .map((address) => address - 0o024000);
+    const primary = machine.memory_word(0o200045, machine.simulated_time).value;
+    return leftHalf(primary) === 0o321
+        && dummyIndexes.includes(rightHalf(primary))
+        && !attachedDummyIndexes.has(rightHalf(primary))
+      ? primary
+      : undefined;
+  }
+
+  function moveTrackedPen(target, message, radius = 26) {
+    const distance = Math.hypot(target.x - penPosition.x, target.y - penPosition.y);
+    const steps = Math.max(40, Math.ceil(distance));
+    const start = penPosition;
+    for (let step = 1; step <= steps; step += 1) {
+      const x = start.x + (target.x - start.x) * step / steps;
+      const y = start.y + (target.y - start.y) * step / steps;
+      const detectionsBeforeStep = Number(machine.light_pen_detection_count);
+      machine.set_light_pen(x / 1022, 1 - y / 1022, radius / 1022, true);
+      assert.ok(
+        runUntil(() => Number(machine.light_pen_detection_count) > detectionsBeforeStep, 2, 1),
+        message,
+      );
+    }
+    penPosition = target;
+  }
+
+  function selectUnattachedDummy() {
+    machine.set_toggle_register(
+      0o25, constraintEditingQuarter4, 0o400, 0, constraintCode, false,
+    );
+    const dummyIndexes = precreatedPerpendicularConstraint.dummyAddresses
+      .map((address) => address - 0o024000);
+    const selectedUnattachedDummy = primaryUnattachedDummy;
+    const currentCandidates = dummyIndexes
+      .filter((index) => !attachedDummyIndexes.has(index))
+      .flatMap((index) => displayPointCandidatesForListIndex(index));
+    for (const candidate of currentCandidates) {
+      const detectionsBeforeCandidate = Number(machine.light_pen_detection_count);
+      machine.set_light_pen(
+        candidate.x / 1022,
+        1 - candidate.y / 1022,
+        dummyPenRadius / 1022,
+        true,
+      );
+      runUntil(
+        () => selectedUnattachedDummy() !== undefined
+          || Number(machine.light_pen_detection_count) - detectionsBeforeCandidate >= 8,
+        5,
+        1,
+      );
+      machine.set_light_pen(
+        candidate.x / 1022,
+        1 - candidate.y / 1022,
+        dummyPenRadius / 1022,
+        false,
+      );
+      const selectedWord = selectedUnattachedDummy();
+      if (selectedWord !== undefined) {
+        const exactPoints = displayPointsForListIndex(rightHalf(selectedWord));
+        stagedPoint = exactPoints.reduce((closest, point) =>
+          Math.hypot(point.x - candidate.x, point.y - candidate.y)
+              < Math.hypot(closest.x - candidate.x, closest.y - candidate.y)
+            ? point
+            : closest, exactPoints[0] ?? candidate);
+        penPosition = stagedPoint;
+        return rightHalf(selectedWord);
+      }
+      runUntil(
+        () => machine.memory_word(0o004127, machine.simulated_time).value === 0,
+        20,
+        1,
+      );
+    }
+    if (process.env.FINE_TRACE === "1") {
+      watchedRingValue = machine.memory_word(0o025434, machine.simulated_time).value;
+      fineAssemblyTrace = true;
+    }
+    machine.set_light_pen(
+      stagedPoint.x / 1022,
+      1 - stagedPoint.y / 1022,
+      dummyPenRadius / 1022,
+      true,
+    );
+    {
+      const selectedTypical = () => Array.from({ length: 8 }, (_, offset) =>
+        machine.memory_word(0o200045 + offset, machine.simulated_time).value)
+        .some((word) => machine.memory_word(0o200044, machine.simulated_time).value !== 0
+          && leftHalf(word) === 0o321 && dummyIndexes.includes(rightHalf(word)));
+      let typicalReacquired = runUntil(selectedTypical, 20, 20);
+      if (!typicalReacquired) {
+        for (const candidate of currentCandidates) {
+          machine.set_light_pen(
+            candidate.x / 1022,
+            1 - candidate.y / 1022,
+            dummyPenRadius / 1022,
+            true,
+          );
+          stepBatch(1_000);
+          if (selectedTypical()) {
+            stagedPoint = candidate;
+            penPosition = candidate;
+            typicalReacquired = true;
+            break;
+          }
+        }
+      }
+      if (!typicalReacquired) {
+        const scanOffsets = [0, ...Array.from({ length: 10 }, (_, index) => [
+          -(index + 1) * 10,
+          (index + 1) * 10,
+        ]).flat()];
+        for (const yOffset of scanOffsets) {
+          for (const xOffset of scanOffsets) {
+            const candidate = {
+              x: precreatedPerpendicularConstraint.typicalVariableHit.x + xOffset,
+              y: precreatedPerpendicularConstraint.typicalVariableHit.y + yOffset,
+            };
+            machine.set_light_pen(
+              candidate.x / 1022,
+              1 - candidate.y / 1022,
+              dummyPenRadius / 1022,
+              true,
+            );
+            stepBatch(1_000);
+            if (selectedTypical()) {
+              stagedPoint = candidate;
+              penPosition = candidate;
+              typicalReacquired = true;
+              break;
+            }
+          }
+          if (typicalReacquired) break;
+        }
+      }
+      if (!typicalReacquired) {
+        const dummyDisplayNames = new Set(dummyIndexes.map((index) => index & 0o377));
+        const displayCount = rightHalf(
+          machine.memory_word(0o200032, machine.simulated_time).value,
+        );
+        const dummyDisplayEntries = [];
+        for (let offset = 0; offset < displayCount; offset += 1) {
+          const value = BigInt(
+            machine.memory_word(0o100000 + offset, machine.simulated_time).value,
+          );
+          const firstName = Number((value >> 18n) & 0o377n);
+          const secondName = Number(value & 0o377n);
+          if (firstName === 0o321 || secondName === 0o321
+            || dummyDisplayNames.has(firstName) || dummyDisplayNames.has(secondName)) {
+            dummyDisplayEntries.push({
+              address: octal(0o100000 + offset, 6),
+              value: octal(value),
+              firstName: octal(firstName, 3),
+              secondName: octal(secondName, 3),
+              rawX: octal(Number((value >> 26n) & 0o1777n), 4),
+              rawY: octal(Number((value >> 8n) & 0o1777n), 4),
+            });
+          }
+        }
+        console.error(JSON.stringify({
+          failure: "staged P-variable reacquisition",
+          stagedPoint,
+          penPosition,
+          atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+          selections: Array.from({ length: 8 }, (_, offset) =>
+            octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+          penloc: [0o001712, 0o001713].map((address) =>
+            octal(machine.memory_word(address, machine.simulated_time).value)),
+          pspl: [0o200042, 0o200043].map((address) =>
+            octal(machine.memory_word(address, machine.simulated_time).value)),
+          transform: [0o200034, 0o200035, 0o200036].map((address) =>
+            octal(machine.memory_word(address, machine.simulated_time).value)),
+          originalTransform: precreatedPerpendicularConstraint.transform.map((value) =>
+            octal(value)),
+          displayCount: octal(displayCount),
+          dummyDisplayEntries: dummyDisplayEntries.slice(0, 80),
+          dummyCoordinates: precreatedPerpendicularConstraint.dummyAddresses.map((address) => ({
+            index: octal(address - 0o024000, 6),
+            xy: [0o14, 0o15].map((offset) =>
+              octal(machine.memory_word(address + offset, machine.simulated_time).value)),
+          })),
+        }, null, 2));
+      }
+      assert.ok(typicalReacquired, "the flange display must retain the original P variables");
+    }
+    let selectedIndex = null;
+    const selected = runUntil(() => {
+      const selectedWord = selectedUnattachedDummy();
+      if (selectedWord === undefined) return false;
+      selectedIndex = rightHalf(selectedWord);
+      return true;
+    }, 100, 1);
+    if (!selected) {
+      console.error(JSON.stringify({
+        failure: "P variable selection",
+        dummyIndexes: dummyIndexes.map((index) => octal(index, 6)),
+        dummyTypes: precreatedPerpendicularConstraint.dummyAddresses.map((address) =>
+          octal(machine.memory_word(address, machine.simulated_time).value)),
+        stagedCoordinates: precreatedPerpendicularConstraint.stagedCoordinates
+          .map((pair) => pair.map((value) => octal(value))),
+        currentCoordinates: precreatedPerpendicularConstraint.dummyAddresses.map((address) =>
+          [0o14, 0o15].map((offset) =>
+            octal(machine.memory_word(address + offset, machine.simulated_time).value))),
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        selections: Array.from({ length: 8 }, (_, offset) =>
+          octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        pspl: [0o200042, 0o200043].map((address) =>
+          octal(machine.memory_word(address, machine.simulated_time).value)),
+        penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+      }, null, 2));
+    }
+    assert.ok(selected, "the original selector must identify an unattached P variable");
+    const exactPoints = displayPointsForListIndex(selectedIndex);
+    if (exactPoints.length > 0) {
+      stagedPoint = exactPoints.reduce((closest, point) =>
+        Math.hypot(point.x - stagedPoint.x, point.y - stagedPoint.y)
+            < Math.hypot(closest.x - stagedPoint.x, closest.y - stagedPoint.y)
+          ? point
+          : closest, exactPoints[0]);
+      penPosition = stagedPoint;
+    }
+    return selectedIndex;
+  }
+
+  function attachNextDummy(targetDisplayPoint, targetPointAddress) {
+    phase = "attach-perpendicular-handle";
+    const targetIndex = targetPointAddress - 0o024000;
+    const targetSelectionPublished = () =>
+      machine.memory_word(0o200044, machine.simulated_time).value !== 0
+      && machine.memory_word(0o200045, machine.simulated_time).value
+        === 0o275000000 + targetIndex;
+    if (process.env.DEBUG_STAGES === "1") {
+      console.error("stage: mapped endpoint", octal(targetIndex, 6), targetDisplayPoint);
+      console.error("stage: ring before dummy selection", {
+        externalInput: octal(
+          machine.memory_word(0o377621, machine.simulated_time).value,
+        ),
+        control: machine.control_state(),
+        picture: octal(machine.memory_word(0o025170, machine.simulated_time).value),
+        dummies: precreatedPerpendicularConstraint.dummyAddresses.map((address) => ({
+          address: octal(address + 0o5, 6),
+          link: octal(machine.memory_word(address + 0o5, machine.simulated_time).value),
+        })),
+      });
+    }
+    let selectedDummyIndex = null;
+    let enteredMovePoint = false;
+    let movePointCommandRecorded = false;
+    const movePointTrace = [];
+    let dummyStartedMoving = false;
+    let moveAttempts = 0;
+    const maximumMoveAttempts = 3;
+    while (!dummyStartedMoving && moveAttempts < maximumMoveAttempts) {
+      moveAttempts += 1;
+      movePointCommandRecorded = false;
+      setCommand(2, 1, false);
+      assert.ok(runUntil(
+        () => machine.memory_word(0o011426, machine.simulated_time).value === 0,
+        40,
+        1,
+      ), "sequence 47 must record the prior Q2.1 release");
+      assert.ok(runUntil(
+        () => machine.memory_word(0o004127, machine.simulated_time).value === 0,
+        100,
+        1,
+      ), "READIT must drain prior events before HOLD");
+      setCommand(4, 9, true);
+      const holdRecorded = runUntil(
+        () => hasOctalBit(
+          machine.memory_word(0o011426, machine.simulated_time).value,
+          0o400000000000,
+        ),
+        40,
+        1,
+      );
+      if (!holdRecorded) {
+        console.error(JSON.stringify({
+          failure: "HOLD before P-variable selection",
+          control: machine.control_state(),
+          externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
+          switch1: octal(machine.memory_word(0o011425, machine.simulated_time).value),
+          switch2: octal(machine.memory_word(0o011426, machine.simulated_time).value),
+          button47: octal(machine.memory_word(0o011404, machine.simulated_time).value),
+          button76: octal(machine.memory_word(0o011405, machine.simulated_time).value),
+          movingHead: octal(machine.memory_word(0o024114, machine.simulated_time).value),
+          penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+          atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+          selections: Array.from({ length: 8 }, (_, offset) =>
+            octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+          queue: Array.from({ length: 0o22 }, (_, offset) =>
+            octal(machine.memory_word(0o004127 + offset, machine.simulated_time).value)),
+        }, null, 2));
+      }
+      assert.ok(holdRecorded,
+        "sequence 47 must record HOLD before P-variable selection");
+      selectedDummyIndex = selectUnattachedDummy();
+      machine.set_external_input_register(0o400, 0, 0o1, 0, false);
+      const handMotion = [0, 2, 4, 2, 0, -2, -4, -2];
+      let commandPenPoint = stagedPoint;
+      for (let step = 0; step < 1_000 && !movePointCommandRecorded; step += 1) {
+        const detectionsBeforeStep = Number(machine.light_pen_detection_count);
+        const xOffset = handMotion[step % handMotion.length];
+        const yOffset = handMotion[(step + 2) % handMotion.length];
+        machine.set_light_pen(
+          (stagedPoint.x + xOffset) / 1022,
+          1 - (stagedPoint.y + yOffset) / 1022,
+          dummyPenRadius / 1022,
+          true,
+        );
+        commandPenPoint = {
+          x: stagedPoint.x + xOffset,
+          y: stagedPoint.y + yOffset,
+        };
+        runUntil(
+          () => Number(machine.light_pen_detection_count) > detectionsBeforeStep,
+          2,
+          1,
+        );
+        movePointCommandRecorded = hasOctalBit(
+          machine.memory_word(0o011404, machine.simulated_time).value,
+          0o1000,
+        );
+      }
+      assert.equal(movePointCommandRecorded, true,
+        "sequence 47 must capture Q2.1");
+      for (let step = 0; step < 1_000 && !dummyStartedMoving; step += 1) {
+        const next = {
+          x: stagedPoint.x + handMotion[step % handMotion.length],
+          y: stagedPoint.y + handMotion[(step + 2) % handMotion.length],
+        };
+        machine.set_light_pen(
+          next.x / 1022,
+          1 - next.y / 1022,
+          dummyPenRadius / 1022,
+          true,
+        );
+        commandPenPoint = next;
+        penPosition = next;
+        stepBatch(1_000);
+        dummyStartedMoving = octal(
+          machine.memory_word(0o024114, machine.simulated_time).value,
+        ) !== "000114000114";
+      }
+      enteredMovePoint = dummyStartedMoving;
+      if (dummyStartedMoving) setCommand(4, 9, true);
+      machine.set_light_pen(
+        commandPenPoint.x / 1022,
+        1 - commandPenPoint.y / 1022,
+        dummyPenRadius / 1022,
+        false,
+      );
+      if (!dummyStartedMoving) {
+        setCommand(2, 1, false);
+        assert.ok(runUntil(
+          () => machine.memory_word(0o011426, machine.simulated_time).value === 0,
+          40,
+          1,
+        ), "sequence 47 must observe the Q2.1 release before a retry");
+      }
+    }
+    if (!dummyStartedMoving) {
+      console.error(JSON.stringify({
+        failure: "MOVEPOINT P variable",
+        constraintAddress: octal(
+          precreatedPerpendicularConstraint.constraintAddress,
+          6,
+        ),
+        selectedDummyIndex: octal(selectedDummyIndex, 6),
+        moveAttempts,
+        enteredMovePoint,
+        movePointCommandRecorded,
+        control: machine.control_state(),
+        externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
+        switch1: octal(machine.memory_word(0o011425, machine.simulated_time).value),
+        switch2: octal(machine.memory_word(0o011426, machine.simulated_time).value),
+        button47: octal(machine.memory_word(0o011404, machine.simulated_time).value),
+        button76: octal(machine.memory_word(0o011405, machine.simulated_time).value),
+        queue: Array.from({ length: 0o22 }, (_, offset) =>
+          octal(machine.memory_word(0o004127 + offset, machine.simulated_time).value)),
+        penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        selections: Array.from({ length: 8 }, (_, offset) =>
+          octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        sequence47Trace,
+        atBitsWriteTrace,
+        movePointTrace,
+      }, null, 2));
+    }
+    assert.ok(dummyStartedMoving,
+      "Q2.1 must put the selected P variable in the original moving list");
+    assert.ok(runUntil(afterMovePointCommand, 300, 1),
+      "MOVEPOINT must return before the P variable is dragged");
+
+    machine.set_toggle_register(
+      0o25, constraintEditingQuarter4, 0o400, 0, constraintCode, false,
+    );
+    const remainingDistance = Math.hypot(
+      targetDisplayPoint.x - penPosition.x,
+      targetDisplayPoint.y - penPosition.y,
+    );
+    const remainingSteps = Math.max(40, Math.ceil(remainingDistance));
+    const remainingStart = penPosition;
+    for (let step = 1; step <= remainingSteps; step += 1) {
+      const next = {
+        x: remainingStart.x
+          + (targetDisplayPoint.x - remainingStart.x) * step / remainingSteps,
+        y: remainingStart.y
+          + (targetDisplayPoint.y - remainingStart.y) * step / remainingSteps,
+      };
+      machine.set_light_pen(
+        next.x / 1022,
+        1 - next.y / 1022,
+        dummyPenRadius / 1022,
+        true,
+      );
+      stepBatch(1_000);
+    }
+    penPosition = targetDisplayPoint;
+    const movingAtTarget = octal(
+      machine.memory_word(0o024114, machine.simulated_time).value,
+    ) !== "000114000114";
+    if (!movingAtTarget) {
+      console.error(JSON.stringify({
+        failure: "P variable stopped before target",
+        selectedDummyIndex: octal(selectedDummyIndex, 6),
+        penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        selections: Array.from({ length: 4 }, (_, offset) =>
+          octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        queue: Array.from({ length: 0o20 }, (_, offset) =>
+          octal(machine.memory_word(0o004127 + offset, machine.simulated_time).value)),
+      }, null, 2));
+    }
+    assert.equal(movingAtTarget, true,
+      "the original tracker must keep the P variable moving to the target");
+    let targetSelected = runUntil(
+      targetSelectionPublished,
+      40,
+      1,
+    );
+    if (!targetSelected) {
+      console.error(JSON.stringify({
+        failure: "P attachment target selection",
+        target: targetDisplayPoint,
+        targetIndex: octal(targetIndex, 6),
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        selections: Array.from({ length: 8 }, (_, offset) =>
+          octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+        penloc: [0o001712, 0o001713].map((address) =>
+          octal(machine.memory_word(address, machine.simulated_time).value)),
+        pspl: [0o200042, 0o200043].map((address) =>
+          octal(machine.memory_word(address, machine.simulated_time).value)),
+      }, null, 2));
+    }
+    assert.ok(targetSelected,
+      "the original selector must identify the flange point before attachment");
+
+    const constraintFieldsBeforeStop = [0o10, 0o12, 0o14, 0o16].map((offset) =>
+      rightHalf(machine.memory_word(
+        precreatedPerpendicularConstraint.constraintAddress + offset,
+        machine.simulated_time,
+      ).value));
+    if (process.env.DEBUG_STAGES === "1") {
+      console.error("stage: queue before Q1.6", Array.from({ length: 0o22 }, (_, offset) =>
+        octal(machine.memory_word(0o004127 + offset, machine.simulated_time).value)));
+    }
+    assert.ok(runUntil(
+      () => hasOctalBit(
+        machine.memory_word(0o011426, machine.simulated_time).value,
+        0o400000000000,
+      ),
+      40,
+      1,
+    ), "sequence 47 must retain HOLD through the drag");
+    machine.set_external_input_register(0o400, 0, 0, 0o40, false);
+    const stopHandMotion = [0, 2, 4, 2, 0, -2, -4, -2];
+    let stopCaptured = false;
+    for (let step = 0; step < stopHandMotion.length && !stopCaptured; step += 1) {
+      const detectionsBeforePulse = Number(machine.light_pen_detection_count);
+      const xOffset = stopHandMotion[step];
+      const yOffset = stopHandMotion[(step + 2) % stopHandMotion.length];
+      machine.set_light_pen(
+        (targetDisplayPoint.x + xOffset) / 1022,
+        1 - (targetDisplayPoint.y + yOffset) / 1022,
+        dummyPenRadius / 1022,
+        true,
+      );
+      const detected = runUntil(
+        () => Number(machine.light_pen_detection_count) > detectionsBeforePulse,
+        2,
+        1,
+      );
+      machine.set_light_pen(
+        targetDisplayPoint.x / 1022,
+        1 - targetDisplayPoint.y / 1022,
+        dummyPenRadius / 1022,
+        false,
+      );
+      if (detected) {
+        stopCaptured = runUntil(
+          () => hasOctalBit(
+            machine.memory_word(0o011426, machine.simulated_time).value,
+            0o40,
+          ),
+          5,
+          1,
+        );
+      }
+    }
+    assert.equal(stopCaptured, true, "sequence 47 must capture Q1.6 at the endpoint");
+    machine.set_light_pen(
+      targetDisplayPoint.x / 1022,
+      1 - targetDisplayPoint.y / 1022,
+      dummyPenRadius / 1022,
+      true,
+    );
+    let enteredStopMoving = runUntil(
+      () => inStopMovingEntry()
+        || octal(machine.memory_word(0o024114, machine.simulated_time).value)
+          === "000114000114",
+      20,
+      100,
+    );
+    if (!enteredStopMoving) {
+      machine.set_light_pen(
+        targetDisplayPoint.x / 1022,
+        1 - targetDisplayPoint.y / 1022,
+        dummyPenRadius / 1022,
+        false,
+      );
+      enteredStopMoving = runUntil(
+        () => inStopMovingEntry()
+          || octal(machine.memory_word(0o024114, machine.simulated_time).value)
+            === "000114000114",
+        280,
+        100,
+      );
+    }
+    if (!enteredStopMoving) {
+      console.error(JSON.stringify({
+        failure: "Q1.6 STOPMOVEP entry",
+        constraintAddress: octal(
+          precreatedPerpendicularConstraint.constraintAddress,
+          6,
+        ),
+        targetIndex: octal(targetIndex, 6),
+        control: machine.control_state(),
+        externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
+        switch2: octal(machine.memory_word(0o011426, machine.simulated_time).value),
+        button47: octal(machine.memory_word(0o011404, machine.simulated_time).value),
+        button76: octal(machine.memory_word(0o011405, machine.simulated_time).value),
+        atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+        primary: octal(machine.memory_word(0o200045, machine.simulated_time).value),
+        penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+        movingHead: octal(machine.memory_word(0o024114, machine.simulated_time).value),
+        sequenceRegisters: sequenceRegisters(),
+        raisedFlags: raisedFlags(),
+        display: Object.fromEntries([0o200031, 0o200032, 0o200033, 0o200034, 0o200035,
+          0o200036, 0o377725].map((address) => [octal(address, 6),
+          octal(machine.memory_word(address, machine.simulated_time).value)])),
+        queue: Array.from({ length: 0o22 }, (_, offset) =>
+          octal(machine.memory_word(0o004127 + offset, machine.simulated_time).value)),
+      }, null, 2));
+    }
+    assert.equal(enteredStopMoving, true,
+      "Q1.6 must enter STOPMOVEP while the endpoint remains selected");
+    setCommand(1, 6, false);
+    machine.set_light_pen(
+      targetDisplayPoint.x / 1022,
+      1 - targetDisplayPoint.y / 1022,
+      dummyPenRadius / 1022,
+      false,
+    );
+    let enteredAttachmentStop = false;
+    const attachmentStopTrace = [];
+    const attachmentStopDeadline = machine.simulated_time + 200;
+    while (octal(machine.memory_word(0o024114, machine.simulated_time).value)
+      !== "000114000114" && machine.simulated_time < attachmentStopDeadline) {
+      const state = machine.control_state();
+      enteredAttachmentStop ||= state.sequence === 0o76
+        && state.instruction_address >= 0o006040
+        && state.instruction_address <= 0o006500;
+      if (enteredAttachmentStop) {
+        machine.set_light_pen(
+          targetDisplayPoint.x / 1022,
+          1 - targetDisplayPoint.y / 1022,
+          dummyPenRadius / 1022,
+          false,
+        );
+      }
+      if (state.sequence === 0o76
+        && state.instruction_address >= 0o006000
+        && state.instruction_address <= 0o006500
+        && attachmentStopTrace.length < 500) {
+        attachmentStopTrace.push({
+          state,
+          atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+          selections: Array.from({ length: 3 }, (_, offset) =>
+            octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+          indexes: [0o1, 0o2, 0o3, 0o7, 0o10].map((index) =>
+            octal(machine.index_register(index) & 0o777777, 6)),
+        });
+      }
+      stepBatch(1);
+    }
+    assert.equal(
+      octal(machine.memory_word(0o024114, machine.simulated_time).value),
+      "000114000114",
+      "lifting the pen at the endpoint must clear the moving list",
+    );
+    assert.ok(runUntil(afterStopMovingCommand, 200, 1),
+      "STOPMOVEP must finish MERGEIFP before the attachment is inspected");
+    const constraintFieldsAfterStop = [0o10, 0o12, 0o14, 0o16].map((offset) =>
+      rightHalf(machine.memory_word(
+        precreatedPerpendicularConstraint.constraintAddress + offset,
+        machine.simulated_time,
+      ).value));
+    const mergedDummyIndexes = constraintFieldsBeforeStop.filter((index) =>
+      !constraintFieldsAfterStop.includes(index));
+    const attachmentSucceeded = constraintFieldsAfterStop.includes(targetIndex)
+      && mergedDummyIndexes.length === 1;
+    if (!attachmentSucceeded) {
+      console.error(JSON.stringify({
+        failure: "P variable merge",
+        selectedDummyIndex: octal(selectedDummyIndex, 6),
+        targetIndex: octal(targetIndex, 6),
+        constraintFieldsBeforeStop: constraintFieldsBeforeStop.map((index) => octal(index, 6)),
+        constraintFieldsAfterStop: constraintFieldsAfterStop.map((index) => octal(index, 6)),
+        lineGeometriesAfterStop: lineAddresses.map((address) =>
+          geometryForReport(lineGeometryAt(address))),
+        attachmentStopTrace,
+      }, null, 2));
+    }
+    assert.equal(attachmentSucceeded, true,
+      "MERGER must replace one P variable with the selected flange point");
+    const mergedDummyIndex = mergedDummyIndexes[0];
+    attachedDummyIndexes.add(mergedDummyIndex);
+    assert.ok(runUntil(
+      () => displayPointsForListIndex(mergedDummyIndex).length === 0,
+      100,
+      1_000,
+    ), "the rebuilt display must remove the merged P variable");
+    const detectionsBeforeEndpointReacquire = Number(machine.light_pen_detection_count);
+    machine.set_light_pen(
+      targetDisplayPoint.x / 1022,
+      1 - targetDisplayPoint.y / 1022,
+      dummyPenRadius / 1022,
+      true,
+    );
+    assert.ok(runUntil(
+      () => Number(machine.light_pen_detection_count) > detectionsBeforeEndpointReacquire
+        && !machine.memory_word(0o200042, machine.simulated_time).meta,
+      100,
+      1,
+    ), "the tracker must reacquire the endpoint after the P-variable merge");
+    return {
+      selectedDummyIndex: octal(selectedDummyIndex, 6),
+      mergedDummyIndex: octal(mergedDummyIndex, 6),
+      targetPoint: octal(targetPointAddress, 6),
+    };
+  }
+
+  const constraintReports = [];
+  let constraintStartPoint = constraintTargetGroups[0].at(-1).target;
+  for (const attachmentTargetRecords of constraintTargetGroups) {
+    machine.set_toggle_register(0o25, 0o500, 0, 0, constraintCode, false);
+    createPerpendicularConstraint(constraintStartPoint, constraintReports.length === 0);
+    assert.ok(precreatedPerpendicularConstraint,
+      "the perpendicular workflow must retain its precreated P constraint");
+    machine.set_toggle_register(0o25, pointMappingQuarter4, 0, 0, 0, false);
+    runUntilTime(machine.simulated_time + 5);
+    const attachmentTargets = attachmentTargetRecords.map(({ target, targetPointAddress }) => ({
+      targetPointAddress,
+      displayPoint: mapPointToDisplay(target, targetPointAddress),
+    }));
+    machine.set_toggle_register(
+      0o25, constraintEditingQuarter4, 0o400, 0, constraintCode, false,
+    );
+    runUntilTime(machine.simulated_time + 5);
+    stagedPoint = {
+      x: precreatedPerpendicularConstraint.typicalVariableHit.x,
+      y: precreatedPerpendicularConstraint.typicalVariableHit.y,
+    };
+    penPosition = { ...stagedPoint };
+    attachedDummyIndexes = new Set();
+    const attachmentReports = attachmentTargets.map(({ displayPoint, targetPointAddress }) =>
+      attachNextDummy(displayPoint, targetPointAddress));
+    const constraintAddress = precreatedPerpendicularConstraint.constraintAddress;
+    const attachedVariableIndexes = [0o10, 0o12, 0o14, 0o16].map((offset) =>
+      rightHalf(machine.memory_word(constraintAddress + offset, machine.simulated_time).value));
+    assert.equal(attachedDummyIndexes.size, 4,
+      "the original MOVEPOINT and merger paths must attach all four P variables");
+    constraintReports.push({
+      address: octal(constraintAddress, 6),
+      master: octal(
+        rightHalf(machine.memory_word(constraintAddress, machine.simulated_time).value),
+        6,
+      ),
+      attachmentReports,
+      attachedVariableIndexes: attachedVariableIndexes.map((index) => octal(index, 6)),
+    });
+    if (process.env.DEBUG_COUNTS === "1") {
+      console.error("constraint display state", {
+        constraintCount: constraintReports.length,
+        constraintAddress: octal(constraintAddress, 6),
+        ndisp: octal(machine.memory_word(0o200031, machine.simulated_time).value),
+        sndisp: octal(machine.memory_word(0o200032, machine.simulated_time).value),
+        basicFile: octal(machine.memory_word(0o200033, machine.simulated_time).value),
+        showToggles: octal(machine.memory_word(0o377725, machine.simulated_time).value),
+        sequenceRegisters: sequenceRegisters(),
+      });
+    }
+    constraintStartPoint = penPosition;
+  }
+  const geometryBeforePerpendicularSolve = lineAddresses.map((address) => lineGeometryAt(address));
+  const signedWord = (value) => value >= 2 ** 35 ? -(2 ** 36 - 1 - value) : value;
+  const vector = (geometry) => ({
+    x: signedWord(geometry.second[0]) - signedWord(geometry.first[0]),
+    y: signedWord(geometry.second[1]) - signedWord(geometry.first[1]),
+  });
+  const perpendicularity = (geometry) => {
+    const vectors = geometry.map(vector);
+    return constraintPairIndexes.map(([firstIndex, secondIndex]) => {
+      const firstVector = vectors[firstIndex];
+      const secondVector = vectors[secondIndex];
+      const dotProduct = firstVector.x * secondVector.x + firstVector.y * secondVector.y;
+      const cosine = dotProduct / (
+        Math.hypot(firstVector.x, firstVector.y) * Math.hypot(secondVector.x, secondVector.y)
+      );
+      return { firstIndex, secondIndex, firstVector, secondVector, dotProduct, cosine };
+    });
+  };
+  machine.set_toggle_register(0o25, 0o500, 0, 0, constraintCode, false);
+  machine.set_toggle_register(0o20, 0o400, 0, 0, 0, true);
+  let enteredRelax = false;
+  let enteredSolve = false;
+  let completedRelaxPasses = 0;
+  let previousInstructionAddress = -1;
+  const relaxPassMeasurements = [];
+  const requestedRelaxPasses = Number(process.env.RELAX_PASSES ?? "8");
+  const relaxDeadline = machine.simulated_time + 300 * requestedRelaxPasses;
+  while (completedRelaxPasses < requestedRelaxPasses
+    && machine.simulated_time < relaxDeadline) {
+    stepBatch(1);
+    const state = machine.control_state();
+    enteredRelax ||= state.instruction_address === 0o200060;
+    enteredSolve ||= state.instruction_address === 0o013726;
+    if (state.instruction_address === 0o205567
+      && previousInstructionAddress !== 0o205567) {
+      completedRelaxPasses += 1;
+      const cosines = perpendicularity(
+        lineAddresses.map((address) => lineGeometryAt(address)),
+      ).map(({ cosine }) => cosine);
+      relaxPassMeasurements.push({
+        pass: completedRelaxPasses,
+        cosines,
+        maximumAbsoluteCosine: Math.max(...cosines.map(Math.abs)),
+      });
+    }
+    previousInstructionAddress = state.instruction_address;
+  }
+  machine.set_toggle_register(0o20, 0o400, 0, 0, 0, false);
+  assert.equal(enteredRelax, true,
+    "the enabled FIX toggle must call the original RELAX routine for the P constraint");
+  assert.equal(enteredSolve, true,
+    "the P-constraint RELAX path must enter the original SOLVEM expansion");
+  assert.equal(completedRelaxPasses, requestedRelaxPasses,
+    "the held FIX switch must complete each requested original RELAX pass");
+  const geometryAfterPerpendicularSolve = lineAddresses.map((address) => lineGeometryAt(address));
+  const perpendicularResults = perpendicularity(geometryAfterPerpendicularSolve);
+  console.log(JSON.stringify({
+    polyline: polylineReport,
+    constraints: constraintReports,
+    solve: {
+      enteredRelax,
+      enteredSolve,
+      completedRelaxPasses,
+      passes: relaxPassMeasurements,
+      geometryBefore: geometryBeforePerpendicularSolve.map(geometryForReport),
+      geometryAfter: geometryAfterPerpendicularSolve.map(geometryForReport),
+      perpendicularResults,
+    },
+    alarm: machine.last_alarm,
+  }, null, 2));
+  assert.ok(perpendicularResults.every(({ cosine }) => Math.abs(cosine) < 0.001),
+    "the original P constraints and RELAX solver must make adjacent lines perpendicular");
+  process.exit(0);
+}
+
 if (process.env.CONSTRAINT_ONLY !== "1" && process.env.CIRCLE_ONLY !== "1") console.log(JSON.stringify({
   simulatedSeconds: machine.simulated_time,
   scopePoints,
@@ -1254,10 +3316,10 @@ assert.ok(reachedReadit || queueAfter === 0, "sequence 76 must consume the DRAW 
 if (process.env.CIRCLE_ONLY === "1") {
   phase = "designate-center";
   const designationStateBefore = {
-    dests: octal(machine.memory_word(0o011413, machine.simulated_time).value),
+    dests: octal(machine.memory_word(0o011411, machine.simulated_time).value),
     printedDestsAddress: machine.memory_word(0o011444, machine.simulated_time),
-    ccent: octal(machine.memory_word(0o011411, machine.simulated_time).value),
-    page1: machine.memory_word(0o011425, machine.simulated_time),
+    ccent: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+    page1: machine.memory_word(0o011423, machine.simulated_time),
     e: octal(machine.memory_word(0o377610, machine.simulated_time).value),
   };
   const deadHeaderBefore = Array.from({ length: 0o10 }, (_, offset) => ({
@@ -1310,8 +3372,8 @@ if (process.env.CIRCLE_ONLY === "1") {
       buttonTrace.push({
         state,
         externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
-        button: octal(machine.memory_word(0o011406, machine.simulated_time).value),
-        previous: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+        button: octal(machine.memory_word(0o011405, machine.simulated_time).value),
+        previous: octal(machine.memory_word(0o011406, machine.simulated_time).value),
         queueIndex: machine.index_register(0o47),
       });
     }
@@ -1334,7 +3396,7 @@ if (process.env.CIRCLE_ONLY === "1") {
     if (
       commandPressed
       && !commandCaptured
-      && hasOctalBit(machine.memory_word(0o011406, machine.simulated_time).value, 0o100)
+      && hasOctalBit(machine.memory_word(0o011405, machine.simulated_time).value, 0o100)
     ) {
       commandCaptured = true;
     }
@@ -1371,11 +3433,11 @@ if (process.env.CIRCLE_ONLY === "1") {
         state,
         atBits: octal(atBits),
         selected: octal(machine.memory_word(0o200045, machine.simulated_time).value),
-        ccent: octal(machine.memory_word(0o011411, machine.simulated_time).value),
-        page1: machine.memory_word(0o011425, machine.simulated_time),
+        ccent: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+        page1: machine.memory_word(0o011423, machine.simulated_time),
         lpLost: machine.memory_word(0o200042, machine.simulated_time).meta,
         alpha: machine.index_register(0o01),
-        dests: octal(machine.memory_word(0o011413, machine.simulated_time).value),
+        dests: octal(machine.memory_word(0o011411, machine.simulated_time).value),
         e: octal(machine.memory_word(0o377610, machine.simulated_time).value),
       });
     }
@@ -1388,7 +3450,7 @@ if (process.env.CIRCLE_ONLY === "1") {
   if (
     !enteredDesignate
     || !returnedFromDesignate
-    || !machine.memory_word(0o011425, machine.simulated_time).meta
+    || !machine.memory_word(0o011423, machine.simulated_time).meta
   ) {
     console.error(JSON.stringify({
       failure: "Q1.7 did not complete DESIGNATE",
@@ -1403,8 +3465,8 @@ if (process.env.CIRCLE_ONLY === "1") {
       buttonTrace,
       trace,
       control: machine.control_state(),
-      button: octal(machine.memory_word(0o011406, machine.simulated_time).value),
-      previous: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+      button: octal(machine.memory_word(0o011405, machine.simulated_time).value),
+      previous: octal(machine.memory_word(0o011406, machine.simulated_time).value),
     }, null, 2));
   }
 
@@ -1412,9 +3474,9 @@ if (process.env.CIRCLE_ONLY === "1") {
     "the reconstruction must supply the no-old-center sentinel");
   assert.equal(enteredDesignate, true, "Q1.7 must enter the original DESIGNATE routine");
   assert.equal(returnedFromDesignate, true, "the original DESIGNATE routine must return");
-  assert.equal(machine.memory_word(0o011425, machine.simulated_time).meta, true,
+  assert.equal(machine.memory_word(0o011423, machine.simulated_time).meta, true,
     "DESIGNATE must set the original DESIGNATED metabit");
-  assert.notEqual(machine.memory_word(0o011411, machine.simulated_time).value, 0,
+  assert.notEqual(machine.memory_word(0o011407, machine.simulated_time).value, 0,
     "DESIGNATE must store the assembly-created center point in CCENT");
   assert.deepEqual(
     Array.from({ length: 0o10 }, (_, offset) =>
@@ -1460,7 +3522,7 @@ if (process.env.CIRCLE_ONLY === "1") {
     if (
       drawPressed
       && !drawCaptured
-      && hasOctalBit(machine.memory_word(0o011406, machine.simulated_time).value, 0o200)
+      && hasOctalBit(machine.memory_word(0o011405, machine.simulated_time).value, 0o200)
     ) {
       drawCaptured = true;
     }
@@ -1491,8 +3553,8 @@ if (process.env.CIRCLE_ONLY === "1") {
       drawReleased,
       circleCommandAddresses: [...circleCommandAddresses],
       externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
-      button: octal(machine.memory_word(0o011406, machine.simulated_time).value),
-      previous: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+      button: octal(machine.memory_word(0o011405, machine.simulated_time).value),
+      previous: octal(machine.memory_word(0o011406, machine.simulated_time).value),
       queue: octal(machine.memory_word(0o004127, machine.simulated_time).value),
       flags: raisedFlags(),
       control: machine.control_state(),
@@ -1612,12 +3674,13 @@ if (process.env.CIRCLE_ONLY === "1") {
     centerY,
     enteredDesignate,
     returnedFromDesignate,
+    designationTrace: process.env.DESIGNATION_TRACE === "1" ? trace : undefined,
     atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
     selected: octal(machine.memory_word(0o200045, machine.simulated_time).value),
-    ccent: octal(machine.memory_word(0o011411, machine.simulated_time).value),
-    page1: machine.memory_word(0o011425, machine.simulated_time),
+    ccent: octal(machine.memory_word(0o011407, machine.simulated_time).value),
+    page1: machine.memory_word(0o011423, machine.simulated_time),
     externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
-    buttonQueue: [0o004127, 0o011406, 0o011407, 0o011410].map((address) => ({
+    buttonQueue: [0o004127, 0o011405, 0o011406, 0o011410].map((address) => ({
       address: octal(address, 6),
       word: octal(machine.memory_word(address, machine.simulated_time).value),
     })),
@@ -1676,6 +3739,79 @@ if (process.env.CIRCLE_ONLY === "1") {
     },
     control: machine.control_state(),
   }, null, 2));
+  process.exit(0);
+}
+
+if (process.env.CONSTRAINT_ONLY === "1" && process.env.MAKECON_ONLY === "1") {
+  assert.equal(selectedCommand, "2.8", "MAKECON_ONLY requires SELECT_COMMAND=2.8");
+  machine.set_light_pen(firstX, firstY, 26 / 1022, true);
+  assert.ok(
+    runUntil(
+      () => !machine.memory_word(0o200042, machine.simulated_time).meta
+        && machine.memory_word(0o200044, machine.simulated_time).value === 0,
+      200,
+      2_000,
+    ),
+    "MAKECONS requires a tracked pen with no selected drawing object",
+  );
+
+  const beforeList = machine.memory_word(0o024000, machine.simulated_time).value;
+  const beforeMemory = snapshot();
+  const commandAddresses = new Set();
+  const commandDeadline = machine.simulated_time + 20;
+  setSelectedCommand(true);
+  const commandPressed = true;
+  while (
+    machine.memory_word(0o024000, machine.simulated_time).value === beforeList
+    && machine.simulated_time < commandDeadline
+  ) {
+    const state = machine.control_state();
+    if (state.sequence === 0o76) commandAddresses.add(octal(state.instruction_address, 6));
+    stepBatch(1);
+    assert.equal(machine.alarm_active, false, machine.last_alarm);
+  }
+  setSelectedCommand(false);
+  assert.equal(commandPressed, true, "Q2.8 must be pressed during the original input scan");
+  runUntilTime(machine.simulated_time + 20);
+  let attachmentProbe = null;
+  if (process.env.ATTACH_PROBE === "1") {
+    machine.set_external_input_register(0, 0, 0, 0o40, false);
+    runUntil(
+      () => octal(machine.memory_word(0o024114, machine.simulated_time).value)
+        === "000114000114",
+      200,
+      1,
+    );
+    machine.set_external_input_register(0, 0, 0, 0, false);
+    runUntilTime(machine.simulated_time + 20);
+    machine.set_toggle_register(0o25, 0o610, 0o400, 0, constraintCode, false);
+    machine.set_light_pen(finalX, finalY, 26 / 1022, true);
+    runUntilTime(machine.simulated_time + 20);
+    attachmentProbe = {
+      atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+      selections: Array.from({ length: 8 }, (_, offset) =>
+        octal(machine.memory_word(0o200045 + offset, machine.simulated_time).value)),
+      movingHeader: octal(machine.memory_word(0o024114, machine.simulated_time).value),
+    };
+  }
+  const afterList = machine.memory_word(0o024000, machine.simulated_time).value;
+  const constraintAddress = 0o024000 + Number(beforeList);
+  console.log(JSON.stringify({
+    selectedCommand,
+    constraintCode: octal(constraintCode, 3),
+    beforeList: octal(beforeList),
+    afterList: octal(afterList),
+    allocatedWords: Number(afterList) - Number(beforeList),
+    constraintAddress: octal(constraintAddress, 6),
+    constraintWords: Array.from({ length: Math.min(0o24, Number(afterList) - Number(beforeList)) },
+      (_, offset) => octal(machine.memory_word(constraintAddress + offset, machine.simulated_time).value)),
+    commandAddresses: [...commandAddresses],
+    attachmentProbe,
+    listChanges: changes(beforeMemory, snapshot()),
+    control: machine.control_state(),
+    alarm: machine.last_alarm,
+  }, null, 2));
+  assert.ok(afterList > beforeList, "Q2.8 with a valid constraint code must allocate a constraint");
   process.exit(0);
 }
 

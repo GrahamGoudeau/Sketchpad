@@ -45,3 +45,33 @@ export function drawKeyTransitions(held) {
 export function drawCanStart(penActive, penInitialized) {
   return penActive && penInitialized;
 }
+
+export function sketchpadToggleState({
+  drawCycle,
+  solve,
+  showBlocks,
+  showConstraints,
+  showPoints,
+  showTypicalVariables,
+  suppressLines,
+  constraintCode,
+}) {
+  if (!Number.isInteger(constraintCode) || constraintCode < 0 || constraintCode > 0o777) {
+    throw new RangeError("the Sketchpad constraint code must fit one TX-2 quarter");
+  }
+  let register25Quarter4 = 0;
+  if (showBlocks) register25Quarter4 |= 0o400;
+  if (showConstraints) register25Quarter4 |= 0o200;
+  if (showPoints) register25Quarter4 |= 0o100;
+  if (suppressLines) register25Quarter4 |= 0o010;
+  return {
+    register20: {
+      quarters: [drawCycle ? 0o400 : 0, 0, 0, 0],
+      meta: solve,
+    },
+    register25: {
+      quarters: [register25Quarter4, showTypicalVariables ? 0o400 : 0, 0, constraintCode],
+      meta: false,
+    },
+  };
+}

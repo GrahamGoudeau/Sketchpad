@@ -4,6 +4,7 @@ import {
   HeldControls,
   drawCanStart,
   drawKeyTransitions,
+  sketchpadToggleState,
 } from "../web/external-input.js";
 
 const controls = new HeldControls();
@@ -29,4 +30,29 @@ assert.equal(drawCanStart(true, false), false);
 assert.equal(drawCanStart(true, true), true,
   "transient assembly tracking misses must not suppress the physical D button");
 
-console.log("external input ownership and draw release passed");
+assert.deepEqual(sketchpadToggleState({
+  drawCycle: true,
+  solve: false,
+  showBlocks: true,
+  showConstraints: false,
+  showPoints: true,
+  showTypicalVariables: true,
+  suppressLines: true,
+  constraintCode: 0o37,
+}), {
+  register20: { quarters: [0o400, 0, 0, 0], meta: false },
+  register25: { quarters: [0o510, 0o400, 0, 0o37], meta: false },
+}, "the browser must reproduce the verified P-constraint console state exactly");
+
+assert.throws(() => sketchpadToggleState({
+  drawCycle: true,
+  solve: false,
+  showBlocks: true,
+  showConstraints: false,
+  showPoints: false,
+  showTypicalVariables: false,
+  suppressLines: false,
+  constraintCode: 0o1000,
+}), /fit one TX-2 quarter/);
+
+console.log("external input ownership, draw release, and toggle mapping passed");

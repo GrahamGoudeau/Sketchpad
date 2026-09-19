@@ -43,7 +43,8 @@ The active reconstruction now assembles all eight historical jobs.  Its
 browser runtime executes seven compatible jobs plus one separate, documented
 inferred initialization word.  Automated emulator runs prove original
 assembly paths for line creation, circle-arc creation, selection, one
-horizontal-or-vertical constraint, `RELAX`, `FIXIT`, and `UNFIX`.  Browser code
+horizontal-or-vertical constraint, the four-point `P` constraint, a closed
+six-edge perpendicular flange, `RELAX`, `FIXIT`, and `UNFIX`.  Browser code
 supplies TX-2 device state.  It does not create or solve geometry.  The current
 runtime is at [sketchpad.acyclic.sh](https://sketchpad.acyclic.sh/).
 

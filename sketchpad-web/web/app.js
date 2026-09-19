@@ -13,7 +13,8 @@ import {
   HeldControls,
   drawCanStart,
   drawKeyTransitions,
-} from "./external-input.js?v=20260917-22";
+  sketchpadToggleState,
+} from "./external-input.js?v=20260919-1";
 import {
   captureFileName,
   isCaptureShortcut,
@@ -46,6 +47,10 @@ const drawCycleToggle = document.querySelector("#draw-cycle-toggle");
 const solveToggle = document.querySelector("#solve-toggle");
 const showBlocksToggle = document.querySelector("#show-blocks-toggle");
 const showConstraintsToggle = document.querySelector("#show-constraints-toggle");
+const showPointsToggle = document.querySelector("#show-points-toggle");
+const showTypicalVariablesToggle = document.querySelector("#show-typical-variables-toggle");
+const suppressLinesToggle = document.querySelector("#suppress-lines-toggle");
+const constraintTypeSelect = document.querySelector("#constraint-type");
 const captureButton = document.querySelector("#capture-toggle");
 const captureDownloadButton = document.querySelector("#capture-download");
 const captureStatus = document.querySelector("#capture-status");
@@ -56,18 +61,18 @@ const commandButtons = new Map([
   ["1.3", { name: "ERASE" }],
   ["1.4", { name: "POINTSOUT" }],
   ["1.5", { name: "PICOUT" }],
-  ["1.6", { name: "STOPMOVEP" }],
+  ["1.6", { name: "STOPMOVEP", shortcut: "S" }],
   ["1.7", { name: "DESIGNATE" }],
   ["1.8", { name: "STARTDRAW", shortcut: "D" }],
   ["1.9", { name: "CPY1" }],
-  ["2.1", { name: "MOVEPOINT" }],
+  ["2.1", { name: "MOVEPOINT", shortcut: "M" }],
   ["2.2", { name: "DESIGIT" }],
   ["2.3", { name: "DUMMY" }],
   ["2.4", { name: "SUBPIC" }],
   ["2.5", { name: "CPY2" }],
   ["2.6", { name: "MAKPATA" }],
   ["2.7", { name: "UNFIX", shortcut: "U" }],
-  ["2.8", { name: "MAKECONS" }],
+  ["2.8", { name: "MAKECONS", shortcut: "C" }],
   ["2.9", { name: "TRUEUP", shortcut: "T" }],
   ["3.1", { name: "CPY3" }],
   ["3.2", { name: "MAKETEXT" }],
@@ -79,6 +84,7 @@ const commandButtons = new Map([
   ["4.4", { name: "UNMAC" }],
   ["4.5", { name: "ORDSTARTW" }],
   ["4.6", { name: "ORDSTARTB" }],
+  ["4.9", { name: "HOLD", shortcut: "H" }],
 ]);
 
 for (const quarter of [4, 3, 2, 1]) {
@@ -120,9 +126,13 @@ const heldExternalButtons = new HeldControls();
 const heldShortcutCodes = new Set();
 const keyboardButtons = new Map([
   ["KeyD", externalButtons.find((button) => button.dataset.command === "STARTDRAW")],
+  ["KeyS", externalButtons.find((button) => button.dataset.command === "STOPMOVEP")],
+  ["KeyM", externalButtons.find((button) => button.dataset.command === "MOVEPOINT")],
+  ["KeyC", externalButtons.find((button) => button.dataset.command === "MAKECONS")],
   ["KeyT", externalButtons.find((button) => button.dataset.command === "TRUEUP")],
   ["KeyF", externalButtons.find((button) => button.dataset.command === "FIXIT")],
   ["KeyU", externalButtons.find((button) => button.dataset.command === "UNFIX")],
+  ["KeyH", externalButtons.find((button) => button.dataset.command === "HOLD")],
 ]);
 
 const machineWorker = new Worker(new URL("./machine-worker.js?v=20260917-22", import.meta.url), {
@@ -446,20 +456,16 @@ function applyExternalInputRegister() {
 }
 
 function toggleRegisterState() {
-  const register20Quarter4 = drawCycleToggle.checked ? 0o400 : 0;
-  let register25Quarter4 = 0;
-  if (showBlocksToggle.checked) register25Quarter4 |= 0o400;
-  if (showConstraintsToggle.checked) register25Quarter4 |= 0o200;
-  return {
-    register20: {
-      quarters: [register20Quarter4, 0, 0, 0],
-      meta: solveToggle.checked,
-    },
-    register25: {
-      quarters: [register25Quarter4, 0, 0, 0],
-      meta: false,
-    },
-  };
+  return sketchpadToggleState({
+    drawCycle: drawCycleToggle.checked,
+    solve: solveToggle.checked,
+    showBlocks: showBlocksToggle.checked,
+    showConstraints: showConstraintsToggle.checked,
+    showPoints: showPointsToggle.checked,
+    showTypicalVariables: showTypicalVariablesToggle.checked,
+    suppressLines: suppressLinesToggle.checked,
+    constraintCode: Number(constraintTypeSelect.value),
+  });
 }
 
 function applyToggleRegisters() {
@@ -471,6 +477,14 @@ function holdExternalButton(button, owner, held) {
   const effectiveHeld = heldExternalButtons.has(button);
   button.classList.toggle("held", effectiveHeld);
   button.setAttribute("aria-pressed", String(effectiveHeld));
+  applyExternalInputRegister();
+}
+
+function releaseDrawStopLatch() {
+  const stopButton = externalButtons.find((button) => button.dataset.command === "STOPMOVEP");
+  heldExternalButtons.set(stopButton, "shortcut:KeyD", false);
+  stopButton.classList.toggle("held", heldExternalButtons.has(stopButton));
+  stopButton.setAttribute("aria-pressed", String(heldExternalButtons.has(stopButton)));
   applyExternalInputRegister();
 }
 
@@ -782,6 +796,10 @@ for (const input of [
   solveToggle,
   showBlocksToggle,
   showConstraintsToggle,
+  showPointsToggle,
+  showTypicalVariablesToggle,
+  suppressLinesToggle,
+  constraintTypeSelect,
 ]) {
   input.addEventListener("input", applyToggleRegisters);
 }
@@ -792,6 +810,7 @@ for (const button of externalButtons) {
       return;
     }
     event.preventDefault();
+    if (button.dataset.command !== "STOPMOVEP") releaseDrawStopLatch();
     button.setPointerCapture(event.pointerId);
     holdExternalButton(button, `pointer:${event.pointerId}`, true);
   });
@@ -841,6 +860,7 @@ document.addEventListener("keydown", (event) => {
   if (event.code === "KeyD") {
     requestDrawKey(true);
   } else {
+    releaseDrawStopLatch();
     holdExternalButton(button, `shortcut:${event.code}`, true);
   }
 });

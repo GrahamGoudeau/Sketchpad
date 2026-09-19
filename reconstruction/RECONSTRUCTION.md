@@ -79,9 +79,9 @@ Seven historical jobs form the current compatible machine image.  The load order
 `2XMX`, `GX7A`, `BOO7`, `ONLW`, `APY5`, `LYUO`, and `Y3HT`.  The earlier and
 shorter `OPLW` job is not in this set.  A separate one-word inferred
 initialization tape sets the no-old-designation sentinel used by `DESIGNATE`.
-The merged tape has 12,946 words in 28 blocks.  It starts at octal address
-`200140`.  It is 78,156 bytes.  Its SHA-256 is
-`5d78aba492c87a7e3a6935c785bff1437e6a29ef03ff151f2083de1172066fcf`.
+The merged tape has 12,944 words in 28 blocks.  It starts at octal address
+`200140`.  It is 78,144 bytes.  Its SHA-256 is
+`a149adcf9911a7cc5a12fad351d52840de11e4b44a402a3069b725f199dca0a4`.
 
 The simulator runs this image through WebAssembly.  The executing assembly
 draws `INK`, creates a line, selects it with the emulated light pen, creates a
@@ -262,7 +262,7 @@ file marks it clearly and the log records the alternatives.
 | R059 | `sk2.tx2as:2611` | inferred | Sketchpad part 2, PDF page 62 clips the final `COMBR` line; two earlier copies of the same macro contain the exact line | Restore `¹DPX T|XR LIST+(N)+1` before the macro end. |
 | R060 | `sk2.tx2as:6370` | verified | Sketchpad part 2, PDF page 144; the printed approximation comment reads `-.54433`; the constant ratio is `0.5443300000` | Read the comment `-.5433` as `-.54433`. |
 | R061 | 30 readings and three page boundaries in `sk.tx2as` and `sk2.tx2as` | verified | 400-600-DPI views of Part 1 PDF pages 7, 18, 23, 34, 56, 101, and 134 and Part 2 PDF pages 4-7, 11, 15-16, 34-35, 60, 62-63, 107, 118, and 144; repeated definitions and paired control flow | Remove stale uncertainty notes.  Record that the OPLW numbering skips page 011 without losing source statements. |
-| R062 | `2xmx-runtime-init.tx2as`, current `DESTS` address `011413` | inferred | Part 1 PDF pages 8, 23, 35, and 49-50; `DESTS` is automatic storage; first `DESIGNATE` exchanges zero `CCENT` into alpha and calls `DELETE`; `DELETE` has no object-zero guard; a one sentinel takes the no-old-center branch | Add a separate, explicit runtime initialization tape that writes one to `DESTS`.  Do not hide this inferred value in the emulator or alter the scanned listing. |
+| R062 | `2xmx-runtime-init.tx2as`, current `DESTS` address `011411` | inferred | Part 1 PDF pages 8, 23, 35, and 49-50; `DESTS` is automatic storage; first `DESIGNATE` exchanges zero `CCENT` into alpha and calls `DELETE`; `DELETE` has no object-zero guard; a one sentinel takes the no-old-center branch | Add a separate, explicit runtime initialization tape that writes one to `DESTS`.  Do not hide this inferred value in the emulator or alter the scanned listing.  R071 reduces the 2XMX image by two words and moves this automatic symbol from the former reconstructed address `011413`. |
 | R063 | `sk2.tx2as:6008` | verified | High-resolution view of Sketchpad part 2, PDF page 137; the printed word has the same comma pattern as the earlier `{-0,400,,-0,400}` word | Remove the extra comma before the final `400`.  M4 now reuses the earlier RC word and restores every later Y3HT RC address. |
 | R064 | `sk2.tx2as:6099` | verified | High-resolution view of Sketchpad part 2, PDF page 139; the printed operand clearly reads `LMEND+1`; adjacent calls use the same coordinate-pair form | Read `LMEND1` as `LMEND+1`.  This removes the false automatic symbol and one Y3HT RC word. |
 | R065 | `sk2.tx2as:6175` | inferred | Operator recording; complete unit-60 sweep; `LMAG4` trace; TX-2 Users Handbook pages 3-62 and 3-63 | Send a boundary-key divide overflow to `LMAG5`, which tests the real endpoints, instead of discarding the display file before those tests. |
@@ -271,6 +271,8 @@ file marks it clearly and the log records the alternatives.
 | R068 | `sk2.tx2as:2510-2518,5146-5154` | verified | 500-DPI renders of Sketchpad part 2, PDF pages 61 and 118; every masked GETIX operand uses the printed logical-AND glyph; the Part 1 copy uses the same operation | Read the 18 masks as `and(370,)`, not `xor(370,)`.  The APY5 and Y3HT metadata lookups now retain the intended three-bit field and resolve `TUPLE` and `VARLOC` to record constants instead of solver instructions. |
 | R069 | `sk.tx2as:6723` | verified | 500-DPI render of Sketchpad part 1, PDF page 152; the dispatch table prints `hJMP HOVSCOMP` at octal address `023771` between `PRLCOMP` and `IBVERTCOMP` | Restore the omitted HOV dispatch entry.  HOV constraints now call their comparison routine instead of the following independent-variable routine. |
 | R070 | `sk2.tx2as:2886` | verified | 500-DPI render of Sketchpad part 2, PDF page 68 (document page 218); the operand clearly reads `x1|x3`; adjacent matrix operations use the same indexed form | Remove the extra transcribed `S` and `beta` symbols from the `LDA x1|x3` operand.  `SLVAD2` now loads the next matrix term instead of executable memory, preserves the free coordinate, completes both solver passes, and returns from `RELAX`. |
+| R071 | `sk.tx2as:1844` | verified | 600-DPI render of Sketchpad part 1, PDF page 42 (document page 40); the macro argument has the round `0` form; the `LTAKE` definition addresses a list key at offset `N` and its link at `N+1`; an assembly trace shows `alpha` addresses the following field and leaves the deleted dummy in the picture ring | Read `LTAKE alpha×beta` as `LTAKE 0×beta`.  `MERGER` now removes the current duplicate list membership instead of the following field when it joins a typical variable to a real point. |
+| R072 | `sk2.tx2as:3740` | verified | 220-DPI render of Sketchpad part 2, PDF page 89 (document page 239); the final `STAE` operation reads `STD`; the `D` matches the `LDD` operation in the preceding `LDAE` macro; all three other surviving `STAE` definitions store A, B, C, and D in order | Read `STA A+D` as `STD A+D`.  The LYUO selector now preserves an object's packed identity when it moves the second of two nearby-object records into the first slot. |
 
 ## Publication Gate
 

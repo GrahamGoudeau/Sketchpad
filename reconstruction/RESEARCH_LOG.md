@@ -3512,6 +3512,23 @@ connected polyline, select code `37`, attach each four-point constraint to an
 adjacent line pair, run `RELAX`, and verify the final right angles. Each stage
 needs an assembly-level regression before it becomes a named browser control.
 
+The spoken phrase "mutually perpendicular" was the important research clue.
+It comes from Alan Kay's commentary in *The History of the Personal
+Workstation* on May 27, 1986. Kay speaks over what he identifies as the
+earliest known Sketchpad film, made in the summer of 1962. The relevant clip
+is preserved in the YouTube upload at
+`https://youtu.be/5RyU50qbvzQ`. The New Media Reader identifies the 1986 talk
+and date at `https://www.newmediareader.com/cd_samples/Kay/index.html`.
+
+The phrase rules out the one-line HOV shortcut and directs the search toward a
+relationship between lines. More than two lines cannot all be pairwise
+perpendicular in a plane. The useful operational reading is therefore a set
+of pairwise constraints between adjacent edges. That reading matches the
+four-point `P` constraint, its `PRLCOMP` comparison routine, and the visible
+result in the demonstration. The surviving assembly then supplies the more
+precise fact that `P` selects the nearer perpendicular or parallel relation
+from the rough geometry.
+
 The RELAX trace instrument no longer appears on the simulator page. It now
 lives at the separate `/relax.html` research route. The simulator page contains
 only the running machine, its console, and its operator guide.
@@ -3520,3 +3537,94 @@ Commit `0ef461e` was pushed to `main`. Production release
 `20260917T205012Z` deployed to `https://sketchpad.acyclic.sh/`. Caddy validated
 and reloaded. Live HTTP and Chrome checks confirm that the simulator page has
 no RELAX instrument and that `/relax.html` contains the instrument.
+
+## Checkpoint 80: Complete Assembly-Level Perpendicular Flange
+
+Date: 2026-09-19
+
+The complete six-edge demonstration now works through the reconstructed
+assembly. The regression draws six connected lines and closes the last point
+onto the first point. It then creates six octal `37` P constraints through
+Q2.8 `MAKECONS`. For each constraint it moves four typical variables through
+Q2.1 `MOVEPOINT`, retains movement with Q4.9 `HOLD`, and merges them onto the
+four line endpoints through Q1.6 `STOPMOVEP` and `MERGER`. This gives 24
+observed variable-to-point merges. The host supplies only light-pen position,
+external-input bits, and manual-toggle state. It does not write model memory
+or calculate a solved coordinate.
+
+Two scan repairs were necessary. R071 reads the Part 1 PDF page 42 macro call
+as `LTAKE 0×beta`. A 600-DPI view shows the round zero form. The known call on
+the next page uses the same glyph. The macro structure also requires the
+current membership at offset zero. The former `alpha×beta` reading removed a
+following field and left the duplicate typical variable in the picture ring.
+R072 reads the final store in the Part 2 PDF page 89 `STAE` macro as
+`STD A+D`. The preceding `LDAE` macro and the other three copies of `STAE`
+confirm the A, B, C, D sequence.
+
+R071 shortens the assembled 2XMX job by two words. The current automatic
+addresses are `47BUT=011404`, `76BUT=011405`, `76TABLE=011406`,
+`CCENT=011407`, `DESTS=011411`, `PAGE1=011423`, `SWITCH1=011425`, and
+`SWITCH2=011426`. The separate inferred no-old-center sentinel therefore moves
+from `011413` to `011411`. An A/B run showed that the earlier circle failure
+was not a semantic effect of R071. The old runtime tape wrote the sentinel to
+the stale address. The corrected tape writes it to the current `DESTS` and the
+complete circle regression passes.
+
+The fifth P constraint first exposed an original display scheduling limit.
+The active display grew from octal `001227` words after four constraints to
+octal `002010` and `002142` during the next edit. Sequence 60 then occupied the
+machine long enough to starve the pending sequence-76 edit. The original
+`SUPPLINES` switch is the proper operator control. With lines suppressed while
+handles are attached, the active edit display is octal `000060` words. All six
+constraints then attach. Lines return before solving.
+
+Q1.1 `MOVEPIC` rebuilds the display after each new constraint. Calling it while
+the moving P object remains 56 screen units away from the display center also
+moves the viewport by that amount. The regression now moves the new constraint
+to the physical screen center before it stops the object and calls Q1.1. This
+keeps the endpoints inside the light-pen field. It changes only the emulated
+pen position and console buttons.
+
+The physical `FIX` switch repeats `RELAX` once per display cycle while it stays
+on. A one-pass test incorrectly treated the first intermediate shape as the
+final result. The full regression holds `FIX` for eight completed original
+passes. The maximum absolute cosine between adjacent edges changes as follows:
+
+- pass 1: `0.013934674375653181`
+- pass 2: `0.003971787585054379`
+- pass 3: `0.0009907211381804954`
+- pass 4: `0.00026335592490064837`
+- pass 5: `0.00004612488450321604`
+- pass 6: `0.000028359602955994287`
+- pass 7: `0.00003157868192448485`
+- pass 8: `0.00004559416251433572`
+
+The small rise after pass 6 is fixed-point relaxation behavior. The final
+worst result is about 0.0026 degrees from a right angle. Every pass enters the
+original `RELAX` vector and the original `SOLVEM` expansion. The machine raises
+no alarm.
+
+The browser now exposes the needed physical controls. It adds the P constraint
+letter, `SHOWPOINTS`, `SHOWTPVALS`, and `SUPPLINES` from toggle register 25. It
+names Q4.9 `HOLD`. Keyboard shortcuts operate Q2.8, Q2.1, Q1.6, and Q4.9. A
+Chrome check confirms the controls and the exact verified register state. It
+reports no page errors.
+
+The merged paper tape is 78,144 bytes. Its SHA-256 is
+`a149adcf9911a7cc5a12fad351d52840de11e4b44a402a3069b725f199dca0a4`.
+The assembly-level test commands are `npm run test:perpendicular` and
+`npm run test:flange`. The default GitHub Actions workflow runs both through
+`npm test`.
+
+The checked-in HOV trace was regenerated because the two-word 2XMX reduction
+changes the tape hash, byte count, and absolute simulated times. A normalized
+comparison removes only those three provenance fields. All 104 instruction
+boundaries, machine words, registers, residuals, and final outcomes then match
+the prior trace byte for byte.
+
+The final local gate passes `./build.sh`, `npm test`, and
+`cargo test --locked --workspace`. The web suite includes the prior drawing,
+axis-crossing, tracking-loss, circle, HOV, `FIXIT`, and `UNFIX` regressions
+before it runs the new P and flange cases. The historical tape comparison
+prints expected mismatches because it records older pre-repair artifacts. The
+reader-leader, block, and checksum validator passes for every current tape.

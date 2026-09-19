@@ -8,9 +8,9 @@
 ** center point.  Therefore, the no-old-center sentinel must be one initially.
 **
 ** The printed automatic-symbol table puts DESTS at 011444.  The current M4
-** reconstruction puts it at 011413 because its RC/automatic interleaving is
+** reconstruction puts it at 011411 because its RC/automatic interleaving is
 ** not yet historically exact.  This tape targets the current assembled
 ** address.  Update it when that remaining allocator difference is resolved.
 
- 011413|
+ 011411|
                 1

@@ -6,7 +6,7 @@
   "scripts": {
     "build": "wasm-pack build --target web --out-dir web/pkg --release",
     "dev": "python3 -m http.server 8082 --directory web",
-    "test": "npm run test:display && npm run test:pen && npm run test:input && npm run test:capture && npm run test:worker && npm run test:first-line && npm run test:diagonal && npm run test:axes && npm run test:horizontal && npm run test:vertical && npm run test:vertical-down && npm run test:sweep && npm run test:jump-loss && npm run test:timed-loss && npm run test:timed-draw && npm run test:draw-release && npm run test:circle && npm run test:constraint && npm run test:fix && npm run test:relax-trace && npm run test:relax-viewer",
+    "test": "npm run test:display && npm run test:pen && npm run test:input && npm run test:capture && npm run test:worker && npm run test:first-line && npm run test:diagonal && npm run test:axes && npm run test:horizontal && npm run test:vertical && npm run test:vertical-down && npm run test:sweep && npm run test:jump-loss && npm run test:timed-loss && npm run test:timed-draw && npm run test:draw-release && npm run test:circle && npm run test:constraint && npm run test:fix && npm run test:perpendicular && npm run test:flange && npm run test:relax-trace && npm run test:relax-viewer",
     "test:relax-trace": "node tests/relax-trace.mjs",
     "test:relax-viewer": "node tests/relax-viewer.mjs",
     "test:display": "node tests/scope-model.mjs",
@@ -28,6 +28,8 @@
     "test:draw-release": "TRACK_ONLY=1 SUMMARY_ONLY=1 CROSS_SCOPE_AXES=1 STOP_WITH_BUTTON=1 node tests/assembly-interaction.mjs",
     "test:circle": "CIRCLE_ONLY=1 node tests/assembly-interaction.mjs",
     "test:constraint": "CONSTRAINT_ONLY=1 node tests/assembly-interaction.mjs",
+    "test:perpendicular": "PERPENDICULAR_ONLY=1 CONSTRAINT_CODE=37 MOVEMENT_PATH=horizontal node tests/assembly-interaction.mjs",
+    "test:flange": "PERPENDICULAR_FLANGE=1 CONSTRAINT_CODE=37 MOVEMENT_PATH=horizontal node tests/assembly-interaction.mjs",
     "test:fix": "CONSTRAINT_ONLY=1 SELECT_COMMAND=3.3 node tests/assembly-interaction.mjs"
   }
 }

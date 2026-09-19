@@ -1841,7 +1841,7 @@ MRGR3A@arr@     MOVE|LIST@sub_beta@@arr@LIST@sub_alpha@
 MRGR4@arr@      hLDE @sub_alpha@ LIST
                 @sup_1@ SED { 0}
                 JPQ MRGR5
-                LTAKE@hamb@@alpha@@times@@beta@
+                LTAKE@hamb@0@times@@beta@
                 JPQ MRGRX
 MRGR5@arr@      DPX @sub_beta@ MRGRTS
                 RSX @sub_beta@@sub_pipe@@sub_beta@ LIST+1

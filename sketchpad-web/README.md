@@ -42,7 +42,7 @@ modes, but it does not show a fixed grid on the display.
 The bundled tape contains seven compatible historical Sketchpad jobs and one
 separate inferred initialization word.  Its entry point is octal address
 `200140`.  Its SHA-256 is
-`5d78aba492c87a7e3a6935c785bff1437e6a29ef03ff151f2083de1172066fcf`.
+`a149adcf9911a7cc5a12fad351d52840de11e4b44a402a3069b725f199dca0a4`.
 
 The browser runs the paper tape through the CPU and WebAssembly.  It draws the
 unit-60 output on the canvas.  Pointer motion over the scope always sets the
@@ -80,14 +80,24 @@ search pattern.  It is not a browser-drawn replacement line.
 
 The desktop interface maps a `D` press to external button Q1.8 and the
 recovered `STARTDRAW` routine.  A `D` release removes Q1.8 and holds Q1.6 for
-the recovered `STOPMOVEP` routine.  The next `D` press removes Q1.6 before it
-sets Q1.8 again.  This latch makes a keyboard release into two physical console
-button states.  The original assembly still creates and completes the object.
+the recovered `STOPMOVEP` routine.  The next external-input command removes
+Q1.6.  This latch makes a keyboard release into two physical console button
+states.  The original assembly still creates and completes the object.
 The interface maps `T` to Q2.9 and `TRUEUP`.  It maps `F` to Q3.3 and `FIXIT`.
 It maps `U` to Q2.7 and `UNFIX`.  These shortcuts only change the External
 Input Register.  The complete Q4-Q1 button panel stays available.
 Its button titles name every routine found in the recovered `READIT` dispatch
 table.
+
+The page also exposes the console state required for the historical
+perpendicular-flange operation.  The constraint selector writes octal `37`,
+the letter `P`, into quarter 1 of toggle register 25.  The point, constraint
+handle, and line-suppression controls write `SHOWPOINTS`, `SHOWTPVALS`, and
+`SUPPLINES`.  `C`, `M`, `S`, and `H` operate the physical Q2.8 `MAKECONS`,
+Q2.1 `MOVEPOINT`, Q1.6 `STOPMOVEP`, and Q4.9 `HOLD` inputs.  These controls do
+not write Sketchpad list memory.  The assembly creates the constraints, merges
+their variables with drawing points, and changes the geometry through
+`RELAX`.
 
 `DRAWASFIX` at `377720` bit 4.9 and `SHOWBLKS` at `377725` bit 4.9 are on by
 default.  They keep interactive display and light-pen selection active.  The
@@ -186,6 +196,8 @@ npm run test:assembly
 npm run test:circle
 npm run test:constraint
 npm run test:fix
+npm run test:perpendicular
+npm run test:flange
 npm run test:relax-trace
 ```
 
