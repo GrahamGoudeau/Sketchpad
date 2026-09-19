@@ -3668,3 +3668,7 @@ rendering does not solve, alter, or idealize the geometry.
 
 The two-line P regression retains its prior fixture and passes separately. No
 production code or reconstructed assembly changed in this checkpoint.
+
+Commit `998a0aa` was pushed to `main`. The full deployment gate passed.
+Production release `20260919T235515Z` deployed to
+`https://sketchpad.acyclic.sh/`. Caddy validated and reloaded.
