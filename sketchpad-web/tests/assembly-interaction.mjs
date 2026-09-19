@@ -1947,15 +1947,25 @@ if (polylineMode) {
   assert.equal(stopCompleted, true,
     "the first line must stop before the next polyline action");
 
-  const flangePoints = [
-    { x: 575, y: 575 },
-    { x: 735, y: 575 },
-    { x: 735, y: 675 },
-    { x: 655, y: 675 },
-    { x: 655, y: 775 },
-    { x: 575, y: 775 },
-    { x: 575, y: 575 },
-  ];
+  const flangePoints = perpendicularFlangeMode
+    ? [
+      { x: 575, y: 575 },
+      { x: 735, y: 575 },
+      { x: 742, y: 680 },
+      { x: 650, y: 668 },
+      { x: 662, y: 782 },
+      { x: 570, y: 785 },
+      { x: 575, y: 575 },
+    ]
+    : [
+      { x: 575, y: 575 },
+      { x: 735, y: 575 },
+      { x: 735, y: 675 },
+      { x: 655, y: 675 },
+      { x: 655, y: 775 },
+      { x: 575, y: 775 },
+      { x: 575, y: 575 },
+    ];
   const shapePoints = perpendicularFlangeMode
     ? flangePoints
     : (perpendicularMode ? flangePoints.slice(0, 3) : flangePoints);

@@ -3635,3 +3635,36 @@ reran the complete web suite before upload. Caddy validated and reloaded. A
 live Chrome check confirms the P selector, point display, constraint handles,
 line suppression, running machine state, and zero horizontal overflow. Chrome
 reports no page errors. GitHub Actions run `35474142487` passed.
+
+## Checkpoint 81: Visible Before-and-After Flange Evidence
+
+Date: 2026-09-19
+
+The six-edge flange regression now begins with a deliberately rough outline.
+The first line remains the established horizontal acquisition case. The four
+later vertices are offset from the earlier near-orthogonal fixture. The initial
+maximum corner error is 12.9491 degrees. This makes the solver's movement
+visible without changing the assembly, emulator, toggle state, light-pen path,
+constraint construction, or acceptance threshold.
+
+The complete assembly path passes with this geometry. It creates six line
+records, creates six octal `37` P constraints, performs 24 observed variable
+merges, and completes eight original `RELAX` passes. The maximum absolute
+cosine between adjacent edges changes as follows:
+
+- pass 1: `0.03706170402024794`
+- pass 2: `0.005855485769786467`
+- pass 3: `0.0006383704502322724`
+- pass 4: `0.0001321086828075996`
+- pass 5: `0.000025832712130633823`
+- pass 6: `0.000027345048094650214`
+- pass 7: `0.000033526454591263555`
+- pass 8: `0.000019484792635536042`
+
+The final worst corner is about 0.001116 degrees from a right angle. The
+before-and-after evidence uses the coordinates read from the six TX-2 point
+records immediately before the first pass and after the eighth pass. The
+rendering does not solve, alter, or idealize the geometry.
+
+The two-line P regression retains its prior fixture and passes separately. No
+production code or reconstructed assembly changed in this checkpoint.
