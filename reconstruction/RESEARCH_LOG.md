@@ -3672,3 +3672,32 @@ production code or reconstructed assembly changed in this checkpoint.
 Commit `998a0aa` was pushed to `main`. The full deployment gate passed.
 Production release `20260919T235515Z` deployed to
 `https://sketchpad.acyclic.sh/`. Caddy validated and reloaded.
+
+## Checkpoint 82: Free Rotation and Recorded RELAX Motion
+
+Date: 2026-09-19
+
+The solved flange is perpendicular but is not aligned to the display axes. This
+is expected behavior, not a viewport or emulator fault. Appendix A defines the
+octal `37` P constraint only as a relation between two implied lines: they must
+be parallel or perpendicular. It contains no horizontal, vertical, display, or
+absolute-angle term. Appendix B lists Q2.9 `Horv` as a separate command. The
+reconstructed assembly agrees with this division. `PRLCOMP` compares the two
+relative alternatives through `PPDERR` and `PARAERR`; the HOV path uses its own
+constraint construction.
+
+Six adjacent P constraints therefore remove the relative corner-angle errors
+but leave the whole connected figure free to translate and rotate. They also do
+not require a particular segment length. None of the six lines or points in the
+flange regression is fixed. The original `RELAX` routine consequently settles
+on a nearby orthogonal configuration whose first direction is 2.7246 degrees
+from the display x axis. Adding an HOV constraint or fixing a reference line
+would remove that freedom, but doing so would change the demonstrated problem.
+No such condition was added.
+
+The regression now records the six line geometries at every completed `RELAX`
+pass. The animation contains nine observed TX-2 memory states: the state before
+`RELAX`, then the boundaries after passes 1 through 8. It does not interpolate
+coordinates or substitute a host solver. The large first-pass correction and
+the smaller fixed-point refinements are therefore direct products of the
+reconstructed assembly.

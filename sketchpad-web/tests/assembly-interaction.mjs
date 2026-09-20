@@ -3239,13 +3239,13 @@ if (polylineMode) {
     if (state.instruction_address === 0o205567
       && previousInstructionAddress !== 0o205567) {
       completedRelaxPasses += 1;
-      const cosines = perpendicularity(
-        lineAddresses.map((address) => lineGeometryAt(address)),
-      ).map(({ cosine }) => cosine);
+      const geometry = lineAddresses.map((address) => lineGeometryAt(address));
+      const cosines = perpendicularity(geometry).map(({ cosine }) => cosine);
       relaxPassMeasurements.push({
         pass: completedRelaxPasses,
         cosines,
         maximumAbsoluteCosine: Math.max(...cosines.map(Math.abs)),
+        geometry: geometry.map(geometryForReport),
       });
     }
     previousInstructionAddress = state.instruction_address;
