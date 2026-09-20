@@ -3734,3 +3734,7 @@ The continuous GIF plays these states at eight times emulated time. Each video
 frame selects the newest observed assembly state. It does not interpolate
 coordinates, call a host solver, or change the fixture. A dashed reference
 preserves the initial shape so the correction remains visible.
+
+Commit `f62b666` was pushed to `main`. The full deployment gate passed.
+Production release `20260920T014538Z` deployed to
+`https://sketchpad.acyclic.sh/`. Caddy validated and reloaded.
