@@ -3705,3 +3705,32 @@ reconstructed assembly.
 Commit `af9ac94` was pushed to `main`. The full deployment gate passed.
 Production release `20260920T002444Z` deployed to
 `https://sketchpad.acyclic.sh/`. Caddy validated and reloaded.
+
+## Checkpoint 83: Continuous RELAX Motion
+
+Date: 2026-09-19
+
+A frame-by-frame review of the surviving flange demonstration shows a
+progressive visible correction rather than one hard replacement. In the
+available 29.97-frame-per-second transfer, the main change occupies about
+two-thirds of a second and contains several intermediate shapes. Phosphor
+persistence, camera exposure, and the film-to-video transfer can smooth this
+appearance, so the transfer does not establish exact TX-2 timing.
+
+The visible progression agrees with the documented machine structure. The
+thesis says that relaxation updates variables in sequence and uses the newest
+value immediately. It also says that the TX-2 display operates independently
+of the computation. A display cycle can therefore observe geometry from inside
+a `RELAX` pass rather than only the geometry at a complete-pass boundary.
+
+The flange regression can now record each distinct line geometry observed at
+the original APY5 solution-store path, octal addresses `012163` through
+`012165`. The established rough fixture produces 95 distinct assembly-written
+geometry states across eight complete `RELAX` passes. Its worst corner error
+falls from 12.9491 degrees to 0.001116 degrees. The trace spans 31.8512292
+emulated seconds.
+
+The continuous GIF plays these states at eight times emulated time. Each video
+frame selects the newest observed assembly state. It does not interpolate
+coordinates, call a host solver, or change the fixture. A dashed reference
+preserves the initial shape so the correction remains visible.

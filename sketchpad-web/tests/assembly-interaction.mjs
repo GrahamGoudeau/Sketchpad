@@ -3228,8 +3228,30 @@ if (polylineMode) {
   let completedRelaxPasses = 0;
   let previousInstructionAddress = -1;
   const relaxPassMeasurements = [];
+  const captureRelaxMotion = process.env.RELAX_MOTION_TRACE === "1";
+  const relaxMotionMeasurements = [];
+  const relaxStartedAt = Number(machine.simulated_time);
+  let previousMotionGeometryKey = null;
+  const captureRelaxMotionState = (state, event = "update") => {
+    if (!captureRelaxMotion) return;
+    const geometry = lineAddresses.map((address) => lineGeometryAt(address));
+    const reportedGeometry = geometry.map(geometryForReport);
+    const geometryKey = JSON.stringify(reportedGeometry);
+    if (geometryKey === previousMotionGeometryKey) return;
+    previousMotionGeometryKey = geometryKey;
+    const cosines = perpendicularity(geometry).map(({ cosine }) => cosine);
+    relaxMotionMeasurements.push({
+      event,
+      elapsedSeconds: Number(machine.simulated_time) - relaxStartedAt,
+      completedPasses: completedRelaxPasses,
+      instructionAddress: octal(state.instruction_address, 6),
+      maximumAbsoluteCosine: Math.max(...cosines.map(Math.abs)),
+      geometry: reportedGeometry,
+    });
+  };
   const requestedRelaxPasses = Number(process.env.RELAX_PASSES ?? "8");
   const relaxDeadline = machine.simulated_time + 300 * requestedRelaxPasses;
+  captureRelaxMotionState(machine.control_state(), "before");
   while (completedRelaxPasses < requestedRelaxPasses
     && machine.simulated_time < relaxDeadline) {
     stepBatch(1);
@@ -3247,6 +3269,13 @@ if (polylineMode) {
         maximumAbsoluteCosine: Math.max(...cosines.map(Math.abs)),
         geometry: geometry.map(geometryForReport),
       });
+    }
+    if (state.instruction_address >= 0o012163
+      && state.instruction_address <= 0o012165) {
+      captureRelaxMotionState(state);
+    }
+    if (state.instruction_address === 0o205567) {
+      captureRelaxMotionState(state, "pass-boundary");
     }
     previousInstructionAddress = state.instruction_address;
   }
@@ -3267,6 +3296,7 @@ if (polylineMode) {
       enteredSolve,
       completedRelaxPasses,
       passes: relaxPassMeasurements,
+      motion: relaxMotionMeasurements,
       geometryBefore: geometryBeforePerpendicularSolve.map(geometryForReport),
       geometryAfter: geometryAfterPerpendicularSolve.map(geometryForReport),
       perpendicularResults,
