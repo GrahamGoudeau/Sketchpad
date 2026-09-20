@@ -3798,3 +3798,7 @@ shows assembly-written geometry states, but its time label describes the
 current emulator only. Historical wall-clock claims must wait for the
 instruction-timing repair. No reconstructed assembly word changed in this
 audit.
+
+Commit `90ccc1d` was pushed to `main`. The full deployment gate passed.
+Production release `20260920T020931Z` deployed to
+`https://sketchpad.acyclic.sh/`. Caddy validated and reloaded.
