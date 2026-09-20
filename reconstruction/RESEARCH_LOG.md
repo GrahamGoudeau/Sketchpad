@@ -3701,3 +3701,7 @@ pass. The animation contains nine observed TX-2 memory states: the state before
 coordinates or substitute a host solver. The large first-pass correction and
 the smaller fixed-point refinements are therefore direct products of the
 reconstructed assembly.
+
+Commit `af9ac94` was pushed to `main`. The full deployment gate passed.
+Production release `20260920T002444Z` deployed to
+`https://sketchpad.acyclic.sh/`. Caddy validated and reloaded.
