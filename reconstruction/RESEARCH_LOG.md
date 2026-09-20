@@ -3846,3 +3846,9 @@ valid nearest-axis branches wins. The trace validator now accepts either
 original comparison result and proves the selected axis from the final
 coordinates. The checked-in evidence was regenerated from the corrected
 clock. No reconstructed assembly word changed.
+
+Commit `b5c5615` was pushed to `main`. The full deployment gate passed.
+Production release `20260920T025136Z` deployed to
+`https://sketchpad.acyclic.sh/`. Caddy validated and reloaded. The live release
+symlink names that release. The deployed WASM SHA-256 equals the local build:
+`277b8b60b24cb234de3d7ec6e0a4c1bc8835f231d29bff3c1bb8007c19a87306`.
