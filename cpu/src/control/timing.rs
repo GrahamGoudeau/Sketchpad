@@ -5,7 +5,7 @@
 //!
 //! In the physical TX-2 machine, the operator has some control over
 //! the execution speed of the computer, and eventually we will
-//! accomodate this control, but for now this is not implemented.
+//! accommodate this control, but for now this is not implemented.
 
 use super::memory::*;
 use base::instruction::Opcode;
@@ -39,13 +39,9 @@ pub(crate) fn estimate_instruction_ns(
 ) -> u64 {
     // Units of tenths are tenths of microseconds
     let inst_loaded_from = address_to_memory_type(&inst_from);
-    let mut tenths: u64 = if inst_loaded_from == MemoryType::S {
-        80
-    } else {
-        60
-    };
-    // instruction from : add 20 for T or 40 for S memory
-    tenths += match inst_loaded_from {
+    // The opcode values below are complete T-memory instruction times.
+    // Table 7-8 adds 2 microseconds when the instruction is in S memory.
+    let mut tenths: u64 = match inst_loaded_from {
         MemoryType::V | MemoryType::T => 0,
         MemoryType::S => 20,
     };
@@ -106,10 +102,51 @@ pub(crate) fn estimate_instruction_ns(
     if operand_from == Some(inst_from) || defer_from == Some(inst_from) {
         tenths += 20;
     }
-    if operand_from == defer_from {
+    if operand_from.is_some() && operand_from == defer_from {
         tenths += 20;
     }
 
     // Convert from tenths of a microsecond to nanoseconds.
     tenths * 100
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn address(value: u32) -> Address {
+        Address::from(Unsigned18Bit::try_from(value).expect("test address must fit"))
+    }
+
+    #[test]
+    fn direct_jump_times_match_handbook_table_7_8() {
+        assert_eq!(
+            estimate_instruction_ns(address(0o010000), Opcode::Jmp.number(), None, None),
+            7_600,
+        );
+        assert_eq!(
+            estimate_instruction_ns(address(0o200000), Opcode::Jmp.number(), None, None),
+            5_600,
+        );
+    }
+
+    #[test]
+    fn direct_accumulator_jump_times_match_handbook_table_7_8() {
+        assert_eq!(
+            estimate_instruction_ns(address(0o010000), Opcode::Jpa.number(), None, None),
+            8_000,
+        );
+        assert_eq!(
+            estimate_instruction_ns(address(0o200000), Opcode::Jpa.number(), None, None),
+            6_000,
+        );
+    }
+
+    #[test]
+    fn absent_optional_addresses_do_not_add_a_memory_conflict() {
+        assert_eq!(
+            estimate_instruction_ns(address(0o200000), Opcode::Skx.number(), None, None),
+            8_000,
+        );
+    }
 }

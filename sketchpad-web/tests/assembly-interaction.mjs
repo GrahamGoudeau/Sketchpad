@@ -2289,7 +2289,14 @@ if (polylineMode) {
       1,
     ), "Q2.1 must move one coincident corner point");
     setCommand(2, 1, false);
-    const targetPointIndex = pointIndexes.find((index) => index !== selectedPointIndex);
+    const movingRecordIndex = rightHalf(
+      machine.memory_word(0o024114, machine.simulated_time).value,
+    );
+    const movedPointIndex = pointIndexes.find((index) => index + 0o7 === movingRecordIndex);
+    assert.notEqual(movedPointIndex, undefined,
+      "the MOVINGS ring must identify the acquired corner point");
+    selectedPointIndex = movedPointIndex;
+    const targetPointIndex = pointIndexes.find((index) => index !== movedPointIndex);
     const targetRetained = runUntil(
       () => machine.memory_word(0o200044, machine.simulated_time).value !== 0
         && machine.memory_word(0o200045, machine.simulated_time).value
@@ -2338,7 +2345,11 @@ if (polylineMode) {
     if (process.env.FINE_TRACE === "1") fineAssemblyTrace = true;
     const stopTrace = stopMovingAndWaitForReturn("coincident flange corner");
     fineAssemblyTrace = false;
-    return { selectedPointIndex, targetPointIndex, stopTrace };
+    return {
+      selectedPointIndex,
+      targetPointIndex,
+      stopTrace,
+    };
   }
 
   const mergeCornerCount = perpendicularMode && !perpendicularFlangeMode
@@ -2713,27 +2724,15 @@ if (polylineMode) {
     return selectedIndex;
   }
 
-  function attachNextDummy(targetDisplayPoint, targetPointAddress) {
+  function attachNextDummy(attachmentByDummyIndex) {
     phase = "attach-perpendicular-handle";
-    const targetIndex = targetPointAddress - 0o024000;
+    let targetDisplayPoint = null;
+    let targetPointAddress = null;
+    let targetIndex = null;
     const targetSelectionPublished = () =>
       machine.memory_word(0o200044, machine.simulated_time).value !== 0
       && machine.memory_word(0o200045, machine.simulated_time).value
         === 0o275000000 + targetIndex;
-    if (process.env.DEBUG_STAGES === "1") {
-      console.error("stage: mapped endpoint", octal(targetIndex, 6), targetDisplayPoint);
-      console.error("stage: ring before dummy selection", {
-        externalInput: octal(
-          machine.memory_word(0o377621, machine.simulated_time).value,
-        ),
-        control: machine.control_state(),
-        picture: octal(machine.memory_word(0o025170, machine.simulated_time).value),
-        dummies: precreatedPerpendicularConstraint.dummyAddresses.map((address) => ({
-          address: octal(address + 0o5, 6),
-          link: octal(machine.memory_word(address + 0o5, machine.simulated_time).value),
-        })),
-      });
-    }
     let selectedDummyIndex = null;
     let enteredMovePoint = false;
     let movePointCommandRecorded = false;
@@ -2744,7 +2743,18 @@ if (polylineMode) {
     while (!dummyStartedMoving && moveAttempts < maximumMoveAttempts) {
       moveAttempts += 1;
       movePointCommandRecorded = false;
+      machine.set_light_pen(
+        penPosition.x / 1022,
+        1 - penPosition.y / 1022,
+        dummyPenRadius / 1022,
+        false,
+      );
       setCommand(2, 1, false);
+      assert.ok(runUntil(
+        () => machine.control_state().sequence !== 0o55,
+        40,
+        1,
+      ), "the prior light-pen interrupt must finish before HOLD");
       assert.ok(runUntil(
         () => machine.memory_word(0o011426, machine.simulated_time).value === 0,
         40,
@@ -2814,7 +2824,10 @@ if (polylineMode) {
       }
       assert.equal(movePointCommandRecorded, true,
         "sequence 47 must capture Q2.1");
-      for (let step = 0; step < 1_000 && !dummyStartedMoving; step += 1) {
+      const moveDeadline = machine.simulated_time + 20;
+      for (let step = 0;
+        machine.simulated_time < moveDeadline && !dummyStartedMoving;
+        step += 1) {
         const next = {
           x: stagedPoint.x + handMotion[step % handMotion.length],
           y: stagedPoint.y + handMotion[(step + 2) % handMotion.length],
@@ -2827,7 +2840,19 @@ if (polylineMode) {
         );
         commandPenPoint = next;
         penPosition = next;
-        stepBatch(1_000);
+        const moveState = machine.control_state();
+        if (moveState.sequence === 0o76
+          && moveState.instruction_address >= 0o005400
+          && moveState.instruction_address <= 0o005460
+          && movePointTrace.length < 200) {
+          movePointTrace.push({
+            state: moveState,
+            penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+            atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+            primary: octal(machine.memory_word(0o200045, machine.simulated_time).value),
+          });
+        }
+        stepBatch(20);
         dummyStartedMoving = octal(
           machine.memory_word(0o024114, machine.simulated_time).value,
         ) !== "000114000114";
@@ -2879,6 +2904,24 @@ if (polylineMode) {
     }
     assert.ok(dummyStartedMoving,
       "Q2.1 must put the selected P variable in the original moving list");
+    const movingRecordIndex = rightHalf(
+      machine.memory_word(0o024114, machine.simulated_time).value,
+    );
+    const movedDummyAddress = precreatedPerpendicularConstraint.dummyAddresses.find(
+      (address) => address - 0o024000 + 0o7 === movingRecordIndex,
+    );
+    assert.notEqual(movedDummyAddress, undefined,
+      "the MOVINGS ring must identify the acquired P variable");
+    selectedDummyIndex = movedDummyAddress - 0o024000;
+    const targetRecord = attachmentByDummyIndex.get(selectedDummyIndex);
+    assert.notEqual(targetRecord, undefined,
+      "each acquired P variable must have one endpoint target");
+    ({ displayPoint: targetDisplayPoint, targetPointAddress } = targetRecord);
+    targetIndex = targetPointAddress - 0o024000;
+    attachmentByDummyIndex.delete(selectedDummyIndex);
+    if (process.env.DEBUG_STAGES === "1") {
+      console.error("stage: mapped endpoint", octal(targetIndex, 6), targetDisplayPoint);
+    }
     assert.ok(runUntil(afterMovePointCommand, 300, 1),
       "MOVEPOINT must return before the P variable is dragged");
 
@@ -3174,13 +3217,21 @@ if (polylineMode) {
     };
     penPosition = { ...stagedPoint };
     attachedDummyIndexes = new Set();
-    const attachmentReports = attachmentTargets.map(({ displayPoint, targetPointAddress }) =>
-      attachNextDummy(displayPoint, targetPointAddress));
+    const attachmentByDummyIndex = new Map(
+      precreatedPerpendicularConstraint.dummyAddresses.map((address, index) => [
+        address - 0o024000,
+        attachmentTargets[index],
+      ]),
+    );
+    const attachmentReports = Array.from({ length: 4 }, () =>
+      attachNextDummy(attachmentByDummyIndex));
     const constraintAddress = precreatedPerpendicularConstraint.constraintAddress;
     const attachedVariableIndexes = [0o10, 0o12, 0o14, 0o16].map((offset) =>
       rightHalf(machine.memory_word(constraintAddress + offset, machine.simulated_time).value));
     assert.equal(attachedDummyIndexes.size, 4,
       "the original MOVEPOINT and merger paths must attach all four P variables");
+    assert.equal(attachmentByDummyIndex.size, 0,
+      "each P variable must attach to its corresponding line endpoint");
     constraintReports.push({
       address: octal(constraintAddress, 6),
       master: octal(
@@ -4430,11 +4481,8 @@ if (process.env.CONSTRAINT_ONLY === "1") {
             + "axis; the TX-2 stores a coordinate as one fixed-point word, so the "
             + "word difference is proportional to the coordinate difference while "
             + "both words keep the same scale",
-          constrainedAxis: "x",
-          constrainedAxisNote: "the constraint enters with HOVCODE 0 (EITHER) and the "
-            + "original comparison routine changes it to 1; the measured standard error "
-            + "is the endpoint x difference and the completed solve makes the two observed "
-            + "x words equal, so this trace labels x as the constrained axis",
+          constrainedAxis: null,
+          constrainedAxisNote: null,
         },
       },
       samples: [],
@@ -4620,6 +4668,12 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       },
       fault,
     };
+    const finalHovCode = trace.samples.at(-1).observed.constraint.hovCode;
+    const constrainedAxis = finalHovCode === "000000000001" ? "x" : "y";
+    trace.derived.hovResidual.constrainedAxis = constrainedAxis;
+    trace.derived.hovResidual.constrainedAxisNote = "the constraint enters with HOVCODE 0 "
+      + `(EITHER) and the original comparison routine changes it to ${finalHovCode}; the `
+      + `completed solve makes the two observed ${constrainedAxis} words equal`;
     const crossed = (kind) => trace.samples.some(
       (sample) => sample.boundary.kind === kind,
     );

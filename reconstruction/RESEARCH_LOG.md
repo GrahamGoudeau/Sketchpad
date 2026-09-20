@@ -3802,3 +3802,47 @@ audit.
 Commit `90ccc1d` was pushed to `main`. The full deployment gate passed.
 Production release `20260920T020931Z` deployed to
 `https://sketchpad.acyclic.sh/`. Caddy validated and reloaded.
+
+## Checkpoint 85: Handbook-Based Clock Repair
+
+Date: 2026-09-20
+
+Table 7-8 of the November 1963 TX-2 Users Handbook gives complete measured
+instruction times. It gives direct `JMP` as 7.6 microseconds from S memory and
+5.6 microseconds from T memory. It gives direct `JPA` as 8.0 and 6.0
+microseconds. The inherited emulator treated the opcode values as additions to
+a second 8.0- or 6.0-microsecond base. It also added 2.0 microseconds when both
+optional memory addresses were absent because `None` equaled `None`.
+
+The emulator clock now removes those two clear overcounts. Unit tests pin the
+four handbook `JMP` and `JPA` values. A fifth assertion pins the direct `SKX`
+case and prevents absent addresses from adding a memory conflict. This is a
+narrow correction. The table's full P-memory, deferred-memory, and
+operand-memory combinations remain approximate. The existing deferred-chain
+TODO also remains. Historical wall-clock claims must keep that limitation.
+
+The faster clock exposed two assumptions in the browser regression. Two
+coincident points can alternate as the primary light-pen selection before
+Q2.1 reaches `MOVEPOINT`. The test formerly remembered the earlier selection.
+It now reads the original `MOVINGS` ring after the command and uses the point
+that the assembly actually moved. The four typical P variables also share one
+display location. The flange test now maps the assembly-confirmed moving
+variable to its corresponding constraint field before it drags that variable
+to the correct endpoint. This preserves the order of the four P arguments.
+The host still supplies only light-pen positions, button state, and console
+toggle state.
+
+The six-edge flange again creates six lines, creates six P constraints,
+performs 24 variable merges, and completes eight original `RELAX` passes. The
+eight passes now span 8.5680948 simulated seconds instead of 31.8615192. Pass
+1 takes 1.0873592 seconds. Passes 2 through 8 each take between 1.0398220 and
+1.0754416 seconds. Pass 1 reduces the maximum absolute corner cosine to
+`0.032667266154361704`. Pass 2 reduces it to `0.0004804955506370162`. Pass 8
+ends at `0.000014098140540632801`.
+
+The standalone HOV trace now selects HOV code 2 instead of code 1. Its starting
+line is nearly diagonal. The corrected scheduling changes which of the two
+valid nearest-axis branches wins. The trace validator now accepts either
+original comparison result and proves the selected axis from the final
+coordinates. The checked-in evidence was regenerated from the corrected
+clock. No reconstructed assembly word changed.
