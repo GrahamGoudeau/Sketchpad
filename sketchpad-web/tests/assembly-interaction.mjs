@@ -3231,6 +3231,11 @@ if (polylineMode) {
   const captureRelaxMotion = process.env.RELAX_MOTION_TRACE === "1";
   const relaxMotionMeasurements = [];
   const relaxStartedAt = Number(machine.simulated_time);
+  let previousRelaxPassAt = relaxStartedAt;
+  let relaxTicks = 0;
+  let relaxInstructionTransitions = 0;
+  const relaxSequenceTicks = new Map();
+  const relaxSequenceSeconds = new Map();
   let previousMotionGeometryKey = null;
   const captureRelaxMotionState = (state, event = "update") => {
     if (!captureRelaxMotion) return;
@@ -3254,8 +3259,25 @@ if (polylineMode) {
   captureRelaxMotionState(machine.control_state(), "before");
   while (completedRelaxPasses < requestedRelaxPasses
     && machine.simulated_time < relaxDeadline) {
+    const beforeStep = machine.control_state();
+    const beforeStepTime = Number(machine.simulated_time);
     stepBatch(1);
+    relaxTicks += 1;
     const state = machine.control_state();
+    relaxSequenceTicks.set(
+      beforeStep.sequence,
+      (relaxSequenceTicks.get(beforeStep.sequence) ?? 0) + 1,
+    );
+    relaxSequenceSeconds.set(
+      beforeStep.sequence,
+      (relaxSequenceSeconds.get(beforeStep.sequence) ?? 0)
+        + Number(machine.simulated_time) - beforeStepTime,
+    );
+    if (state.sequence !== beforeStep.sequence
+      || state.program_counter !== beforeStep.program_counter
+      || state.instruction_address !== beforeStep.instruction_address) {
+      relaxInstructionTransitions += 1;
+    }
     enteredRelax ||= state.instruction_address === 0o200060;
     enteredSolve ||= state.instruction_address === 0o013726;
     if (state.instruction_address === 0o205567
@@ -3263,12 +3285,16 @@ if (polylineMode) {
       completedRelaxPasses += 1;
       const geometry = lineAddresses.map((address) => lineGeometryAt(address));
       const cosines = perpendicularity(geometry).map(({ cosine }) => cosine);
+      const completedAt = Number(machine.simulated_time);
       relaxPassMeasurements.push({
         pass: completedRelaxPasses,
+        elapsedSeconds: completedAt - relaxStartedAt,
+        passSeconds: completedAt - previousRelaxPassAt,
         cosines,
         maximumAbsoluteCosine: Math.max(...cosines.map(Math.abs)),
         geometry: geometry.map(geometryForReport),
       });
+      previousRelaxPassAt = completedAt;
     }
     if (state.instruction_address >= 0o012163
       && state.instruction_address <= 0o012165) {
@@ -3295,6 +3321,15 @@ if (polylineMode) {
       enteredRelax,
       enteredSolve,
       completedRelaxPasses,
+      elapsedSeconds: Number(machine.simulated_time) - relaxStartedAt,
+      ticks: relaxTicks,
+      instructionTransitions: relaxInstructionTransitions,
+      sequenceTicks: Object.fromEntries([...relaxSequenceTicks.entries()].map(
+        ([sequence, ticks]) => [octal(sequence, 2), ticks],
+      )),
+      sequenceSeconds: Object.fromEntries([...relaxSequenceSeconds.entries()].map(
+        ([sequence, seconds]) => [octal(sequence, 2), seconds],
+      )),
       passes: relaxPassMeasurements,
       motion: relaxMotionMeasurements,
       geometryBefore: geometryBeforePerpendicularSolve.map(geometryForReport),

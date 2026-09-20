@@ -3738,3 +3738,63 @@ preserves the initial shape so the correction remains visible.
 Commit `f62b666` was pushed to `main`. The full deployment gate passed.
 Production release `20260920T014538Z` deployed to
 `https://sketchpad.acyclic.sh/`. Caddy validated and reloaded.
+
+## Checkpoint 84: RELAX Duration Audit
+
+Date: 2026-09-19
+
+The `8x` mark on the continuous GIF is a playback-rate label. It compresses
+31.86 seconds on the current emulator clock into about four seconds of GIF
+time. It is separate from the eight completed `RELAX` calls in the regression.
+Eight is a test choice, not a count stored in Sketchpad. The physical `FIX`
+switch path calls `RELAX`, reads the controls, and repeats while the switch
+remains on. The operator controls the number of passes.
+
+The eight-pass audit measured the following current emulator durations:
+
+- pass 1: 5.7314792 seconds
+- pass 2: 3.6982980 seconds
+- pass 3: 3.7498096 seconds
+- passes 4 through 8: 3.7321260, 3.7399260, 3.7391808, 3.7385608, and
+  3.7321388 seconds
+
+The first pass performs nearly all visible correction. It reduces the worst
+corner error from 12.9491 degrees to 2.1242 degrees. The second pass reduces it
+to about 0.3355 degrees. The remaining six passes are numerical refinement for
+the regression threshold.
+
+The 31.8615192-second interval contains 2,557,409 emulator scheduling ticks.
+Time attributed by the diagnostic to the active sequence is 16.6952306 seconds
+for sequence 60, 9.3135540 seconds for main sequence 76, and 5.8527346 seconds
+for the input, light-pen, and timer sequences. The clock therefore includes
+the complete concurrent TX-2 workload. It is not a pure solver timer.
+
+The more important finding is a defect in the inherited emulator instruction
+timer. Table 7-8 of the TX-2 Users Handbook reports measured average
+instruction durations from 8,000 repetitions. It gives a direct `JMP` as 7.6
+microseconds from S memory and 5.6 microseconds from T memory. The current
+`estimate_instruction_ns` returns 17.6 and 13.6 microseconds for those cases.
+It first adds 8.0 or 6.0 microseconds, then adds the table-derived opcode value,
+and then adds 2.0 microseconds because two absent optional addresses compare
+equal. Direct `JPA` has the same pattern: the table gives 8.0 and 6.0
+microseconds, while the emulator returns 18.0 and 14.0 microseconds.
+
+The address adjustments also compare complete addresses instead of memory
+types. The caller records an operand memory only if the resolved operand still
+has its deferred bit. This means the current code does not model the table's
+P-memory, deferred-memory, and operand-memory combinations as intended.
+
+A controlled build removed only the clear additive overcounts. It changed the
+relative scheduling enough that the existing browser gesture fixture missed a
+point merge before it reached `RELAX`. The released timer and WASM build were
+restored immediately. This failed experiment does not challenge the assembly.
+It shows that accurate timing must be repaired as a table-driven emulator
+change, with the light-pen and display interaction tests adjusted to the new
+interleaving.
+
+The surviving film still supports progressive, in-pass geometry changes. It
+does not validate the present 31.86-second clock. The current GIF correctly
+shows assembly-written geometry states, but its time label describes the
+current emulator only. Historical wall-clock claims must wait for the
+instruction-timing repair. No reconstructed assembly word changed in this
+audit.
