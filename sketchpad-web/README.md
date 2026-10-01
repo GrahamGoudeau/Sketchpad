@@ -172,7 +172,11 @@ the line.  The regression also compares the scope points the picture display
 emitted before and after the command.  It attributes a point to the picture
 only when the display sequence was executing the display-file routine at
 `200206` through `200334`; the tracking cross, the pen marker, and the
-lost-pen search vectors from `200335` are not picture output.
+lost-pen search vectors from `200335` are not picture output.  The same
+regression then presses Q1.4, "delete points", first without and then with
+the meta button, bit 4.10 of the external input register.  `READIT` ignores
+the first press; the second enters the original `POINTSOUT`, which frees both
+unattached points.
 
 A knob regression turns the four shaft encoders at `377620` one detent at a
 time in simulated time.  The original `SHAFTTEST` routine differences the

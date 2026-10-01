@@ -4527,3 +4527,28 @@ body, and the ring and display-file assertions carry the proof.
   another. The comma chart decides which quarter a short constant lands
   in, and a decompiler must evaluate these at assembly time, not at run
   time.
+
+
+## Checkpoint 91: Delete Points Under the Meta Button
+
+Date: 2026-10-01
+
+Appendix B of the thesis lists three "dangerous functions" that work
+only with the meta button, 4.10, pressed: delete constraints (1.2),
+delete points (1.4), and delete picture (1.5). `READIT`'s `PAGE1F`
+(sk.tx2as:941) tests bit 4.10 of the switch word before it dispatches
+them, with the comment "IF ONE, DO DEADLY DELETIONS". The browser models
+the meta button as the metabit of the external input register at
+`377621`.
+
+The delete regression now continues after `ERASE`. It presses Q1.4 for
+three seconds without the metabit and verifies that both unattached
+endpoints stay in `POINTS`; then presses Q1.4 with the metabit and
+verifies that sequence 76 enters `POINTSOUT` at `004440`, that both
+points leave `POINTS`, and that both point blocks join `FREES`.
+`POINTSOUT` walks the current picture's `PICBLKS`, keeps the blocks whose
+`TYPE` ties to `POINTS` and whose `ATATAP` is zero, and deletes them.
+
+- `[DECOMP]` "Unattached" is a structural test, `ATATAP` equal to zero,
+  not a geometric one; and the meta button is read from the same register
+  word as the buttons, as its metabit.

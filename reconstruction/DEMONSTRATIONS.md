@@ -56,8 +56,8 @@ program on the same machine, and is outside this reconstruction.
 - Instances of a figure with several parts and with designated attachers;
   the one-line instance is proven.
 - Copying a figure.
-- Deleting an unattached point (Q1.4 with the meta button); deleting a line
-  through `ERASE` is proven by `npm run test:delete`.
+- Deleting a line through `ERASE` and the unattached points through
+  `POINTSOUT` are both proven by `npm run test:delete`.
 - Constraint types beyond horizontal-or-vertical and parallel-or-
   perpendicular that the thesis lists and the films may use, for example
   equal length.

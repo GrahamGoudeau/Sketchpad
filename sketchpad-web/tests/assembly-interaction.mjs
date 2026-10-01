@@ -4779,12 +4779,44 @@ if (process.env.CONSTRAINT_ONLY === "1") {
       }
       assert.equal(survivorsOnChord.length, 0,
         "no picture point may remain on the interior of the deleted segment");
+
+      // Delete points: Q1.4 is one of the "deadly deletions" that READIT
+      // (sk.tx2as PAGE1F) only honours while the meta button, bit 4.10 of the
+      // external input register, is down.  POINTSOUT (004440) then deletes
+      // every point of the current picture with no attachers.
+      const pointsInRing = () => {
+        const ring = ringMembers(POINTS_RING);
+        return [firstPointBefore, secondPointBefore].filter((a) => ring.includes(a + 1)).length;
+      };
+      assert.equal(pointsInRing(), 2, "both unattached points must remain before Q1.4");
+      machine.set_external_input_register(0, 0, 0, 0o10, false);
+      runUntilTime(Number(machine.simulated_time) + 3);
+      assert.equal(pointsInRing(), 2, "Q1.4 without the meta button must delete nothing");
+      machine.set_external_input_register(0, 0, 0, 0, false);
+      runUntilTime(Number(machine.simulated_time) + 1);
+      machine.set_external_input_register(0, 0, 0, 0o10, true);
+      let enteredPointsOut = false;
+      const pointsOutDeadline = machine.simulated_time + 20;
+      while (machine.simulated_time < pointsOutDeadline && pointsInRing() > 0) {
+        const state = machine.control_state();
+        if (state.sequence === 0o76 && state.instruction_address === 0o004440) enteredPointsOut = true;
+        stepBatch(1);
+      }
+      machine.set_external_input_register(0, 0, 0, 0, false);
+      runUntilTime(Number(machine.simulated_time) + 1);
+      assert.ok(enteredPointsOut, "Q1.4 with the meta button must enter the original POINTSOUT");
+      assert.equal(pointsInRing(), 0, "POINTSOUT must remove both unattached points from POINTS");
+      const freesAfterPoints = ringMembers(FREES_RING);
+      assert.ok(freesAfterPoints.includes(firstPointBefore + 1) && freesAfterPoints.includes(secondPointBefore + 1),
+        "both point blocks must join FREES");
       console.log(JSON.stringify({
         selectedCommand,
         selectedObject,
         drawnLineAddress: octal(drawnLineAddress, 6),
         enteredErase: true,
         enteredDelete: true,
+        enteredPointsOut,
+        pointsRemaining: pointsInRing(),
         lineTypeTieAfter: octal(rightHalf(word(drawnLineAddress)), 6),
         linesRingAfter: ringMembers(LINES_RING).map((a) => octal(a, 6)),
         freesRingAfterIncludesLine: true,
