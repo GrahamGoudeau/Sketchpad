@@ -5213,4 +5213,51 @@ constraint solving runs in the film's time.
 Commit `f2d52f8` was pushed to `main`. GitHub Actions run `36830838773`
 passed. No release was deployed.
 
+## Checkpoint 99: A Film of the Demonstration from the Scope Output
+
+Date: 2026-10-01
+
+A GIF of the flange demonstration was made and sent to the project's
+owner by his own mail tool, at his request. It is recorded here so the
+method is reproducible and so no one mistakes it for evidence of
+anything the regressions do not already prove.
+
+### Recorder
+
+`sketchpad-web/tests/scope-recorder.mjs` is an opt-in renderer of the
+emulated unit-60 output. With `SCOPE_RECORD=<prefix>` set on any
+regression, the harness hands every scope point event the machine
+emits to the recorder, which accumulates them on a 512 by 512 phosphor
+canvas with a decay of 0.55 per frame and writes one 8-bit frame per
+1/30 s of simulated time to `<prefix>.gray`, with a sidecar
+`<prefix>.frames.jsonl` of frame number, simulated time, and fixture
+phase. It reads the scope events and nothing else: no geometry, no
+memory, no overlays. The machine runs exactly as without it; the gate
+passed unchanged with the hook in place.
+
+### The film
+
+`SCOPE_RECORD=demo npm run test:instance-flange` produced 26,348
+frames over 878 s of simulated time: the flange drawn, the six
+constraints entered, `RELAX`, the picture switch, the instance,
+rotation and size, STOP, the copy, the drag, picture 2, and the
+nested instance. ffmpeg's scene score gave each frame's change from
+the one before. Frames of the `relax` phase (a new phase label, set
+just before `FIX` goes on) were kept at every second frame, so at 15
+frames per second the correction plays in real machine time; every
+other phase kept a frame when the accumulated change reached 0.002
+or two seconds of simulated time had passed, which compresses the
+drawing and constraint entry about eighteenfold. 1,133 frames,
+cropped to the drawn area and scaled by two, made a 1.2 MB GIF of 75 s.
+
+Two things the film shows that are the program's own: during
+constraint entry the fixture has `SUPPLINES` set (toggle 25 bit 4.4,
+part of its constraint-editing quarter 4 of 0o510), so the lines
+vanish while the handles are picked and return for the solve; and
+the tracking cross is a bright blob on the phosphor because its four
+arms are redrawn on every tracking pass under the 80 µs spot.
+
+The GIF itself is not kept in the repository; it is derived from the
+regression and this entry.
+
 

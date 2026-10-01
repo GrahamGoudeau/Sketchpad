@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { ScopeRecorder } from "./scope-recorder.mjs";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -182,6 +183,7 @@ function fitCircularLocus(points) {
   };
 }
 
+const scopeRecorder = process.env.SCOPE_RECORD ? new ScopeRecorder(process.env.SCOPE_RECORD) : null;
 function stepBatch(ticks = 20_000) {
   const tracingConstraintInput = process.env.TRACE_47 === "1"
     && ["expose-perpendicular-handles", "attach-perpendicular-handle"].includes(phase);
@@ -289,6 +291,7 @@ function stepBatch(ticks = 20_000) {
   let events;
   try {
     events = machine.step_batch(machine.simulated_time, ticks);
+    if (scopeRecorder) scopeRecorder.consume(events, phase);
   } catch (error) {
     console.error(JSON.stringify({
       failure: "step batch",
@@ -3388,6 +3391,7 @@ if (polylineMode) {
       1_000,
     ), "the original tracker must report the lifted pen as lost before FIX");
   }
+  phase = "relax";
   machine.set_toggle_register(0o25, 0o500, 0, 0, constraintCode, false);
   machine.set_toggle_register(0o20, 0o400, 0, 0, 0, true);
   let enteredRelax = false;

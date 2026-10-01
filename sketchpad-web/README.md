@@ -149,7 +149,10 @@ assembly change, rewrite the artifact with
 
 The six-edge flange regression lifts the pen before it enables `FIX`, as the
 operator's hand is clear of the scope in the 1963 film before the flange
-corrects.  `RELAX_OPCODE_PROFILE=1` attributes the machine time of the
+corrects.  `SCOPE_RECORD=<prefix>` on any regression writes the emulated
+scope output as raw 8-bit frames at 30 frames per second of simulated
+time, with a sidecar of frame times and fixture phases, for making films
+(research log checkpoint 99).  `RELAX_OPCODE_PROFILE=1` attributes the machine time of the
 solve to each sequence and opcode in the report (research log checkpoint
 97).  `RELAX_PEN_HELD=1` keeps the pen tracking the last endpoint
 instead.  The display sequence then spends most of its time in the original
