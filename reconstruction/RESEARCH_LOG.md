@@ -5090,6 +5090,19 @@ either. What remains unmeasured is the real scope's behaviour at the
 10 µs setting, which the handbook's own summary calls a "20 to 80
 usec" display, and the instruction cost per displayed point.
 
+### The film's conditions during the correction
+
+Frames of the Lincoln Laboratory transfer at 1:46, 1:49, and 1:52 were
+extracted and read. At 1:46 the hand holds the pen at the flange's
+last corner, the figure still ragged. At 1:49 the hand and pen are
+gone, the figure is mid-correction with one edge still slanted, and
+nothing but the six lines is on the scope: no constraint symbols, no
+point markers, no tracking cross or label. At 1:52 the flange is
+square. The regression's conditions match these: `SHOWCON` off, the
+pen lifted before `FIX`, and only the figure displayed, with the one
+difference that `SHOWPOINTS` is on in the regression, six markers of
+eight words each, which cannot matter to the display sequence's share.
+
 ### Open
 
 - The handbook's summary line for the scope, "high speed (20 to 80
@@ -5105,5 +5118,8 @@ usec" display, and the instruction cost per displayed point.
 - `[DECOMP]` The solver's inner loop is division-bound: about 1,500
   `DIV` and 2,400 `MUL` per pass for six P constraints, with the
   display sequence taking two fifths of the machine throughout.
+
+Commit `cc50b84` was pushed to `main`. GitHub Actions run `36827995657`
+passed. No release was deployed.
 
 
