@@ -4050,8 +4050,9 @@ if (process.env.INSTANCE_ONLY === "1") {
   close(ival3.angle, ival2.angle, 0.01, "STOP must keep the instance rotation");
   const figure3 = samplePictureScopePoints(1);
   const chord3 = chordOf(figure3);
+  let fit3 = null;
   if (multiPartMaster) {
-    const fit3 = similarityFit(masterSegments, figure3, scale0 * ival3.radius / ival0.radius, ival3.angle);
+    fit3 = similarityFit(masterSegments, figure3, scale0 * ival3.radius / ival0.radius, ival3.angle);
     assertFigure(fit3, "the stopped instance must stay the master figure at its size and angle");
     report.figure3 = summarizeFit(fit3);
   } else {
@@ -4097,6 +4098,90 @@ if (process.env.INSTANCE_ONLY === "1") {
     ival: ival3, chord: chord3, display: ownersOfDisplayFile(),
     masterWordsBefore, masterWordsAfter: masterWords(), masterLength: masterLength(),
   };
+
+  if (multiPartMaster) {
+    // Several copies, as the film shows: a second instance made while the
+    // pen aims at the first, shrunk by the size knob, dragged by the pen to
+    // another part of the scope, and stopped.  SUBPIC (sk.tx2as:1299) with
+    // ATINS set copies the aimed-at instance's IVAL and IWHAT into the new
+    // one at SUBPIC2, so the copy is born at the first's size and angle.
+    const instancesBeforeSecond = ringMembers(INSTANCES_RING);
+    const aimedAtFirstInstance = () => word(0o200044) !== 0
+      && Array.from({ length: 8 }, (_, offset) => rightHalf(word(0o200045 + offset))).includes(instanceIndex);
+    assert.ok(runUntil(aimedAtFirstInstance, 2, 20), "the pen must aim at the stopped first instance before the second INSTANCE");
+    const secondEntered = new Set();
+    setCommand(2, 4, true);
+    const secondDeadline = machine.simulated_time + 5;
+    while (machine.simulated_time < secondDeadline && !secondEntered.has("005271")) {
+      const state = machine.control_state();
+      if (state.sequence === 0o76 && state.instruction_address >= 0o005124 && state.instruction_address <= 0o005300) {
+        secondEntered.add(octal(state.instruction_address, 6));
+      }
+      stepBatch(1);
+    }
+    tremor(0.5);
+    setCommand(2, 4, false);
+    tremor(1);
+    assert.ok(secondEntered.has("005124") && secondEntered.has("005271"),
+      "a second Q2.4 must enter SUBPIC and leave a second instance moving");
+    const instancesAfterSecond = ringMembers(INSTANCES_RING);
+    assert.equal(instancesAfterSecond.length, instancesBeforeSecond.length + 1, "SUBPIC must allocate a second instance block");
+    const secondBlock = instancesAfterSecond.find((a) => !instancesBeforeSecond.includes(a)) - 1;
+    assert.equal(0o024000 + rightHalf(word(secondBlock + IWHAT)), masterPictureBlock, "the second instance's IWHAT must name the master picture");
+    assert.ok(ringMembers(MOVINGS_RING).includes(secondBlock + 0o7), "the second instance must be moving");
+    // The copy is born with the first instance's final IVAL, not a fresh
+    // one, and the knob accumulators are spent.
+    const secondIval0 = ivalOf(secondBlock);
+    assert.deepEqual([secondIval0.rcos, secondIval0.rsin], [ival3.rcos, ival3.rsin],
+      "an instance made while aiming at an instance must start with that instance's IVAL");
+    assert.equal(word(0o200055) & 0o377777777777, 0, "ΔSIZE must be spent");
+    assert.equal(word(0o200056), 0, "ΔROT must be spent");
+    const secondSizeTurn = turnWhileMoving(2, 60, 1.2);
+    const secondIval = ivalOf(secondBlock);
+    assert.ok(secondIval.radius < 0.9 * ival0.radius, "the size knob must shrink the second instance");
+    // Drag the moving instance across the scope: the tracker follows the
+    // pen one scope unit at a time, as the connected-segment fixture does.
+    const dragTarget = { x: 330, y: 330 };
+    const dragStart = { x: selectionPoint.x, y: selectionPoint.y };
+    const dragSteps = Math.ceil(Math.hypot(dragTarget.x - dragStart.x, dragTarget.y - dragStart.y));
+    for (let step = 1; step <= dragSteps; step += 1) {
+      const x = dragStart.x + (dragTarget.x - dragStart.x) * step / dragSteps;
+      const y = dragStart.y + (dragTarget.y - dragStart.y) * step / dragSteps;
+      const detectionsBefore = Number(machine.light_pen_detection_count);
+      machine.set_light_pen(x / 1022, 1 - y / 1022, 26 / 1022, true);
+      assert.ok(runUntil(() => Number(machine.light_pen_detection_count) > detectionsBefore, 2, 1),
+        `the tracker must follow the pen dragging the second instance (step ${step})`);
+      runUntilTime(machine.simulated_time + 0.02);
+    }
+    selectionPoint.x = dragTarget.x;
+    selectionPoint.y = dragTarget.y;
+    assert.ok(ringMembers(MOVINGS_RING).includes(secondBlock + 0o7), "the second instance must still be moving after the drag");
+    stopMovingAndWaitForReturn("second instance");
+    tremor(1);
+    assert.equal(ringMembers(MOVINGS_RING).length, 0, "STOP must empty MOVINGS again");
+    const secondIval3 = ivalOf(secondBlock);
+    close(secondIval3.radius, secondIval.radius, 1, "STOP must keep the second instance's size");
+    assert.deepEqual(ivalOf(instanceBlock), ival3, "the first instance's IVAL must not change");
+    // Both instances display.  Points on the first instance's known figure
+    // belong to it; the rest must be the master figure under the second
+    // instance's IVAL, placed where the pen left it.
+    const both = samplePictureScopePoints(1);
+    const firstPoints = both.filter((p) => nearestOnSegments(p, fit3.mapped).distance <= onFigureTolerance);
+    const secondPoints = both.filter((p) => nearestOnSegments(p, fit3.mapped).distance > onFigureTolerance);
+    const firstAgain = similarityFit(masterSegments, firstPoints, fit3.scale, fit3.angleDegrees);
+    assertFigure(firstAgain, "the first instance must still display as the master figure");
+    assert.ok(secondPoints.length >= 40, `the second instance must display as a figure (saw ${secondPoints.length} points)`);
+    const secondFit = similarityFit(masterSegments, secondPoints, scale0 * secondIval3.radius / ival0.radius, secondIval3.angle);
+    assertFigure(secondFit, "the second instance must be the master figure at its own IVAL");
+    const separation = Math.hypot(secondFit.centre.x - fit3.centre.x, secondFit.centre.y - fit3.centre.y);
+    assert.ok(separation >= 150, `the two instances must sit apart on the scope (centres ${separation.toFixed(0)} units apart)`);
+    report.secondInstance = {
+      block: octal(secondBlock, 6), ival: secondIval3, sizeTurn: secondSizeTurn, points: both.length,
+      first: summarizeFit(firstAgain), second: summarizeFit(secondFit), separation,
+      display: ownersOfDisplayFile(), masterWordsAfter: masterWords(), masterLength: masterLength(),
+    };
+    close(masterLength() / masterLengthBefore, 1, 0.001, "the master line's page length must never change");
+  }
   console.log(JSON.stringify(report, null, 2));
   process.exit(0);
 }

@@ -4802,13 +4802,38 @@ picture 0 (top edge at x = 584, 592, 600, …) and the instance's lines
 at the same 8 units at scale 1.29 (x = 650, 658, 666, …) and at scale
 0.91, so the line display steps in scope units, not page units.
 
+### A second copy
+
+The same run then makes a second instance while the pen aims at the
+stopped first one, shrinks it with the size knob, drags it with the pen
+to (330, 330) one scope unit per detection, and stops it. The picture is
+sampled once more; points within 4 units of the first instance's mapped
+figure are the first's, the rest must be the master figure under the
+second instance's `IVAL`.
+
+| Instance | `IVAL` (R, α) | Scale | Points | 98th distance | Worst gap | Centre |
+| --- | --- | --- | --- | --- | --- | --- |
+| First, unchanged | 3348776, 40.84° | 0.914 | 81 | 1.09 | 6.98 | (752, 637) |
+| Second | 2119912, 40.84° | 0.579 | 57 | 0.92 | 4.84 | (339, 339) |
+
+The second instance was born with the first's `IVAL`, (0o11524007,
+0o10265327), not a fresh one, with `ΔSIZE` and `ΔROT` spent. The source
+says why. `SUBPIC` (sk.tx2as line 1299) tests `ATINS`, the aimed-at-
+instance bit of `ATBITS`; when it is set, `SUBPIC2` loads the aimed-at
+instance's `IVAL` into `NIRR` and takes `IWHAT` from it, and `SUBPICS`
+stores `NIRR` into the new instance. Pressing INSTANCE while aiming at
+an instance therefore copies that instance, which is how the film's
+several copies of one figure come out alike. When nothing aimed at is
+an instance, `SUBPIC3` builds `NIRR` from `SCSZ` with two `MZR₁.₁`
+operations (clear bit 1.1, rotate right) and a zero sine: R = `SCSZ`/4,
+which is the 0o22000000 both fixtures saw against `SCSZ` 0o110000000.
+
 ### Open
 
-- The film shows several small copies of the flange; this fixture makes
-  one instance of the undistorted outline. Several instances of one
-  master, and an instance of the constrained flange (the flange fixture
-  ends in the solver and does not yet continue into instancing), are the
-  next steps toward that scene.
+- The film's copies are of the constrained flange; this fixture copies
+  the undistorted outline. An instance of the constrained flange needs
+  the flange fixture, which ends in the solver, to continue into
+  instancing.
 - `PSIZE`'s writer.
 
 - `[DECOMP]` An instance's display scale is `IVAL`'s radius over its
@@ -4822,5 +4847,10 @@ at the same 8 units at scale 1.29 (x = 650, 658, 666, …) and at scale
 - `[DECOMP]` Line display subdivides in scope units (8 per point here),
   not in page units, so an enlarged instance is drawn with more points
   per line, not sparser ones.
+- `[DECOMP]` INSTANCE has two births. Aimed at an instance, it copies
+  that instance's master and transform (`SUBPIC2`); otherwise it makes a
+  fresh instance of the picture toggle register 25 names, unrotated, at
+  R = `SCSZ`/4, a quarter of the scope window's page width, so a fresh
+  instance is sized to the view rather than to the master.
 
 

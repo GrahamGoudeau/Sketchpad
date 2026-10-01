@@ -209,7 +209,9 @@ test:instance-figure` makes the master the six-edge polyline outline
 instead of one line and checks the displayed instance against the
 master's six segments, read from memory and mapped through the display
 rule, under the similarity that `IVAL` sets: scale from its radius,
-rotation from its angle (research log checkpoint 94).
+rotation from its angle; it then copies the stopped instance with a
+second INSTANCE press, shrinks and drags the copy elsewhere, and checks
+both (research log checkpoint 94).
 
 A third regression enters `DESIGNATE`, `STARTDRAW`, and `STARTC`.  It proves
 that the assembly allocates circle records and that unit 60 emits a quantized
