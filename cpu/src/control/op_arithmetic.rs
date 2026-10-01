@@ -113,6 +113,24 @@ fn subword_is_active(activity: QuarterActivity, subword: Subword) -> bool {
         .any(|quarter| activity.is_active(&quarter))
 }
 
+/// The number of shift steps the arithmetic element performs for a
+/// shift or cycle instruction: the largest count magnitude among the
+/// active subwords.  Used only for instruction timing.
+fn max_shift_steps(config: &SystemConfiguration, counts: Unsigned36Bit) -> u32 {
+    let activity = config.active_quarters();
+    let counts = u64::from(counts);
+    subwords(config.subword_form())
+        .iter()
+        .filter(|subword| subword_is_active(activity, **subword))
+        .map(|subword| {
+            let sign_quarter = subword.first_quarter + subword.quarter_count - 1;
+            let raw = ((counts >> (u32::from(sign_quarter) * 9)) & 0o777) as u16;
+            u32::from(scale_count(raw).unsigned_abs())
+        })
+        .max()
+        .unwrap_or(0)
+}
+
 fn scale_word(
     config: &SystemConfiguration,
     input: Unsigned36Bit,
@@ -636,6 +654,8 @@ impl ControlUnit {
         mem: &mut MemoryUnit,
     ) -> Result<OpcodeResult, Alarm> {
         self.op_ldd(ctx, mem)?;
+        self.operand_trace
+            .record_shift_steps(max_shift_steps(&self.get_config(), mem.get_d_register()));
         let (a, d, overflow) = scale_word(
             &self.get_config(),
             mem.get_a_register(),
@@ -655,6 +675,8 @@ impl ControlUnit {
         mem: &mut MemoryUnit,
     ) -> Result<OpcodeResult, Alarm> {
         self.op_ldd(ctx, mem)?;
+        self.operand_trace
+            .record_shift_steps(max_shift_steps(&self.get_config(), mem.get_d_register()));
         let (a, b, d, overflow) = scale_ab_word(
             &self.get_config(),
             mem.get_a_register(),
@@ -676,6 +698,8 @@ impl ControlUnit {
         mem: &mut MemoryUnit,
     ) -> Result<OpcodeResult, Alarm> {
         self.op_ldd(ctx, mem)?;
+        self.operand_trace
+            .record_shift_steps(max_shift_steps(&self.get_config(), mem.get_d_register()));
         let (b, d, _) = scale_word(
             &self.get_config(),
             mem.get_b_register(),
@@ -695,6 +719,8 @@ impl ControlUnit {
         opcode: Opcode,
     ) -> Result<OpcodeResult, Alarm> {
         self.op_ldd(ctx, mem)?;
+        self.operand_trace
+            .record_shift_steps(max_shift_steps(&self.get_config(), mem.get_d_register()));
         match opcode {
             Opcode::Cya => {
                 let (a, d) = cycle_word(

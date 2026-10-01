@@ -147,6 +147,17 @@ trace limit is `150000` machine ticks.  After an intentional machine or
 assembly change, rewrite the artifact with
 `RELAX_TRACE_UPDATE=1 node tests/relax-trace.mjs`.
 
+The six-edge flange regression lifts the pen before it enables `FIX`, as the
+operator's hand is clear of the scope in the 1963 film before the flange
+corrects.  `RELAX_PEN_HELD=1` keeps the pen tracking the last endpoint
+instead.  The display sequence then spends most of its time in the original
+tracking cross and each `RELAX` pass takes about twice as long.  The regression
+moves the pen on a simulated-time schedule, not once per photocell detection,
+because the original tracker repeats its four-arm pass while any arm is seen
+and only returns to its periodic duties after a pass with no detection.
+`TRACE_ALL=1` keeps a ring of the last instruction addresses for every
+sequence and prints it with a failure report.
+
 A second regression presses Q3.3 on the selected assembly-created line.  The
 original `FIXIT` routine links that line into Sketchpad's `FIXEDS` list without
 allocating a new object.  The regression then presses Q2.7.  The original

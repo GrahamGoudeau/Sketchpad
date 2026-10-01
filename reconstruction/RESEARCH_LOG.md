@@ -3852,3 +3852,234 @@ Production release `20260920T025136Z` deployed to
 `https://sketchpad.acyclic.sh/`. Caddy validated and reloaded. The live release
 symlink names that release. The deployed WASM SHA-256 equals the local build:
 `277b8b60b24cb234de3d7ec6e0a4c1bc8835f231d29bff3c1bb8007c19a87306`.
+
+
+## Checkpoint 86: Archival Footage and the Complete Table 7-8 Clock
+
+Date: 2026-10-01
+
+This checkpoint gathers the surviving demonstration films, times the
+flange correction in two independent transfers, replaces the inherited
+instruction timer with the complete handbook table, and compares the
+emulated solve with the film. The work was done on a Linux workstation
+with a fresh toolchain; no reconstructed assembly word changed.
+
+### Footage corpus
+
+The films are kept outside Git because their reuse terms are not
+established. Each item is identified by its public identifier so the
+measurements can be repeated.
+
+| Item | Source | Content | Transfer |
+| --- | --- | --- | --- |
+| YouTube `5RyU50qbvzQ` | "Animation History" upload, 2017 | Alan Kay's 1986 commentary over the Lincoln Laboratory Sketchpad film | 258 s, 320 by 240, 29.97 frames per second |
+| YouTube `57wj8diYpgY` | Bill Buxton upload, 2011 | The Lincoln Laboratory film itself, titled "Thesis at M.I.T. Lincoln Labs Feb. 1963", with the demonstration from 1:27 to 6:27 | 411 s, 320 by 240, 30 frames per second |
+| YouTube `495nCzxM9PI` | David Carroll upload, 2007 | A second copy of the Kay commentary | 227 s, 240 by 180, 10 frames per second |
+| archive.org `sketchpad19631of3`, `2of3`, `3of3` | MIT upload | The MIT Science Reporter episode "Computer Sketchpad" with John Fitch, Steven Coons, and Timothy Johnson; part 2 is the 2D demonstration, part 3 is Johnson's Sketchpad III | 480 by 360, 29.97 frames per second; part 2 is 596 s |
+| archive.org `AlanKeyD1987` | Apple/UVC lecture "Doing with Images Makes Symbols" | Kay's 1987 lecture, which includes the same film | 512 kbit/s MP4 |
+
+Two YouTube identifiers returned by a web search, `USyoT_Ha_bA` and
+`BKM3CmRqK2o`, are no longer available. Part 3 of the MIT episode shows
+Sketchpad III, a different program, and is outside this reconstruction.
+
+### Flange correction timing in the film
+
+The six-edge flange is drawn, then corrected, in the Lincoln Laboratory
+film. Both transfers were tiled frame by frame. A per-frame luminance
+difference over the scope region did not separate the correction from film
+grain, so the boundaries were read visually from the tiled frames. Each
+boundary is uncertain by about one frame.
+
+| Transfer | Hand clear of scope | Correction onset | Main rotation complete | Settled |
+| --- | --- | --- | --- | --- |
+| `5RyU50qbvzQ` | 38.9 s | 40.47 s | about 40.9 s | about 41.3 s |
+| `57wj8diYpgY` | 107.0 s | 108.77 s | about 109.1 s | about 109.4 s |
+
+The visible correction therefore lasts 0.65 to 0.85 s from onset to
+settle, with the main rotation in the first 0.35 to 0.45 s. The operator's
+hand is clear of the scope for 1.6 to 1.8 s before the correction begins.
+The film's frame rate and the telecine pull-down are not documented. A
+silent 16 mm film shot at 16 or 18 frames per second and transferred at 24
+would compress real time by up to one and a half; the durations above are
+transferred-video time.
+
+### Table 7-8 transcription
+
+The November 1963 Users Handbook reproduces Table 7-8, dated October
+1961, on PDF pages 199 through 211. The PDF has no text layer; the pages
+were rendered and read. The table gives the average duration of 8,000
+repetitions of each instruction for each combination of the instruction
+memory (S or T), the deferred-address memory (S or T, measured only for
+SKX and SKM), and the operand memory (S, T, the flip-flop registers A to
+E, or toggle memory). MUL, DIV, and TLY are listed for the full word and
+for the standard 27-bit, 18-bit, and 9-bit configurations. The shift and
+cycle instructions and the two normalize instructions are listed twice.
+
+The inherited `estimate_instruction_ns` was built on a different model: a
+base of 8.0 or 6.0 microseconds plus one T-memory figure per opcode, plus
+2.0 microseconds when two addresses compared equal. Checkpoint 85 removed
+the two clearest overcounts, but the structure remained wrong in both
+directions. Examples from the table: full-word MUL is 20.8 microseconds in
+every memory combination, where the emulator charged 10.0; LDA from S
+memory with an S operand is 12.8, where the emulator charged 8.4; STA from
+S memory with an S operand is 14.0, where the emulator charged 8.8; DIV is
+80.0, where the emulator charged 77.0. The Sketchpad solver and its data
+both live in S memory, so the inherited clock ran the solve faster than
+the table allows.
+
+The emulator now carries the table. Where the table measures a case
+directly the emulator reproduces it. The derived cases are:
+
+- Each deferred address cycle adds 10.4 microseconds for a deferred word
+  in S memory and 8.4 for one in T memory. Every measured SKX and SKM pair
+  differs by exactly those amounts. Chains of deferred cycles are now
+  counted, which closes the former `TODO: handle chains of deferred loads`.
+- MUL, DIV, and TLY select their row by the number of active quarters in
+  the instruction's configuration: 4, 3, 2, or 1.
+- The shift and cycle instructions charge the measured zero-count cost plus
+  0.4 microseconds per shift step, where the step count is the largest
+  count among the active subwords. The handbook does not state the shift
+  rate. The second measured column, about 104 to 107 microseconds for a
+  count that happened to be in the operand word, does not fix it either.
+  The 0.4 figure is inferred from the per-bit cost of MUL and is an open
+  interpretation.
+- NOA and NAB use the measured normalising case.
+- An instruction fetched from V memory, an operand in U memory, and a
+  deferred word in V memory use the T-memory figures. V-memory locations
+  other than registers A to E are treated as toggle memory.
+
+The mechanism changed as well. The old estimate ran before execution from
+the raw instruction word and could not see the resolved operand. The
+control unit now records the memory of each deferred word, the memory of
+the final operand, and the shift count while the instruction executes, and
+computes the duration afterwards. OPR distinguishes IOS from AOP by bit
+2.7. Nine unit tests pin the derived behaviour: the deferred increments
+and their chaining, the configuration-width rows, the per-step shift
+charge, the IOS/AOP split, the unobserved-operand fallback, the rule that
+a jump target is not an operand, and one direct spot check of the load and
+jump rows.
+
+### What the clock did to the regressions
+
+The scope model was checked against the handbook's unit 60 page and is
+already exact: modes 30000 through 30030 give 10, 20, 40, and 80
+microsecond spots, the light pen is sensitive only during the
+intensification, and TSD on a busy buffer dismisses and waits. Sketchpad
+draws its picture and tracking cross at 20 microseconds and its lost-pen
+search pattern at 80.
+
+Every browser regression passed on the new clock except two. The RELAX
+trace validator requires a byte-identical artifact and was regenerated;
+see below. The six-edge flange regression failed at "sequence 47 must
+capture Q2.1". Tracing every sequence showed the cause. The regression
+moved the pen by up to four scope units on every photocell detection,
+about once every 0.3 milliseconds. The original LYUO tracker, `TRACK2`
+through `TRNSA`, repeats its four-arm pass while any arm is seen and leaves
+through `TRLOST` only after a pass with no detection. A pen that jumps on
+every detection never lets a pass finish empty, so the display sequence
+never reaches `PERIODIC`, which is the only place that raises flag 47 for
+the switch reader. The committed clock happened to let a pass finish; the
+handbook clock does not. The fixture now moves the pen on a simulated-time
+schedule, one tremor step every 25 milliseconds, and waits up to three
+seconds of machine time for the switch reader. Nothing else in the fixture
+changed. The host still supplies only pen positions, button state, and
+console toggles.
+
+The flange regression also kept the pen tracking the last endpoint while
+`FIX` was on. The film shows the operator's hand clear of the scope before
+the correction. The regression now lifts the pen before it enables `FIX`;
+`RELAX_PEN_HELD=1` restores the old behaviour for comparison.
+
+### RELAX pass durations
+
+The six-edge flange with the rough fixture of checkpoint 81, eight
+completed `RELAX` passes, emulated seconds:
+
+| Clock | Pen during solve | Pass 1 | Pass 2 | Passes 3 to 8 | Eight passes | Sequence 76 share | Sequence 60 share |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Inherited (checkpoint 84) | tracking | 5.73 | 3.70 | 3.73 to 3.75 | 31.86 | 29% | 52% |
+| Checkpoint 85 | tracking | 1.087 | 1.040 | 1.072 to 1.075 | 8.568 | 51% | 36% |
+| Table 7-8 | tracking | 1.374 | 1.350 | 0.925 to 0.933 | 8.291 | 43% | 45% |
+| Table 7-8 | lifted | 0.621 | 0.763 | 0.747 to 0.749 | 5.874 | 56% | 41% |
+
+The sequence shares are the fraction of emulated time charged to the main
+sequence 76 and the display sequence 60. With the pen tracking, the
+display sequence spends most of each frame in the tracking cross and the
+light-pen sequence 55 takes a further 9%. Lifting the pen halves the first
+pass. In both configurations the first pass differs from the later ones,
+shorter with the pen lifted and longer with it held. The cause has not
+been isolated; the pass boundary is detected at `205567`, and the first
+interval starts at the `FIX` toggle rather than at a boundary. The cost of
+every later pass is stable.
+
+Pass 1 still reduces the worst corner from 12.9491 degrees to a cosine of
+0.0323, about 1.85 degrees, and pass 2 to 0.0065. Those are the two passes
+a viewer would see.
+
+### Comparison with the film
+
+With the pen lifted, the emulated first pass takes 0.62 s and the second
+completes at 1.38 s. The film's main rotation takes 0.35 to 0.45 s and the
+figure settles 0.65 to 0.85 s after onset. The emulator is therefore within
+a factor of about 1.5 of the transferred film for the visible correction,
+compared with a factor of 8 for the checkpoint 84 clock. The remaining
+difference has four candidate sources, none yet measured: the unknown film
+and telecine rate; the fixture's initial error of 12.9 degrees against the
+larger error visible in the film, which changes the solver's path through
+`SLVAD`; the inferred shift rate; and the number of displayed points in the
+film's picture. The thesis statement that the display runs independently
+of the computation also means the film can show in-pass geometry, so the
+visible settle is not a pass boundary. No historical wall-clock claim
+stronger than "within a factor of 1.5, pen lifted" is justified yet.
+
+### Regenerated RELAX trace
+
+The checked-in HOV trace was regenerated on the new clock. A normalized
+comparison that ignores tick counts and simulated times shows all 35
+boundaries, the labels, the generator record, the tape provenance, and the
+104-sample structure identical. The solver path is unchanged: four
+elimination passes, two `SLVAD` degeneracy repairs, and a return from
+`RELAX` without an alarm. The coordinate values in the samples differ by a
+few scope units because the fixture's line is drawn through the original
+light-pen tracker and its stop position moves with the clock. The full
+invocation now takes 8,116 ticks instead of 6,939.
+
+### [DECOMP] notes for the eventual C rendering
+
+These behaviours were needed to explain this checkpoint and are not
+obvious from the listing.
+
+- `[DECOMP]` Button input is sampled once per display cycle, not on
+  change. Sequence 47 reads the external input register at `47EIR`,
+  differences it against `SWITCH2`, queues newly pressed bits in
+  `47TABLE` through index register 47, and dismisses. It is woken only by
+  `RXF 47 47LITEIT` in `PERIODIC` and by `RXF 47 47LOSTPEN` in `TRLOST`,
+  both in the display sequence. A C rendering must poll buttons from the
+  display loop, not from an interrupt.
+- `[DECOMP]` The light-pen interrupt communicates with the display loop by
+  skipping one instruction. `TRLP` sets bit 1.1 of `TRBITS`, then
+  `²⁰INX₆₀ 1` advances sequence 60's program counter past the instruction
+  that follows the `TSD` which was seen. In `TR1A` through `TR1D` the
+  skipped instruction is the centre adjustment, so by this reading each
+  arm moves the tracking centre only when it is not seen: the tracker finds
+  the edge of the pen's field rather than a centroid. This reading comes
+  from the listing and the emulator trace, not from the thesis text.
+- `[DECOMP]` `TRACK2` is a busy loop. While any arm is seen the display
+  sequence shows only the four arm points and nothing else. The picture is
+  refreshed only after a pass with no detection. This is why the tracking
+  cross appears steady and the picture dims while the pen is held still.
+- `[DECOMP]` Intensity on the TX-2 scope is spot duration. The picture is
+  drawn at 20 microseconds a point, the lost-pen search pattern at 80. The
+  main program runs only while the display sequence waits for the buffer,
+  so the brightness setting is also a scheduling decision.
+- `[DECOMP]` The first measured `RELAX` interval differs from later passes
+  in both pen configurations. Whether this is the solver's first-pass work
+  or the measurement starting at the `FIX` toggle is not yet determined.
+
+### Toolchain and provenance
+
+The work was done on a Linux workstation with rustup-installed Rust
+stable, the wasm32 target, wasm-pack 0.15.0 from `build.sh`, Node 26, and
+ffmpeg for the frame tiling. The handbook PDF, tesseract OCR of all 211
+pages, and the film frames stayed outside Git. The gate was `./build.sh`,
+`cargo test --locked --workspace`, and `npm test`.

@@ -79,6 +79,7 @@ let fineAssemblyTrace = false;
 let watchedRingValue = null;
 const ringOperationTrace = [];
 const sequence47Trace = [];
+const allSequenceTrace = [];
 const atBitsWriteTrace = [];
 let tracedAtBitsObject = null;
 let stopMovingCallCount = 0;
@@ -214,6 +215,15 @@ function stepBatch(ticks = 20_000) {
       if (atBitsWriteTrace.length > 20) atBitsWriteTrace.shift();
       tracedAtBitsObject = currentAtBitsObject;
     }
+  }
+  if (process.env.TRACE_ALL === "1") {
+    allSequenceTrace.push({
+      time: Number(machine.simulated_time),
+      sequence: octal(tracedControl.sequence, 2),
+      address: octal(tracedControl.instruction_address, 6),
+      instruction: tracedControl.instruction,
+    });
+    if (allSequenceTrace.length > 1_500) allSequenceTrace.shift();
   }
   if (process.env.TRACE_47 === "1"
     && tracedControl.sequence === 0o47
@@ -2796,50 +2806,82 @@ if (polylineMode) {
         "sequence 47 must record HOLD before P-variable selection");
       selectedDummyIndex = selectUnattachedDummy();
       machine.set_external_input_register(0o400, 0, 0o1, 0, false);
+      // A physical hand holds the pen on the staged point with a slow
+      // tremor.  The tremor advances in simulated time, not per photocell
+      // detection.  The original LYUO tracker (TRACK2 through TRNSA) repeats
+      // its four-arm pass while any arm is seen and only returns to PERIODIC,
+      // which wakes the sequence-47 switch reader, after a pass with no
+      // detection.  A pen that jumps on every detection never lets that
+      // happen on the handbook clock.
       const handMotion = [0, 2, 4, 2, 0, -2, -4, -2];
+      const handStepSeconds = 0.025;
       let commandPenPoint = stagedPoint;
-      for (let step = 0; step < 1_000 && !movePointCommandRecorded; step += 1) {
-        const detectionsBeforeStep = Number(machine.light_pen_detection_count);
-        const xOffset = handMotion[step % handMotion.length];
-        const yOffset = handMotion[(step + 2) % handMotion.length];
-        machine.set_light_pen(
-          (stagedPoint.x + xOffset) / 1022,
-          1 - (stagedPoint.y + yOffset) / 1022,
-          dummyPenRadius / 1022,
-          true,
-        );
-        commandPenPoint = {
-          x: stagedPoint.x + xOffset,
-          y: stagedPoint.y + yOffset,
-        };
-        runUntil(
-          () => Number(machine.light_pen_detection_count) > detectionsBeforeStep,
-          2,
-          1,
-        );
+      const captureLoopStartedAt = Number(machine.simulated_time);
+      const captureDeadline = captureLoopStartedAt + 3;
+      let handStep = 0;
+      let nextHandMoveAt = captureLoopStartedAt;
+      const traceCapture = process.env.TRACE_ALL === "1";
+      while (!movePointCommandRecorded
+        && Number(machine.simulated_time) < captureDeadline) {
+        if (Number(machine.simulated_time) >= nextHandMoveAt) {
+          commandPenPoint = {
+            x: stagedPoint.x + handMotion[handStep % handMotion.length],
+            y: stagedPoint.y + handMotion[(handStep + 2) % handMotion.length],
+          };
+          machine.set_light_pen(
+            commandPenPoint.x / 1022,
+            1 - commandPenPoint.y / 1022,
+            dummyPenRadius / 1022,
+            true,
+          );
+          handStep += 1;
+          nextHandMoveAt += handStepSeconds;
+        }
+        stepBatch(traceCapture ? 1 : 50);
         movePointCommandRecorded = hasOctalBit(
           machine.memory_word(0o011404, machine.simulated_time).value,
           0o1000,
         );
       }
+      if (!movePointCommandRecorded) {
+        console.error(JSON.stringify({
+          failure: "Q2.1 capture for P-variable selection",
+          control: machine.control_state(),
+          simulatedTime: Number(machine.simulated_time),
+          captureLoopStartedAt,
+          handStep,
+          externalInput: octal(machine.memory_word(0o377621, machine.simulated_time).value),
+          switch1: octal(machine.memory_word(0o011425, machine.simulated_time).value),
+          switch2: octal(machine.memory_word(0o011426, machine.simulated_time).value),
+          button47: octal(machine.memory_word(0o011404, machine.simulated_time).value),
+          penLost: machine.memory_word(0o200042, machine.simulated_time).meta,
+          detections: Number(machine.light_pen_detection_count),
+          atBits: octal(machine.memory_word(0o200044, machine.simulated_time).value),
+          sequence47Trace,
+          allSequenceTrace: traceCapture ? allSequenceTrace : undefined,
+        }, null, 2));
+      }
       assert.equal(movePointCommandRecorded, true,
         "sequence 47 must capture Q2.1");
+      // The same slow tremor continues while MOVEPOINT acquires the variable.
       const moveDeadline = machine.simulated_time + 20;
-      for (let step = 0;
-        machine.simulated_time < moveDeadline && !dummyStartedMoving;
-        step += 1) {
-        const next = {
-          x: stagedPoint.x + handMotion[step % handMotion.length],
-          y: stagedPoint.y + handMotion[(step + 2) % handMotion.length],
-        };
-        machine.set_light_pen(
-          next.x / 1022,
-          1 - next.y / 1022,
-          dummyPenRadius / 1022,
-          true,
-        );
-        commandPenPoint = next;
-        penPosition = next;
+      while (machine.simulated_time < moveDeadline && !dummyStartedMoving) {
+        if (Number(machine.simulated_time) >= nextHandMoveAt) {
+          const next = {
+            x: stagedPoint.x + handMotion[handStep % handMotion.length],
+            y: stagedPoint.y + handMotion[(handStep + 2) % handMotion.length],
+          };
+          machine.set_light_pen(
+            next.x / 1022,
+            1 - next.y / 1022,
+            dummyPenRadius / 1022,
+            true,
+          );
+          commandPenPoint = next;
+          penPosition = next;
+          handStep += 1;
+          nextHandMoveAt += handStepSeconds;
+        }
         const moveState = machine.control_state();
         if (moveState.sequence === 0o76
           && moveState.instruction_address >= 0o005400
@@ -3272,6 +3314,23 @@ if (polylineMode) {
       return { firstIndex, secondIndex, firstVector, secondVector, dotProduct, cosine };
     });
   };
+  if (process.env.RELAX_PEN_HELD !== "1") {
+    // The 1963 film shows the operator's hand clear of the scope before the
+    // flange corrects.  Lift the pen so the display sequence stops tracking
+    // during the solve, as it did in the demonstration.  RELAX_PEN_HELD=1
+    // keeps the pen on the last endpoint for comparison.
+    machine.set_light_pen(
+      penPosition.x / 1022,
+      1 - penPosition.y / 1022,
+      dummyPenRadius / 1022,
+      false,
+    );
+    assert.ok(runUntil(
+      () => machine.memory_word(0o200042, machine.simulated_time).meta,
+      5,
+      1_000,
+    ), "the original tracker must report the lifted pen as lost before FIX");
+  }
   machine.set_toggle_register(0o25, 0o500, 0, 0, constraintCode, false);
   machine.set_toggle_register(0o20, 0o400, 0, 0, 0, true);
   let enteredRelax = false;

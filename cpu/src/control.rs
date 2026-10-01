@@ -38,6 +38,7 @@ mod tests;
 mod timing;
 mod trap;
 
+use base::bitselect::{BitPos, BitSelector, bit_select};
 use base::instruction::{Inst, Instruction, Opcode, SymbolicInstruction};
 use base::prelude::*;
 use base::subword;
@@ -509,6 +510,9 @@ pub struct ControlUnit {
     regs: ControlRegisters,
     trap: TrapCircuit,
     alarm_unit: AlarmUnit,
+    /// Memory references made by the instruction currently executing.
+    /// The instruction timing estimate reads this after execution.
+    operand_trace: timing::OperandTrace,
 }
 
 fn sign_extend_index_value(index_val: &Signed18Bit) -> Unsigned36Bit {
@@ -569,6 +573,7 @@ impl ControlUnit {
                 PanicOnUnmaskedAlarm::No => false,
                 PanicOnUnmaskedAlarm::Yes => true,
             }),
+            operand_trace: timing::OperandTrace::default(),
         }
     }
 
@@ -1193,25 +1198,36 @@ impl ControlUnit {
         }
     }
 
-    fn estimate_execute_time_ns(&self, orig_inst: &Instruction) -> u64 {
-        let inst_from: Address = self.regs.p; // this is now P+1 but likely in the same memory type.
-        let defer_from = match orig_inst.operand_address().split() {
-            (true, physical) => Some(physical),
-            (false, _) => None,
+    /// Capture the facts about the instruction in N that the timing
+    /// estimate needs before execution changes N, and clear the
+    /// operand trace for the instruction about to run.
+    fn begin_instruction_timing(&mut self, instruction_from: Address) -> timing::InstructionTiming {
+        self.operand_trace = timing::OperandTrace::default();
+        let opr_is_aop = bit_select(
+            self.regs.n.bits(),
+            BitSelector {
+                quarter: Quarter::Q2,
+                bitpos: BitPos::B7,
+            },
+        );
+        let active_quarters = {
+            let activity = self.get_config().active_quarters();
+            (0..4_u8).filter(|q| activity.is_active(q)).count() as u8
         };
+        timing::InstructionTiming {
+            instruction_from,
+            opcode: self.regs.n_sym.as_ref().map(SymbolicInstruction::opcode),
+            opr_is_aop,
+            active_quarters,
+            trace: self.operand_trace,
+        }
+    }
 
-        // TODO: handle chains of deferred loads
-        let operand_from: Option<Address> = match self.regs.n.operand_address().split() {
-            (true, physical) => Some(physical),
-            (false, _) => None,
-        };
-
-        timing::estimate_instruction_ns(
-            inst_from,
-            orig_inst.opcode_number(),
-            defer_from,
-            operand_from,
-        )
+    /// Estimate how long the instruction just executed took, using
+    /// the memory references recorded while it ran.
+    fn finish_instruction_timing(&self, mut started: timing::InstructionTiming) -> u64 {
+        started.trace = self.operand_trace;
+        timing::instruction_duration_ns(&started)
     }
 
     /// Fetch and execute the next instruction pointed to by the P
@@ -1342,7 +1358,7 @@ impl ControlUnit {
         let p = self.regs.p;
         self.set_program_counter(ProgramCounterChange::CounterUpdate);
 
-        let elapsed_time = self.estimate_execute_time_ns(&self.regs.n);
+        let started_timing = self.begin_instruction_timing(p);
         let instruction_was_held = self.regs.n.is_held();
         let mut dismiss_and_wait = false;
 
@@ -1462,7 +1478,11 @@ impl ControlUnit {
                     // boundary.
                     self.select_sequence(mem, false)
                 };
-                Ok((elapsed_time, new_mode, maybe_output))
+                Ok((
+                    self.finish_instruction_timing(started_timing),
+                    new_mode,
+                    maybe_output,
+                ))
             }
             Err((alarm, address)) => Err((alarm, address)),
         }
@@ -1687,6 +1707,7 @@ impl ControlUnit {
             } else {
                 MetaBitChange::None
             };
+            self.operand_trace.record_deferred_word(&physical);
             let fetched = match mem.fetch(ctx, &physical, &meta_op) {
                 Err(e) => {
                     let msg = || {
@@ -1805,6 +1826,7 @@ impl ControlUnit {
         // (memory) reference" is saved in register Q.  `¹⁴JMP`
         // (a.k.a. `JPQ`) makes use of this, for example.
         self.regs.q = physical_address.index_by(delta);
+        self.operand_trace.record_operand(&self.regs.q);
 
         // TODO: figure out if other parts of the system documentation
         // definitely expect the physical operand address to be

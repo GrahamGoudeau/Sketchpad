@@ -57,7 +57,9 @@ software.
 
 See [Sketchpad Reconstruction](RECONSTRUCTION.md) for the evidence rules and
 source repair register.  See [Research Log](RESEARCH_LOG.md) for dated project
-checkpoints, major findings, and open interpretations.
+checkpoints, major findings, and open interpretations.  See the
+[Demonstration Register](DEMONSTRATIONS.md) for what the surviving films show
+and which operations the reconstruction has proven.
 
 The public archival export of the Codex reconstruction session is in [Agent
 Session Provenance](provenance/agent-session-2026-09-14/README.md).
