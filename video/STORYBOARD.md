@@ -76,20 +76,31 @@ actual coordinates, and with a ring of their own: every line that
 touches this point. Nothing in Sketchpad is stored twice. Everything
 is reached by following links around rings."
 
-## Chapter 3: Rings as the universal mechanism
+## Chapter 3: Memory growing under use
 
-Question answered: why rings, and what can you do with them?
+Question answered: what happens in memory while someone draws?
 
-Shows: a ring word as (previous, next) half-words, offsets from LIST.
-Allocation: a block leaves the FREES ring and joins its type's ring.
-Deletion: `ERASE` unlinks a line from its three rings and puts it on
-DEADS. Merging two points: `MERGER` splices the second point's ring of
-lines into the first and the second point dies. "Which lines use this
-point" is a walk around `PLS`.
+Shows: the scope picture-in-picture, top left, from the recorder; the
+main view is all of list memory as blocks on rings, rebuilt at every
+change from a timeline the regression recorded, laid out with the
+master tree on the left and the drawing's blocks at their real scope
+positions on the right so the figure takes shape in memory as it
+takes shape on the scope. The first line allocates three blocks that
+thread onto rings; each further line reuses the previous end point;
+constraint entry allocates scratch blocks that return to the free
+ring; each constraint lands on its type's ring, the picture's ring,
+and its points' rings; `RELAX` changes no structure, only the numbers
+in the points, and the picture follows.
 
-Data: snapshots before and after `test:delete` (ring words of the line,
-its points, LINES, FREES, DEADS); before and after the polyline's
-closing merge in `test:flange`.
+Data: `MEMORY_TIMELINE` and `SCOPE_RECORD` on `test:flange`, replayed
+by `data/timeline.py` into `build/flange-keyframes.json` and one
+cropped scope frame per keyframe (`data/EXTRACT.md`).
+
+Scene: `scenes/memory_growth.py`. The rings-as-operations material
+(allocation from FREES, `ERASE` unlinking to DEADS, `MERGER` splicing
+two points' rings, the hen back-offset that lets a link find its
+block) moves to a chapter 3b with before-and-after snapshots from
+`test:delete` and the polyline's closing merge.
 
 Narration draft: "Every operation in Sketchpad is one of a handful of
 ring moves. Take a block off the free ring and put it on the ring of
