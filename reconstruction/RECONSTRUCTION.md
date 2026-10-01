@@ -81,7 +81,7 @@ shorter `OPLW` job is not in this set.  A separate one-word inferred
 initialization tape sets the no-old-designation sentinel used by `DESIGNATE`.
 The merged tape has 12,944 words in 28 blocks.  It starts at octal address
 `200140`.  It is 78,144 bytes.  Its SHA-256 is
-`8fb09e69115b272485138561ac0177f3c43648f2dab1608d956098305f02fe28`.
+`c4229155b584ba087c3f17700e75d85f42ef19fde8a4b50050691d519a7268bf`.
 
 The simulator runs this image through WebAssembly.  The executing assembly
 draws `INK`, creates a line, selects it with the emulated light pen, creates a
@@ -170,6 +170,11 @@ durations of Table 7-8 of the Users Handbook for every instruction, deferred,
 and operand memory combination, records each instruction's memory references
 during execution, and counts chains of deferred cycles.  The shift rate is an
 inferred 0.4 microseconds per step; see research log checkpoint 86.
+Commit `91cae9e` substitutes macro parameters in the arithmetic tail of a
+body line whose first parameter received a subscripted argument, as in
+`LDAE|IVAL+LIST₁,1,2,3` expanding `LDB A+B`; the unsubstituted `B` had
+assembled as the B register.  Six words of `LYUO` and three of `ONLW`
+change; see research log checkpoint 93.
 
 The printed `2XMX` automatic table belongs to a different visible revision.
 Its automatic `COPYNUM` conflicts with the surviving explicit

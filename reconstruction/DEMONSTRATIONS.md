@@ -30,7 +30,7 @@ film under Alan Kay's 1986 commentary; timestamps in parentheses).
 | 1:54 to 2:36 (0:46 to 1:30) | Additional lines drawn across the flange and made parallel or perpendicular | same | proven for the P constraint; the exact figure is not reproduced |
 | 2:36 to 2:42 (1:30 to 1:36) | Flange detail with repeated short dashes | not identified | not exercised |
 | 2:45 to 3:45 (1:38 to 2:36) | A second drawing: circular arc over a crossed box (the rivet) | `DESIGNATE`, `STARTC`, lines | proven for arcs and lines; the complete rivet figure is not reproduced |
-| 3:45 to 4:30 (2:38 to 3:20) | Rivet placed on the flange as an instance and moved into position | `SUBPIC`, `MAGI`, the ONLW moving transform, `STOPMOVEP` | proven with a one-line master by `npm run test:instance`; the rivet figure is not reproduced |
+| 3:45 to 4:30 (2:38 to 3:20) | Rivet placed on the flange as an instance and moved into position | `SUBPIC`, `MAGI`, the ONLW moving transform, `STOPMOVEP`, `MAKPATA`, `76MOVIT` | proven with a one-line master by `npm run test:instance` and, with an attacher, by `npm run test:instance-attacher`; the rivet figure is not reproduced |
 | 4:30 to 5:10 (3:20 to 3:58) | Instances resized and repositioned; pen drags instance | `SHAFTINS`, `ΔROT`, `ΔSIZE`, `76MOVI` | proven for rotation and size while moving |
 | 5:10 to 6:27 (4:00 to 4:14) | Several small copies of the flange made at reduced scale | instance and copy routines; the scope scale knob is proven by `npm run test:knobs` | not exercised |
 
@@ -54,9 +54,9 @@ program on the same machine, and is outside this reconstruction.
 ## Capabilities the films show that need a regression
 
 - Instances of a figure with several parts; the one-line instance is
-  proven, and TIE plus the instance-point constraint structure are proven
-  under `INSTANCE_ATTACHER=1`, with the image point's coordinates open
-  (checkpoint 92).
+  proven, and TIE, the instance-point constraint, and the image point's
+  position on the displayed instance are proven by `npm run
+  test:instance-attacher` (checkpoints 92 and 93).
 - Copying a figure.
 - Deleting a line through `ERASE` and the unattached points through
   `POINTSOUT` are both proven by `npm run test:delete`.

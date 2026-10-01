@@ -7,7 +7,7 @@
   },
   "provenance": {
     "tape": "sketchpad-web/rust/assets/sketchpad-combined.tape",
-    "tapeSha256": "8fb09e69115b272485138561ac0177f3c43648f2dab1608d956098305f02fe28",
+    "tapeSha256": "c4229155b584ba087c3f17700e75d85f42ef19fde8a4b50050691d519a7268bf",
     "tapeBytes": 78144,
     "selectCommand": "2.9",
     "lineAddress": "025261",

@@ -42,7 +42,7 @@ modes, but it does not show a fixed grid on the display.
 The bundled tape contains seven compatible historical Sketchpad jobs and one
 separate inferred initialization word.  Its entry point is octal address
 `200140`.  Its SHA-256 is
-`8fb09e69115b272485138561ac0177f3c43648f2dab1608d956098305f02fe28`.
+`c4229155b584ba087c3f17700e75d85f42ef19fde8a4b50050691d519a7268bf`.
 
 The browser runs the paper tape through the CPU and WebAssembly.  It draws the
 unit-60 output on the canvas.  Pointer motion over the scope always sets the
@@ -200,9 +200,11 @@ instance in place.  Source repair R073 is what lets the display builder
 return after expanding the master.  `INSTANCE_ATTACHER=1` adds the thesis's
 attacher workflow: TIE (Q2.6, `MAKPATA`) on the master's endpoint, then an
 instance that carries an instance-point constraint and an image point.  The
-structure is verified; the image point's coordinates are an open question
-recorded in research log checkpoint 92, so that mode is not part of
-`npm test`.
+structure is verified, and the image point, mapped through the scope
+window, sits at an end of the displayed instance.  `npm run
+test:instance-attacher` runs that mode; its image coordinate was wrong
+until the assembler substituted macro parameters in the tail of a
+subscripted argument (research log checkpoint 93).
 
 A third regression enters `DESIGNATE`, `STARTDRAW`, and `STARTC`.  It proves
 that the assembly allocates circle records and that unit 60 emits a quantized
@@ -251,6 +253,7 @@ npm run test:fix
 npm run test:delete
 npm run test:knobs
 npm run test:instance
+npm run test:instance-attacher
 npm run test:perpendicular
 npm run test:flange
 npm run test:relax-trace
