@@ -5327,4 +5327,52 @@ line. Rendered output is not kept in the repository.
   (024000) until the free ring has members; the first blocks of a
   session come from the top of the used area, not from `FREES`.
 
+### The whole list area, reconstructed without a map
+
+`video/data/rings.py` rebuilds the ring structure of a snapshot
+knowing nothing but the master block table: a ring word is any word
+whose next link's previous link is itself and whose previous link's
+next link is itself; rings are the cycles of such words; a ring word's
+block is found from the hen before it, whose left quarter is minus its
+offset; a ring's head is the member whose hen carries no tie; a tie is
+a hen's right half; a block's type is its `TYPE` word's right half,
+the master block of its kind. The snapshot had to cover the whole list
+area, from `LIST` to the allocation pointer in word 024000 (0o2463
+words after the solved flange), which the writer now reads.
+
+On the solved flange this finds 97 blocks: 26 master blocks, 12
+constraint-type blocks, 6 lines, 6 points, 6 P constraints, the
+picture, 27 freed blocks on `FREES` (the dummies and merged points of
+constraint entry), and a few header blocks; 25 non-trivial rings and
+55 ties. Two things in it were not in the thesis's description as I
+had read it:
+
+- The master blocks are themselves on rings, in a tree. A root block
+  at 024001 heads a ring of four category blocks; one category
+  (`TOPOS`, 024023) heads the ring of `PICTURES`, `LINES`, `CIRCLES`;
+  another (024007) the ring of `SCALERS`, `POINTS`, `TPVALS`,
+  `INSTANCES`, `TEXTS`, `NUMBERS`; `HOLDERS` (024015) the ring of the
+  small masters `FREES`, `FREEDOMS`, `MERGERS`, `DEADS`, `FIXEDS`,
+  `DESIGS`, `MOVINGS`, `CURPICS`, `NEWCONS`; and `CONSTRAINTS`
+  (024031) the ring of the constraint masters and the twelve
+  constraint-type blocks at 024605 to 025141. Every block in memory is
+  reachable from 024001 by walking rings.
+- A P constraint ties four point fields (+10, +12, +14, +16) and sits
+  on each point's `VCON` ring (point +12) as well as on its type's
+  ring and the picture's `PICBLKS` ring; the shared corner point
+  appears twice. The points' `VCON` rings had four or five members
+  after the solve.
+
+`video/scenes/gestalt.py` draws the whole thing: the master tree on
+the left as nested arcs, the drawing's blocks on the right at their
+real scope positions so the flange is recognisable in memory, every
+ring as a loop, every tie dashed, and a cursor that walks from the
+root down to the LINES ring, across a tie to a point, round the
+point's ring to the next line, and so round the flange.
+
+- `[DECOMP]` The list area is one tree of rings rooted at 024001,
+  with the master blocks as interior nodes; the free ring and the dead
+  ring are leaves of the same tree. There is no table of objects
+  anywhere; enumeration of anything is a ring walk from a master.
+
 

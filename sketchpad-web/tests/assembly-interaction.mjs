@@ -454,6 +454,23 @@ function snapshot(first = 0o024000, last = 0o026000) {
   return words;
 }
 
+function writeMemorySnapshot() {
+  if (!process.env.MEMORY_SNAPSHOT) return;
+  const asObject = (map) => Object.fromEntries([...map.entries()].map(([a, v]) => [octal(a, 6), octal(v)]));
+  const displayCount = rightHalf(machine.memory_word(0o200032, machine.simulated_time).value);
+  const statics = Object.fromEntries(Array.from({ length: 0o100 }, (_, i) => [octal(0o200000 + i, 6), octal(machine.memory_word(0o200000 + i, machine.simulated_time).value)]));
+  writeFileSync(process.env.MEMORY_SNAPSHOT, JSON.stringify({
+    simulatedSeconds: Number(machine.simulated_time),
+    lineAddress: octal(drawnLineAddress, 6),
+    before: asObject(memoryBeforeDraw),
+    // The list area runs from LIST to the allocation pointer in LIST's
+    // first word; take it whole, with a margin.
+    after: asObject(snapshot(0o024000, 0o024000 + rightHalf(machine.memory_word(0o024000, machine.simulated_time).value) + 0o100)),
+    displayFile: Array.from({ length: displayCount }, (_, i) => octal(machine.memory_word(0o100000 + i, machine.simulated_time).value)),
+    statics,
+  }, null, 1));
+}
+
 function octal(value, width = 12) {
   return value.toString(8).padStart(width, "0");
 }
@@ -1900,20 +1917,6 @@ if (stopWithButton) {
 }
 
 if (process.env.TRACK_ONLY === "1") {
-function writeMemorySnapshot() {
-  if (!process.env.MEMORY_SNAPSHOT) return;
-  const asObject = (map) => Object.fromEntries([...map.entries()].map(([a, v]) => [octal(a, 6), octal(v)]));
-  const displayCount = rightHalf(machine.memory_word(0o200032, machine.simulated_time).value);
-  const statics = Object.fromEntries(Array.from({ length: 0o100 }, (_, i) => [octal(0o200000 + i, 6), octal(machine.memory_word(0o200000 + i, machine.simulated_time).value)]));
-  writeFileSync(process.env.MEMORY_SNAPSHOT, JSON.stringify({
-    simulatedSeconds: Number(machine.simulated_time),
-    lineAddress: octal(drawnLineAddress, 6),
-    before: asObject(memoryBeforeDraw),
-    after: asObject(snapshot()),
-    displayFile: Array.from({ length: displayCount }, (_, i) => octal(machine.memory_word(0o100000 + i, machine.simulated_time).value)),
-    statics,
-  }, null, 1));
-}
 
   if (process.env.SUMMARY_ONLY === "1") {
     const verificationByOrigin = {};
@@ -3548,6 +3551,7 @@ if (polylineMode) {
   }, null, 2));
   assert.ok(perpendicularResults.every(({ cosine }) => Math.abs(cosine) < 0.001),
     "the original P constraints and RELAX solver must make adjacent lines perpendicular");
+  writeMemorySnapshot();
   if (process.env.INSTANCE_ONLY !== "1") process.exit(0);
   }
 }
