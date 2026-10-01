@@ -32,15 +32,19 @@ COLORS = {
 }
 BIG = ("lines", "points", "pictures", "constraint")
 
-# What to say, and when: the first keyframe whose phase matches.
+# What to say, and when: a caption fires at the first keyframe whose
+# phase matches and whose count of constraint blocks has reached `after`.
 CAPTIONS = [
-    ("boot", "Top left: the operator's scope. Main view: every block in Sketchpad's memory, live."),
-    ("boot", "Before anything is drawn: just the master blocks, one per kind of thing, already on rings."),
-    ("verify-line", "First line. Three new blocks: a line and two points. Watch them thread onto rings."),
-    ("verify-line", "Each new line reuses the previous end point. One block, one more ring member. No copies."),
-    ("stage-perpendicular-constraint", "Entering constraints. The scratch blocks it allocates come back to the free ring when done."),
-    ("attach-perpendicular-handle", "Each constraint is a block too: on its type's ring, on the picture's ring, on each point's ring."),
-    ("relax", "RELAX. The structure stops changing. Only the numbers in the points move, and the picture follows."),
+    ("boot", 0, "Top left: the operator's scope. Main view: every block in Sketchpad's memory, live."),
+    ("boot", 0, "Before anything is drawn: just the master blocks, one per kind of thing, already on rings."),
+    ("verify-line", 0, "First line. Three new blocks: a line and two points. Watch them thread onto rings."),
+    ("verify-line", 0, "Each new line reuses the previous end point. One block, one more ring member. No copies."),
+    ("stage-perpendicular-constraint", 0, "Now the constraints. The operator picks 'perpendicular' and points the pen at two lines."),
+    ("expose-perpendicular-handles", 0, "The lines vanish on the scope. That's a display toggle: hide lines so the pen can pick points."),
+    ("attach-perpendicular-handle", 0, "Wiring a constraint uses scratch points as handles. Grey dots: they come from the free ring and go back."),
+    ("attach-perpendicular-handle", 1, "There it is: a red constraint block. On its type's ring, the picture's ring, and each point's ring."),
+    ("attach-perpendicular-handle", 3, "Six corners, six constraints, same ritual each time. Memory grows by a block, not by a copy."),
+    ("relax", 0, "RELAX. The structure stops changing. Only the numbers in the points move, and the picture follows."),
 ]
 
 
@@ -102,8 +106,9 @@ class MemoryGrowth(Scene):
         prev_frame = None
         for index, kf in enumerate(KEYFRAMES):
             # Caption for a phase we have not captioned yet.
-            for i, (phase, text) in enumerate(CAPTIONS):
-                if i not in said and kf["phase"] == phase:
+            n_constraints = sum(1 for v in kf["blocks"].values() if v["type"] == "constraint")
+            for i, (phase, after, text) in enumerate(CAPTIONS):
+                if i not in said and kf["phase"] == phase and n_constraints >= after:
                     said.add(i)
                     say(text)
                     if i == 1:

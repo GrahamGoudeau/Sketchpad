@@ -51,7 +51,11 @@ def signature(g):
     return blocks, rings, ties
 
 
-def main(timeline, motion=0.5):
+SLOW_PHASES = ("expose-perpendicular-handles", "map-perpendicular-target", "attach-perpendicular-handle",
+               "stage-perpendicular-constraint", "create-perpendicular-constraint")
+
+
+def main(timeline, motion=0.5, slow_motion=1.0):
     keyframes = []
     last_sig = None
     last_motion = -1e9
@@ -63,7 +67,8 @@ def main(timeline, motion=0.5):
             continue
         sig = signature(g)
         structural = sig != last_sig
-        if not structural and time - last_motion < motion:
+        gap = slow_motion if phase in SLOW_PHASES else motion
+        if not structural and time - last_motion < gap:
             continue
         if not structural:
             last_motion = time
