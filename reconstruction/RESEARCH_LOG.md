@@ -5010,4 +5010,100 @@ figures still not reproduced line for line.
   current picture that produced it, never the inner part, so pen
   selection inside a nested instance resolves to the outermost instance.
 
+Commits `34ff8b7` and `3bc313c` were pushed to `main`. GitHub Actions run
+`36826626512` and `36827302876` passed. No release was deployed.
+
+## Checkpoint 97: Where a RELAX Pass Spends Its Time
+
+Date: 2026-10-01
+
+Checkpoint 86 left the flange correction at 0.62 s for the first
+`RELAX` pass against 0.35 to 0.45 s of main rotation in the film, and
+left the shift rate of 0.4 µs per step as an inferred constant. To
+bound what that inference can move, and to see where the time goes,
+the flange regression now attributes machine time to the running
+sequence and opcode of every tick under `RELAX_OPCODE_PROFILE=1`. The
+bookkeeping is in the test bed; the machine runs exactly as before, and
+the pass times are those of the unprofiled run.
+
+### The eight passes
+
+| Pass | Wall time | Largest cosine after |
+| --- | --- | --- |
+| 1 | 0.621 s | 0.037 |
+| 2 | 0.760 s | 0.0049 |
+| 3 to 8 | 0.745 to 0.747 s each | 0.0005 then 0 |
+
+Over the 5.86 s, sequence 60 (the display) ran for 2.43 s and sequence
+76 (the program) for 3.27 s; the button sequence 47 and the pen and
+tape sequences took 0.16 s between them. The main program therefore
+had 56 percent of the machine during the solve, and the display 41.
+
+### By opcode
+
+| Sequence and opcode | Seconds | Share | Ticks | Mean per tick |
+| --- | --- | --- | --- | --- |
+| 60 `TSD` | 1.433 | 24.5% | 325,919 | 4.4 µs |
+| 76 `DIV` | 0.465 | 7.9% | 11,953 | 38.9 µs |
+| 76 `RSX` | 0.330 | 5.6% | 33,051 | 10.0 µs |
+| 76 `STA` | 0.263 | 4.5% | 40,101 | 6.5 µs |
+| 76 `MUL` | 0.196 | 3.3% | 19,260 | 10.2 µs |
+| 76 `LDA` | 0.195 | 3.3% | 27,207 | 7.2 µs |
+| 60 `SXL`, `JPQ`, `INX` | 0.523 | 8.9% | 72,670 | 7.2 µs |
+| 76 `JPQ` | 0.156 | 2.7% | 27,269 | 5.7 µs |
+| 76 `ADD` | 0.141 | 2.4% | 23,910 | 5.9 µs |
+
+Within sequence 76's 3.27 s, the shift instructions (`SCA`, `SCB`,
+`SAB`, `CYA`, `CYB`, `CAB`) account for 0.145 s, 4.4 percent, and
+`MUL`, `DIV`, and `TLY` for 0.661 s, 20 percent. The shift rate is the
+one inferred constant in the clock: were it half or double the 0.4 µs
+per step, sequence 76's time would move by at most 2.2 percent and a
+pass by at most 1.3 percent. The inference cannot explain the factor
+of 1.5 against the film, and it is not where to look.
+
+The display's 41 percent is the other place. The display routine
+connects the scope with `IOS₆₀ 30010` at `TRACK1` (sk2.tx2as line
+3954), a 20 µs spot, draws the tracking cross under `30030` (80 µs) at
+`TR3`, and returns the picture display to `30000` (10 µs) at `TR5`. At
+10 µs per point the display sequence, with its 7 µs or so of
+instructions per point, preempts the main program for a large fraction
+of the machine, and the share depends on the spot mode and the
+instruction cost per point, not on how much is drawn, as long as the
+display is never idle. `TSD` at a mean of 4.4 µs over 325,919 ticks
+includes the dismissals while the scope is busy. The emulator times the
+spot as 10 µs shifted by the mode's intensity field (`dev_scope.rs`,
+`spot_duration`); the handbook's figures for the four modes and the
+scope's actual settling behaviour under each are the next things to
+read against the film, since a slower real spot would hand the solver
+more of the machine, not less, and a display sequence that waited
+rather than dismissed would hand it less.
+
+Both were then read in the handbook. Its oscilloscope display pages
+give the four modes as 10, 20, 40, and 80 µs ("Low" to "High",
+"duration of the spot rather than beam intensity"), which is what the
+emulator applies, and its TSD description says that when the buffer is
+busy "the TSD can not be performed and drop out occurs whether a hold
+is used or not", called "dismiss and wait", with P not advanced; the
+emulator's `op_io.rs` returns `DismissAndWait` in that case. The scope
+timing and the dismissal rule are therefore not the discrepancy
+either. What remains unmeasured is the real scope's behaviour at the
+10 µs setting, which the handbook's own summary calls a "20 to 80
+usec" display, and the instruction cost per displayed point.
+
+### Open
+
+- The handbook's summary line for the scope, "high speed (20 to 80
+  usec)", against its mode table's 10 µs for `30000`, which Sketchpad
+  selects for the picture; if the real spot at that setting took
+  longer, the display would preempt less and the solve would run
+  faster.
+- `DIV` at 38.9 µs mean is the largest single program cost; Table 7-8's
+  by-quarter rule for it is what the emulator applies, and a check of
+  the active-quarter counts the solver's divisions actually use would
+  confirm the mean.
+
+- `[DECOMP]` The solver's inner loop is division-bound: about 1,500
+  `DIV` and 2,400 `MUL` per pass for six P constraints, with the
+  display sequence taking two fifths of the machine throughout.
+
 

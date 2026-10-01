@@ -149,7 +149,9 @@ assembly change, rewrite the artifact with
 
 The six-edge flange regression lifts the pen before it enables `FIX`, as the
 operator's hand is clear of the scope in the 1963 film before the flange
-corrects.  `RELAX_PEN_HELD=1` keeps the pen tracking the last endpoint
+corrects.  `RELAX_OPCODE_PROFILE=1` attributes the machine time of the
+solve to each sequence and opcode in the report (research log checkpoint
+97).  `RELAX_PEN_HELD=1` keeps the pen tracking the last endpoint
 instead.  The display sequence then spends most of its time in the original
 tracking cross and each `RELAX` pass takes about twice as long.  The regression
 moves the pen on a simulated-time schedule, not once per photocell detection,

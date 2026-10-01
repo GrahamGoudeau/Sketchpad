@@ -3422,6 +3422,12 @@ if (polylineMode) {
     });
   };
   const requestedRelaxPasses = Number(process.env.RELAX_PASSES ?? "8");
+  // RELAX_OPCODE_PROFILE=1 attributes machine time to the sequence and
+  // opcode of each tick's instruction (test-bed bookkeeping; the machine
+  // runs exactly as without it).
+  const profileOpcodes = process.env.RELAX_OPCODE_PROFILE === "1";
+  const relaxOpcodeSeconds = new Map();
+  const opcodeOf = (instruction) => (instruction.match(/[A-Z]{2,4}/) ?? ["?"])[0];
   const relaxDeadline = machine.simulated_time + 300 * requestedRelaxPasses;
   captureRelaxMotionState(machine.control_state(), "before");
   while (completedRelaxPasses < requestedRelaxPasses
@@ -3440,6 +3446,13 @@ if (polylineMode) {
       (relaxSequenceSeconds.get(beforeStep.sequence) ?? 0)
         + Number(machine.simulated_time) - beforeStepTime,
     );
+    if (profileOpcodes) {
+      const key = `${octal(beforeStep.sequence, 2)}:${opcodeOf(beforeStep.instruction)}`;
+      const entry = relaxOpcodeSeconds.get(key) ?? { seconds: 0, ticks: 0 };
+      entry.seconds += Number(machine.simulated_time) - beforeStepTime;
+      entry.ticks += 1;
+      relaxOpcodeSeconds.set(key, entry);
+    }
     if (state.sequence !== beforeStep.sequence
       || state.program_counter !== beforeStep.program_counter
       || state.instruction_address !== beforeStep.instruction_address) {
@@ -3497,6 +3510,9 @@ if (polylineMode) {
       sequenceSeconds: Object.fromEntries([...relaxSequenceSeconds.entries()].map(
         ([sequence, seconds]) => [octal(sequence, 2), seconds],
       )),
+      opcodeSeconds: profileOpcodes
+        ? Object.fromEntries([...relaxOpcodeSeconds.entries()].sort((a, b) => b[1].seconds - a[1].seconds))
+        : undefined,
       passes: relaxPassMeasurements,
       motion: relaxMotionMeasurements,
       geometryBefore: geometryBeforePerpendicularSolve.map(geometryForReport),
