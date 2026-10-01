@@ -3507,7 +3507,7 @@ if (polylineMode) {
   }, null, 2));
   assert.ok(perpendicularResults.every(({ cosine }) => Math.abs(cosine) < 0.001),
     "the original P constraints and RELAX solver must make adjacent lines perpendicular");
-  process.exit(0);
+  if (process.env.INSTANCE_ONLY !== "1") process.exit(0);
   }
 }
 
@@ -3790,6 +3790,16 @@ if (process.env.INSTANCE_ONLY === "1") {
   };
   const report = {};
 
+  if (perpendicularFlangeMode) {
+    // The flange fixture leaves toggle register 25 naming the constraint
+    // code in its right half, SHOWCON (bit 4.8) displaying the six
+    // constraint symbols, and the pen lifted after RELAX.  Name picture 0
+    // again (NITOG), keep SHOWBLKS and SHOWPOINTS (bits 4.9 and 4.7), turn
+    // the constraint symbols off as the operator would before copying the
+    // figure, and let the tracker reacquire the pen on the solved line.
+    machine.set_toggle_register(0o25, 0o500, 0, 0, 0, false);
+    runUntilTime(Number(machine.simulated_time) + 1);
+  }
   // Pen on the master line's midpoint, tracking.
   const lineStats = phaseScope.get("verify-line");
   const centerX = (lineStats.x[0] + lineStats.x[1]) / 2;
@@ -3798,8 +3808,18 @@ if (process.env.INSTANCE_ONLY === "1") {
     const distanceSquared = (point.x - centerX) ** 2 + (point.y - centerY) ** 2;
     return distanceSquared < closest.distanceSquared ? { ...point, distanceSquared } : closest;
   }, { x: null, y: null, distanceSquared: Infinity });
+  if (perpendicularFlangeMode) {
+    // RELAX moved the lines.  Put the pen on the first line's present
+    // midpoint, read from memory through the display rule, and give the
+    // original lost-pen path time to reacquire it.
+    const first = lineGeometryAt(drawnLineAddress);
+    const a = scopeOfPage(first.first[0], first.first[1]);
+    const b = scopeOfPage(first.second[0], first.second[1]);
+    selectionPoint.x = Math.round((a.x + b.x) / 2);
+    selectionPoint.y = Math.round((a.y + b.y) / 2);
+  }
   machine.set_light_pen(selectionPoint.x / 1022, 1 - selectionPoint.y / 1022, 26 / 1022, true);
-  assert.ok(runUntil(() => !meta(0o200042), 5, 200),
+  assert.ok(runUntil(() => !meta(0o200042), perpendicularFlangeMode ? 60 : 5, 200),
     "the tracker must hold the pen on the master line");
   // The master figure as picture 0 displays it, sampled with the pen alive.
   const masterFigure = multiPartMaster ? samplePictureWhileMoving(1) : [];
@@ -3810,6 +3830,10 @@ if (process.env.INSTANCE_ONLY === "1") {
     // The display rule must put the sampled picture points on the segments
     // read from memory; this checks the mapping before it is used.
     const masterOnSegments = masterFigure.map((p) => nearestOnSegments(p, masterSegments).distance);
+    if (Math.max(...masterOnSegments) > 2) {
+      console.error(JSON.stringify({ failure: "master points off its lines", segments: masterSegments,
+        off: masterFigure.filter((p, i) => masterOnSegments[i] > 2), display: ownersOfDisplayFile(), toggle25: octal(word(0o377725)) }));
+    }
     assert.ok(Math.max(...masterOnSegments) <= 2,
       `picture 0's points must lie on its six lines as mapped (worst ${Math.max(...masterOnSegments).toFixed(1)})`);
     report.masterFigure = { points: masterFigure.length, segments: masterSegments, diameter: diameterOf(endpointsOf(masterSegments)) };
@@ -4099,6 +4123,21 @@ if (process.env.INSTANCE_ONLY === "1") {
     masterWordsBefore, masterWordsAfter: masterWords(), masterLength: masterLength(),
   };
 
+  if (multiPartMaster && perpendicularFlangeMode) {
+    // With SHOWCON on again, picture 1 shows only the instance's figure:
+    // the master's six constraint symbols, each hundreds of display words
+    // in picture 0, do not appear inside the instance (checkpoint 95).
+    machine.set_toggle_register(0o25, 0o700, 0, 0, 0, false);
+    tremor(1);
+    const withCon = samplePictureScopePoints(1);
+    const offFigure = withCon.filter((p) => nearestOnSegments(p, fit3.mapped).distance > onFigureTolerance);
+    assert.ok(withCon.length >= 40, "the instance must still display with SHOWCON on");
+    assert.equal(offFigure.length, 0,
+      `an instance must not display its master's constraint symbols (${offFigure.length} points off the figure)`);
+    report.instanceWithShowcon = { points: withCon.length, offFigure: offFigure.length, display: ownersOfDisplayFile() };
+    machine.set_toggle_register(0o25, 0o500, 0, 0, 0, false);
+    tremor(1);
+  }
   if (multiPartMaster) {
     // Several copies, as the film shows: a second instance made while the
     // pen aims at the first, shrunk by the size knob, dragged by the pen to

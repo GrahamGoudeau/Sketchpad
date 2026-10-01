@@ -4853,4 +4853,108 @@ which is the 0o22000000 both fixtures saw against `SCSZ` 0o110000000.
   R = `SCSZ`/4, a quarter of the scope window's page width, so a fresh
   instance is sized to the view rather than to the master.
 
+Commits `1266eb5` and `ddb2da3` were pushed to `main`. GitHub Actions runs
+`36824967986` and `36825656895` passed. No release was deployed.
+
+## Checkpoint 95: Copies of the Constrained Flange
+
+Date: 2026-10-01
+
+The Lincoln Laboratory film's last scene makes small copies of the
+flange after its corners have been made perpendicular. `npm run
+test:instance-flange` now runs the flange fixture (six edges, six P
+constraints, `RELAX` with the pen lifted) and, instead of exiting after
+the solve, continues into the instance workflow of checkpoint 94: an
+instance of the solved flange, rotated and shrunk while moving, stopped,
+then copied, shrunk again, dragged across the scope, and stopped.
+
+### Getting from the solve to the instance
+
+Three things the flange fixture leaves behind had to be handled through
+the console, not the code. Toggle register 25's right half still held
+the constraint code 0o37, which `NITOG` would have read as the master's
+picture name; it is set back to 0. Its quarter 4 held `SHOWCON`, bit
+4.8, which displays each constraint as a symbol of several hundred
+display words (the six symbols occupied 605, 494, 546, 544, 661, and
+730 words of the display file against 81 to 196 for each line); the
+operator turns it off before copying, keeping `SHOWBLKS` (4.9) and
+`SHOWPOINTS` (4.7). And the pen had been lifted for the solve, so the
+tracker had lost it; the fixture puts the pen on the first line's
+present midpoint, read from memory through the display rule since
+`RELAX` moved every line, and the original lost-pen path reacquires it
+within the 60 seconds allowed.
+
+### Results
+
+The master validation holds: 101 picture-0 points lie within 2 scope
+units of the six solved segments read from memory. `PSIZE` is
+0o16355201, R₀/`PSIZE` = 1.245, and the fresh instance's measured scale
+is 1.25.
+
+| Stage | Scale | Image points | 98th distance | Worst gap |
+| --- | --- | --- | --- | --- |
+| Moving, fresh | 1.25 | 685 | 3.37 | 3.61 |
+| After rotation knob (40.84°) | 1.25 | 615 | 2.96 | 3.17 |
+| After size knob | 1.00 | 589 | 2.96 | 2.83 |
+| Stopped | 1.00 | 100 | 1.38 | 4.79 |
+| Second copy, stopped | 0.63 | 63 | 0.88 | 4.11 |
+
+The two copies' centres are 655 scope units apart.
+
+With `SHOWCON` turned on again while picture 1 holds only the stopped
+instance, the picture displays 100 points, none off the instance's
+figure: the master's constraint symbols are not drawn inside an
+instance. The test asserts this, and the source says why. A picture
+keeps two rings: `PPART`, its drawn parts (lines, circles, points,
+instances), and `PICBLKS`, its non-drawing blocks, the constraints
+among them. The top-level display `MAGPIC` (sk2.tx2as line 1655) walks
+`PPART` and then, only under `SHOWBLKS`, `PICBLKS`, sending each block
+to its type's `DISPLAY` routine through `MAG1`. The instance expansion
+`MAGIGO2` walks only the master's `PPART` with `EXPINS` set, so a
+master's constraints are never reached from an instance.
+
+`MAGI` also shows what the display builder does before expanding an
+instance at all. It computes the instance's size on the scope from
+`ISIZE`·`MATS`/`MATD` against `SCSZ` and does not expand one smaller
+than a threshold (the `SUB {400,,}` test), does not expand one whose
+`IP`, mapped and measured against `SCCEN`, lies farther off the window
+than its size, draws a box instead of the contents under
+`SHOWINSASBOX`, skips every instance under `SUPPINS`, refuses a picture
+that is already being expanded (the `PSAVE` word, "RECURSIVE PICTURE"),
+and bounds the recursion depth with `EXLEVEL` ("OUT TOO FAR").
+
+### The film frames
+
+Frames of the Lincoln Laboratory transfer at 5:15, 5:40, 6:05, and
+6:25 were extracted with ffmpeg and read. At 5:15 three copies of the
+flange, at three sizes, stand on an otherwise empty scope with the
+tracking cross to their right; the master flange is not on screen, so
+the copies are instances in another picture, as this fixture makes
+them. Each copy carries the rivet at its corner: the master flange held
+the rivet instance from the earlier scene, so each copy is an instance
+of a picture that itself contains an instance, two levels of expansion.
+At 5:40 five copies and a separate rivet drawn upright are visible; at
+6:05 a large U-shaped bracket with one rivet instance; at 6:25 the
+whole picture shrunk to a few units by the scale knob.
+
+### Open
+
+- Nested instances: a copy of a picture that contains an instance, as
+  every flange copy in the film does. `MAGI` recurses through `PSAVE`
+  and `EXLEVEL` for this and nothing yet drives it.
+
+- `[DECOMP]` Toggle register 25 (`SHOWTOG`, 377725) is the display
+  options word: 4.9 `SHOWBLKS` (non-drawing objects), 4.8 `SHOWCON`
+  (constraint symbols), 4.7 `SHOWPOINTS`, 4.6 `SHOWINSASBOX` (instances
+  as boxes), 4.1 `SHOWSCALERS`, 3.9 `SHOWTPVALS`; its right half
+  (`NITOG`) names the picture a new instance is made from.
+- `[DECOMP]` A picture's parts live on two rings, `PPART` for what is
+  drawn and `PICBLKS` for constraints and other non-drawing blocks;
+  instance expansion walks `PPART` only, so constraint symbols appear
+  only in the picture that owns them.
+- `[DECOMP]` The display builder culls instances before expanding them:
+  too small on the scope, or too far outside the window, and the
+  instance is skipped; the recursion is guarded against a picture that
+  contains itself and against depth.
+
 

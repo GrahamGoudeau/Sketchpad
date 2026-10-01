@@ -32,7 +32,7 @@ film under Alan Kay's 1986 commentary; timestamps in parentheses).
 | 2:45 to 3:45 (1:38 to 2:36) | A second drawing: circular arc over a crossed box (the rivet) | `DESIGNATE`, `STARTC`, lines | proven for arcs and lines; the complete rivet figure is not reproduced |
 | 3:45 to 4:30 (2:38 to 3:20) | Rivet placed on the flange as an instance and moved into position | `SUBPIC`, `MAGI`, the ONLW moving transform, `STOPMOVEP`, `MAKPATA`, `76MOVIT` | proven with a one-line master by `npm run test:instance` and, with an attacher, by `npm run test:instance-attacher`; the rivet figure is not reproduced |
 | 4:30 to 5:10 (3:20 to 3:58) | Instances resized and repositioned; pen drags instance | `SHAFTINS`, `ΔROT`, `ΔSIZE`, `76MOVI` | proven for rotation and size while moving |
-| 5:10 to 6:27 (4:00 to 4:14) | Several small copies of the flange made at reduced scale | `SUBPIC`, `MAGI`, `ΔSIZE`; the scope scale knob is proven by `npm run test:knobs` | proven for two instances of the six-edge outline, the second copied from the first, each shrunk by the size knob and left apart on the scope (`npm run test:instance-figure`, checkpoint 94); the constrained flange as master is not exercised |
+| 5:10 to 6:27 (4:00 to 4:14) | Several small copies of the flange, each carrying its rivet instance, made at reduced scale in a picture without the master; then a U-shaped bracket with a rivet; then the picture shrunk by the scale knob | `SUBPIC`, `MAGI`, `ΔSIZE`; the scope scale knob is proven by `npm run test:knobs` | proven for two instances of the solved flange, the second copied from the first, each shrunk by the size knob and left apart on the scope (`npm run test:instance-flange`, checkpoint 95; the unconstrained outline by `npm run test:instance-figure`, checkpoint 94) |
 
 ## MIT Science Reporter, "Computer Sketchpad", 1964
 
@@ -53,12 +53,13 @@ program on the same machine, and is outside this reconstruction.
 
 ## Capabilities the films show that need a regression
 
-- An instance of the constrained flange. The one-line and six-line
-  instances and a copy of an instance are proven (`npm run
-  test:instance`, `npm run test:instance-figure`), and TIE, the
+- Instances are proven for a line, a six-line outline, the solved
+  flange, and a copy of an instance (`npm run test:instance`,
+  `test:instance-figure`, `test:instance-flange`), and TIE, the
   instance-point constraint, and the image point's position on the
   displayed instance by `npm run test:instance-attacher` (checkpoints
-  92 to 94).
+  92 to 95). Not exercised: nested instances, a copy of a picture that
+  itself contains an instance, which every flange copy in the film is.
 - Copying a figure.
 - Deleting a line through `ERASE` and the unattached points through
   `POINTSOUT` are both proven by `npm run test:delete`.

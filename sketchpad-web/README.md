@@ -211,7 +211,11 @@ master's six segments, read from memory and mapped through the display
 rule, under the similarity that `IVAL` sets: scale from its radius,
 rotation from its angle; it then copies the stopped instance with a
 second INSTANCE press, shrinks and drags the copy elsewhere, and checks
-both (research log checkpoint 94).
+both (research log checkpoint 94).  `npm run test:instance-flange` does
+the same from the solved flange of the constraint fixture, with the
+constraint display turned off through toggle register 25 before the
+copy and turned on again to show that an instance does not draw its
+master's constraint symbols (research log checkpoint 95).
 
 A third regression enters `DESIGNATE`, `STARTDRAW`, and `STARTC`.  It proves
 that the assembly allocates circle records and that unit 60 emits a quantized
@@ -262,6 +266,7 @@ npm run test:knobs
 npm run test:instance
 npm run test:instance-attacher
 npm run test:instance-figure
+npm run test:instance-flange
 npm run test:perpendicular
 npm run test:flange
 npm run test:relax-trace
