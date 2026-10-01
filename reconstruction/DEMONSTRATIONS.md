@@ -32,7 +32,7 @@ film under Alan Kay's 1986 commentary; timestamps in parentheses).
 | 2:45 to 3:45 (1:38 to 2:36) | A second drawing: circular arc over a crossed box (the rivet) | `DESIGNATE`, `STARTC`, lines | proven for arcs and lines; the complete rivet figure is not reproduced |
 | 3:45 to 4:30 (2:38 to 3:20) | Rivet placed on the flange as an instance and moved into position | instance routines in `GX7A` and `Y3HT` (not yet traced) | not exercised |
 | 4:30 to 5:10 (3:20 to 3:58) | Instances resized and repositioned; pen drags instance | not yet traced | not exercised |
-| 5:10 to 6:27 (4:00 to 4:14) | Several small copies of the flange made at reduced scale | instance and copy routines, shaft encoders for scale | exposed (sliders) |
+| 5:10 to 6:27 (4:00 to 4:14) | Several small copies of the flange made at reduced scale | instance and copy routines; the scope scale knob is proven by `npm run test:knobs` | not exercised |
 
 ## MIT Science Reporter, "Computer Sketchpad", 1964
 
@@ -49,7 +49,7 @@ program on the same machine, and is outside this reconstruction.
 | 5:25 to 6:35 | A rough quadrilateral made into a rectangle by constraints | `MAKECONS`, `RELAX` | proven for the P constraint; the four-sided figure is not reproduced |
 | 6:55 to 7:45 | A smaller figure placed inside the rectangle and moved | instances or moving a subpicture | not exercised |
 | 7:50 to 8:45 | A figure with a vertical member and a trapezoid, apparently a truss, adjusted | constraints, possibly fixed points (`FIXIT`) | `FIXIT` and `UNFIX` proven; the figure is not reproduced |
-| 9:10 to 9:50 | Picture enlarged until lines leave the scope | shaft-encoder scale and position | exposed (sliders); not exercised |
+| 9:10 to 9:50 | Picture enlarged until lines leave the scope | `SHAFTTEST`, `SCSZ`, `SCCEN` | proven by `npm run test:knobs` |
 
 ## Capabilities the films show that need a regression
 
@@ -58,7 +58,6 @@ program on the same machine, and is outside this reconstruction.
 - Copying a figure.
 - Deleting an unattached point (Q1.4 with the meta button); deleting a line
   through `ERASE` is proven by `npm run test:delete`.
-- Scaling and translating the whole picture with the shaft encoders.
 - Constraint types beyond horizontal-or-vertical and parallel-or-
   perpendicular that the thesis lists and the films may use, for example
   equal length.

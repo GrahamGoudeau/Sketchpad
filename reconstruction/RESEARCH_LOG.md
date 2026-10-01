@@ -4207,3 +4207,99 @@ zero once the only line is gone, and that the `INK` label is not part of
 the display file: it is drawn only while the program waits for the first
 pen acquisition. An earlier draft of the assertion parked the pen on `INK`
 and failed for that reason.
+
+Commit `6500f19` was pushed to `main`. GitHub Actions run `36816924166`
+passed. No release was deployed.
+
+
+## Checkpoint 88: The Shaft Encoders and the Scope Window
+
+Date: 2026-10-01
+
+The Science Reporter film enlarges the picture with the knobs until its
+lines leave the scope. The thesis (section on display generation) says the
+four shaft encoder knobs change the scope size number `SCSZ` and the page
+coordinates of the scope centre, that unit rotations change those numbers
+in proportion to `SCSZ`, and that the picture is therefore scaled
+exponentially. This checkpoint drives the original routine with modeled
+knobs and measures the display.
+
+### The routine
+
+LYUO's `PERIODIC` calls `SHAFTTEST` (sk2.tx2as:4134, assembled at
+`001370`) once per display cycle. It loads the knob register `SHAFT` at
+`377620`, exchanges it with `LSHAFT`, subtracts in four quarters, and
+leaves the four changes in `DSHAFT`. If any quarter changed it divides each
+quarter by octal 40, so one detent is 32 encoder counts, and then:
+
+- `SHAFTSIZE` takes the quarter selected by configuration 16, multiplies
+  it by `SCSZ`, shifts right nine places, and subtracts the product from
+  `SCSZ`, with a floor of 2 and a ceiling of `1777,,0`. This is the
+  exponential scale change.
+- The quarter selected by configuration 14 is stored in `ΔSIZE` for a
+  moving instance. If `SHAFTUSE`, bit 4.10 of `ΔSIZE`, is set, `SHAFTINS`
+  stores the configuration-13 quarter in `ΔROT` and returns; a moving
+  instance owns the knobs.
+- Otherwise `SHAFTPOS` adds the configuration-15 quarter times `SCSZ` over
+  512 to `SCCEN` and the configuration-13 quarter times `SCSZ` over 512 to
+  `SCCEN+1`.
+
+Configurations 13 through 16 are the standard settings `160` through
+`163`: full-word form with one active quarter each. The probe below shows
+which physical quarter each selects.
+
+### Probe and regression
+
+`npm run test:knobs` draws a line, samples the picture display, and turns
+one knob at a time. The test bed advances a knob one detent every 20
+milliseconds of simulated time. That matters: `SHAFTTEST` subtracts
+nine-bit quarters, so a change of more than 255 counts between two display
+cycles wraps. The first draft of the probe applied twenty detents at once
+and saw nothing, because the wrapped difference was below one detent.
+
+Twenty detents on each quarter gave:
+
+| Quarter | `SCSZ` | `SCCEN` x | `SCCEN` y | Picture |
+| --- | --- | --- | --- | --- |
+| 4 | 18874368 to 21159936 | 0 | 0 | chord 220.6 to 197.3, centre moves toward (511, 511) |
+| 3 | unchanged | -2562336 | 0 | centre x +62 |
+| 2 | unchanged | 0 | 0 | unchanged |
+| 1 | unchanged | 0 | -2562336 | centre y +62 |
+
+So quarter 4 is the scale knob, quarters 3 and 1 are x and y, and quarter
+2 is the rotation knob that only a moving instance reads. A positive turn
+of the scale knob enlarges `SCSZ`, which shrinks the picture; the thesis
+says no convenient sense was found for that knob. A positive turn of a
+translation knob moves the picture right or up, as the thesis states.
+
+The display rule follows from the numbers. The chord shrank by 18874368
+over 21159936, within 0.3 percent of the measured 197.3 over 220.6, and
+scaled about (511, 511). A `SCCEN` change of -2562336 moved the picture by
++62 scope units at `SCSZ` 21159936, which is -ΔSCCEN × 512 / SCSZ. A page
+coordinate therefore maps to the scope as `511 + (page - SCCEN) × 512 /
+SCSZ`. The regression asserts this for the scale knob and both
+translation knobs, asserts that equal turns give equal `SCSZ` ratios, that
+the line's page coordinates never change, and that quarter 2 changes
+nothing with nothing moving.
+
+Two observations are recorded without an assertion. Twenty detents gave a
+`SCSZ` ratio of 1.1211, which is (1 + 3/512)^20 rather than (1 +
+1/512)^20; each detent changed `SCSZ` by three parts in 512, and each
+translation detent moved `SCCEN` by 3.1 times `SCSZ` over 512. Whether
+the detent is 32 counts or the quarter division rounds differently than
+read here has not been settled. Forty detents forward and forty back left
+`SCSZ` at 0.971 of its start, because the backward step removes slightly
+more than the forward step added. The regression tolerates five percent
+there and checks that the display follows `SCSZ` in both directions.
+
+### [DECOMP] notes
+
+- `[DECOMP]` The view is two numbers, `SCSZ` and `SCCEN`, and the display
+  maps every page coordinate through `511 + (page - SCCEN) × 512 / SCSZ`.
+  Knobs are differenced once per display cycle, not sampled by interrupt,
+  and the difference is divided by 32 to make detents.
+- `[DECOMP]` The scale update is `SCSZ -= d × SCSZ / 512`, clamped to
+  [2, 1777,,0], so the knob is exponential and not exactly reversible.
+- `[DECOMP]` Knob ownership is a mode bit: `SHAFTUSE` in `ΔSIZE` hands
+  quarters 2 and 1 to a moving instance as rotation and size changes. The
+  same knob is translation or rotation depending on what is moving.

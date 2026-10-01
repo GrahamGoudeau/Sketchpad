@@ -3554,6 +3554,161 @@ assert.ok(machine.light_pen_detection_count > 0n, "the emulated light pen must d
 assert.equal(queueBefore, 0, "the input queue must start empty");
 assert.ok(reachedReadit || queueAfter === 0, "sequence 76 must consume the DRAW command through READIT");
 
+if (process.env.KNOBS_ONLY === "1") {
+  // The four shaft encoders at 377620 control the scope window.  LYUO's
+  // SHAFTTEST (sk2.tx2as:4134) differences the register against LSHAFT once
+  // per PERIODIC, divides each quarter by 40 octal to get detents, and
+  // scales SCSZ (200034) exponentially or moves SCCEN (200035, 200036) by
+  // detents times SCSZ over 512.  The test bed turns a knob a little at a
+  // time in simulated time so no per-iteration change exceeds the nine-bit
+  // range the original subtraction can represent.
+  phase = "knobs";
+  const word = (address) => machine.memory_word(address, machine.simulated_time).value;
+  const signed36 = (value) => (value >= 2 ** 35 ? value - (2 ** 36 - 1) : value);
+  const knobQuarters = [0, 0, 0, 0]; // [quarter 4, quarter 3, quarter 2, quarter 1]
+  const shaftTestVisits = { shafttest: 0, shaf1: 0, periodic: 0, registerSeen: null };
+  const turnKnob = (quarterIndex, detents, seconds) => {
+    // One detent is 40 octal encoder counts.  Advance one detent every
+    // seconds/detents of simulated time.
+    const stepSeconds = seconds / Math.abs(detents);
+    let next = Number(machine.simulated_time);
+    for (let step = 0; step < Math.abs(detents); step += 1) {
+      while (Number(machine.simulated_time) < next) {
+        const state = machine.control_state();
+        if (state.instruction_address === 0o001370) shaftTestVisits.shafttest += 1;
+        if (state.instruction_address === 0o001377) shaftTestVisits.shaf1 += 1;
+        if (state.instruction_address === 0o001337) shaftTestVisits.periodic += 1;
+        stepBatch(1);
+      }
+      knobQuarters[quarterIndex] = (knobQuarters[quarterIndex] + (detents > 0 ? 0o40 : 0o777 - 0o37)) & 0o777;
+      machine.set_knob_register(...knobQuarters, false);
+      shaftTestVisits.registerSeen = octal(word(0o377620));
+      next += stepSeconds;
+    }
+    runUntilTime(Number(machine.simulated_time) + 0.5);
+  };
+  const scopeState = () => ({
+    scsz: word(0o200034),
+    sccenX: signed36(word(0o200035)),
+    sccenY: signed36(word(0o200036)),
+  });
+  const chordOf = (points) => {
+    const extremes = points.reduce((acc, point) => ({
+      min: point.x + point.y < acc.min.x + acc.min.y ? point : acc.min,
+      max: point.x + point.y > acc.max.x + acc.max.y ? point : acc.max,
+    }), { min: points[0], max: points[0] });
+    return {
+      from: extremes.min,
+      to: extremes.max,
+      length: Math.hypot(extremes.max.x - extremes.min.x, extremes.max.y - extremes.min.y),
+      center: { x: (extremes.min.x + extremes.max.x) / 2, y: (extremes.min.y + extremes.max.y) / 2 },
+      points: points.length,
+    };
+  };
+  // The probe of 2026-10-01 established the mapping and the display rule:
+  // quarter 4 scales SCSZ, quarter 3 moves SCCEN (x), quarter 1 moves
+  // SCCEN+1 (y), and quarter 2 feeds ΔROT, which only a moving instance
+  // uses.  A page coordinate maps to the scope as
+  // 511 + (page - SCCEN) * 512 / SCSZ.
+  const SCOPE_CENTER = 511;
+  const pageWords = () => {
+    const geometry = lineGeometryAt(drawnLineAddress);
+    return [...geometry.first, ...geometry.second].map((value) => octal(value));
+  };
+  const pageWordsBefore = pageWords();
+  const stateBefore = scopeState();
+  const pictureBefore = chordOf(samplePictureScopePoints(1));
+  assert.ok(pictureBefore.points >= 20, "the picture display must show the drawn line before the knobs turn");
+  const close = (actual, expected, tolerance, message) => assert.ok(
+    Math.abs(actual - expected) <= tolerance,
+    `${message}: expected ${expected} within ${tolerance}, saw ${actual}`,
+  );
+  const report = { stateBefore, pictureBefore: { ...pictureBefore } };
+
+  // 1. Size knob, quarter 4: 20 detents enlarge SCSZ (zoom out).  The page
+  // coordinates do not change; the picture shrinks about the scope centre
+  // by SCSZ before over SCSZ after.
+  turnKnob(0, 20, 0.4);
+  const stateSize1 = scopeState();
+  const pictureSize1 = chordOf(samplePictureScopePoints(1));
+  assert.ok(stateSize1.scsz > stateBefore.scsz, "turning the size knob positive must enlarge SCSZ");
+  assert.deepEqual(pageWords(), pageWordsBefore, "the size knob must not change the line's page coordinates");
+  assert.deepEqual([stateSize1.sccenX, stateSize1.sccenY], [stateBefore.sccenX, stateBefore.sccenY],
+    "the size knob must not move SCCEN");
+  const ratio1 = stateBefore.scsz / stateSize1.scsz;
+  close(pictureSize1.length / pictureBefore.length, ratio1, 0.02,
+    "the displayed chord must shrink by SCSZ before over SCSZ after");
+  close(pictureSize1.center.x, SCOPE_CENTER + (pictureBefore.center.x - SCOPE_CENTER) * ratio1, 3,
+    "the size knob must scale about the scope centre (x)");
+  close(pictureSize1.center.y, SCOPE_CENTER + (pictureBefore.center.y - SCOPE_CENTER) * ratio1, 3,
+    "the size knob must scale about the scope centre (y)");
+  report.size1 = { state: stateSize1, picture: pictureSize1, ratio: ratio1 };
+
+  // 2. The same turn again changes SCSZ by the same ratio: the thesis's
+  // exponential scale change.
+  turnKnob(0, 20, 0.4);
+  const stateSize2 = scopeState();
+  const ratio2 = stateSize1.scsz / stateSize2.scsz;
+  close(ratio2 / ratio1, 1, 0.01, "equal knob turns must change SCSZ by equal ratios");
+  report.size2 = { state: stateSize2, ratio: ratio2 };
+
+  // 3. Turning back restores the scale approximately.  The original update
+  // subtracts detents times SCSZ over 512 from SCSZ, so a backward detent
+  // removes slightly more than a forward detent added; forty detents each
+  // way leave SCSZ about three percent below its start.  The display must
+  // follow SCSZ either way.
+  turnKnob(0, -40, 0.8);
+  const stateSize3 = scopeState();
+  close(stateSize3.scsz / stateBefore.scsz, 1, 0.05, "turning the size knob back must nearly restore SCSZ");
+  const pictureSize3 = chordOf(samplePictureScopePoints(1));
+  close(pictureSize3.length / pictureBefore.length, stateBefore.scsz / stateSize3.scsz, 0.02,
+    "after turning back the displayed chord must follow SCSZ");
+  report.size3 = { state: stateSize3, picture: pictureSize3, restoredRatio: stateSize3.scsz / stateBefore.scsz };
+
+  // 4. Translation knobs.  Quarter 3 moves SCCEN x; the picture moves by
+  // minus the SCCEN change times 512 / SCSZ.  Quarter 1 moves y the same way.
+  const translate = (quarterIndex, axis, label) => {
+    const before = scopeState();
+    const pictureStart = chordOf(samplePictureScopePoints(1));
+    turnKnob(quarterIndex, 20, 0.4);
+    const after = scopeState();
+    const picture = chordOf(samplePictureScopePoints(1));
+    const delta = axis === "x" ? after.sccenX - before.sccenX : after.sccenY - before.sccenY;
+    const other = axis === "x" ? after.sccenY - before.sccenY : after.sccenX - before.sccenX;
+    assert.notEqual(delta, 0, `${label} must move SCCEN ${axis}`);
+    assert.equal(other, 0, `${label} must not move the other SCCEN coordinate`);
+    assert.equal(after.scsz, before.scsz, `${label} must not change SCSZ`);
+    assert.deepEqual(pageWords(), pageWordsBefore, `${label} must not change the line's page coordinates`);
+    const expectedShift = -delta * 512 / after.scsz;
+    close(picture.center[axis] - pictureStart.center[axis], expectedShift, 3,
+      `${label} must move the picture by minus the SCCEN change times 512 / SCSZ`);
+    const otherAxis = axis === "x" ? "y" : "x";
+    close(picture.center[otherAxis], pictureStart.center[otherAxis], 2,
+      `${label} must not move the picture along ${otherAxis}`);
+    close(picture.length, pictureStart.length, 3, `${label} must not change the chord length`);
+    return { before, after, picture, expectedShift };
+  };
+  report.moveX = translate(1, "x", "the x knob (quarter 3)");
+  report.moveY = translate(3, "y", "the y knob (quarter 1)");
+
+  // 5. Quarter 2 feeds ΔROT, which SHAFTTEST routes to SHAFTINS only while
+  // an instance is moving.  With nothing moving it changes nothing.
+  const stateRot0 = scopeState();
+  const pictureRot0 = chordOf(samplePictureScopePoints(1));
+  turnKnob(2, 20, 0.4);
+  const stateRot1 = scopeState();
+  assert.deepEqual(stateRot1, stateRot0, "quarter 2 must not change SCSZ or SCCEN with nothing moving");
+  const pictureRot1 = chordOf(samplePictureScopePoints(1));
+  close(pictureRot1.length, pictureRot0.length, 2, "quarter 2 must not change the picture with nothing moving");
+  close(pictureRot1.center.x, pictureRot0.center.x, 2, "quarter 2 must not move the picture (x)");
+  close(pictureRot1.center.y, pictureRot0.center.y, 2, "quarter 2 must not move the picture (y)");
+  report.rotation = { state: stateRot1, picture: pictureRot1 };
+  report.shaftTestVisits = shaftTestVisits;
+  report.pageWords = pageWordsBefore;
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(0);
+}
+
 if (process.env.CIRCLE_ONLY === "1") {
   phase = "designate-center";
   const designationStateBefore = {

@@ -174,6 +174,14 @@ only when the display sequence was executing the display-file routine at
 `200206` through `200334`; the tracking cross, the pen marker, and the
 lost-pen search vectors from `200335` are not picture output.
 
+A knob regression turns the four shaft encoders at `377620` one detent at a
+time in simulated time.  The original `SHAFTTEST` routine differences the
+register once per display cycle.  Quarter 4 scales the scope size word `SCSZ`
+at `200034` by an equal ratio for equal turns, quarter 3 and quarter 1 move the
+scope centre `SCCEN` at `200035` and `200036`, and quarter 2 changes nothing
+while no instance is moving.  The line's page coordinates never change; the
+picture display follows as `511 + (page - SCCEN) * 512 / SCSZ`.
+
 A third regression enters `DESIGNATE`, `STARTDRAW`, and `STARTC`.  It proves
 that the assembly allocates circle records and that unit 60 emits a quantized
 circular arc.  The browser and Rust layers do not calculate the arc.
@@ -219,6 +227,7 @@ npm run test:circle
 npm run test:constraint
 npm run test:fix
 npm run test:delete
+npm run test:knobs
 npm run test:perpendicular
 npm run test:flange
 npm run test:relax-trace
