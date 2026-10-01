@@ -56,7 +56,8 @@ program on the same machine, and is outside this reconstruction.
 - Instances: creating a subpicture, placing an instance, moving it, and
   changing its size and orientation with the shaft encoders.
 - Copying a figure.
-- Deleting a line or point, which both films imply between operations.
+- Deleting an unattached point (Q1.4 with the meta button); deleting a line
+  through `ERASE` is proven by `npm run test:delete`.
 - Scaling and translating the whole picture with the shaft encoders.
 - Constraint types beyond horizontal-or-vertical and parallel-or-
   perpendicular that the thesis lists and the films may use, for example

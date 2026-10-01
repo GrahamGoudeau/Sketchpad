@@ -484,6 +484,62 @@ function displayPointsForListIndex(index) {
   return points;
 }
 
+/// The picture's display file: unit-60 words the assembly writes at 100000
+/// and counts at 200032.  Each word names its owning list block.
+function displayFileByObject() {
+  const word = (address) => machine.memory_word(address, machine.simulated_time).value;
+  const displayCount = rightHalf(word(0o200032));
+  const physicalCoordinate = (raw) => (raw & 0o1000 ? raw - 0o1000 : raw + 0o777);
+  const byIndex = new Map();
+  for (let offset = 0; offset < displayCount; offset += 1) {
+    const value = BigInt(word(0o100000 + offset));
+    const index = Number((value >> 18n) & 0o377n) * 0o400 + Number(value & 0o377n);
+    const x = physicalCoordinate(Number((value >> 26n) & 0o1777n));
+    const y = physicalCoordinate(Number((value >> 8n) & 0o1777n));
+    const entry = byIndex.get(index) ?? { index, count: 0, x: [x, x], y: [y, y] };
+    entry.count += 1;
+    entry.x = [Math.min(entry.x[0], x), Math.max(entry.x[1], x)];
+    entry.y = [Math.min(entry.y[0], y), Math.max(entry.y[1], y)];
+    byIndex.set(index, entry);
+  }
+  return { displayCount, objects: byIndex };
+}
+
+/// Distinct unit-60 points emitted over `seconds` by the picture display.
+/// The picture is the display file at 100000.  The LYUO display routine in
+/// T memory, 200206 through 200334, transfers its words to the scope with
+/// TSD₃₄ 100000 loops.  Points the display sequence emits from anywhere
+/// else (the tracking cross, the lost-pen search vectors from 200335, the
+/// pen marker) are not picture output.  The attribution is by the
+/// executing address, not by geometry.  The control state is read before
+/// each tick, so a point is attributed to the instruction that was about
+/// to run; the ranges include the loop jumps around each TSD.
+function isPictureDisplayState(state) {
+  return state.sequence === 0o60
+    && state.instruction_address >= 0o200206
+    && state.instruction_address < 0o200335;
+}
+
+const scopeEmitterHistogram = new Map();
+function samplePictureScopePoints(seconds) {
+  const points = new Map();
+  const end = machine.simulated_time + seconds;
+  while (machine.simulated_time < end) {
+    const state = machine.control_state();
+    const pictureOutput = isPictureDisplayState(state);
+    for (const event of stepBatch(1)) {
+      if (event?.kind !== "scope_point" || event.unit !== 0o60) continue;
+      const emitter = `${octal(state.sequence, 2)}:${octal(state.instruction_address, 6)}`;
+      scopeEmitterHistogram.set(emitter, (scopeEmitterHistogram.get(emitter) ?? 0) + 1);
+      if (pictureOutput) {
+        points.set(`${event.physical_x},${event.physical_y}`,
+          { x: event.physical_x, y: event.physical_y });
+      }
+    }
+  }
+  return [...points.values()];
+}
+
 function displayPointCandidatesForListIndex(index) {
   const points = displayPointsForListIndex(index);
   if (points.length === 0) return [];
@@ -4015,6 +4071,10 @@ if (process.env.CONSTRAINT_ONLY === "1") {
   const beforeAtBits = octal(machine.memory_word(0o200044, machine.simulated_time).value);
   const beforeConstraintList = machine.memory_word(0o024000, machine.simulated_time).value;
   const memoryBeforeSelectedCommand = snapshot();
+  const displayFileBeforeSelectedCommand = displayFileByObject();
+  const picturePointsBeforeSelectedCommand = selectedCommand === "1.3"
+    ? samplePictureScopePoints(1)
+    : [];
   const selectionDeadline = machine.simulated_time + 5;
   let trueupPressed = false;
   while (machine.simulated_time < selectionDeadline) {
@@ -4074,7 +4134,11 @@ if (process.env.CONSTRAINT_ONLY === "1") {
     assert.equal(machine.alarm_active, false, machine.last_alarm);
   }
   setSelectedCommand(false);
-  machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 26 / 1022, false);
+  // ERASE keeps the pen engaged so the tracker never starts the lost-pen
+  // search pattern; see the Q1.3 branch below.
+  if (selectedCommand !== "1.3") {
+    machine.set_light_pen(midpointX / 1022, 1 - midpointY / 1022, 26 / 1022, false);
+  }
   if (selectedCommand !== "2.9") {
     const probeStart = machine.simulated_time;
     const enteredAddresses = new Set();
@@ -4135,6 +4199,175 @@ if (process.env.CONSTRAINT_ONLY === "1") {
         fixedListChanges,
         afterUnfixListChanges: changes(memoryBeforeSelectedCommand, snapshot()),
         alarm: machine.last_alarm,
+      }, null, 2));
+      process.exit(0);
+    }
+    if (selectedCommand === "1.3") {
+      // ERASE (Q1.3, sk.tx2as:2224) deletes the object the pen aims at
+      // through the original DELETE (sk.tx2as:2246).  The thesis lists
+      // "Delete points 1.4" separately, so the line's endpoints must survive
+      // as unattached points.  Ring words hold (previous,,next) offsets from
+      // LIST = 024000; a generic block's TYPE word is at offset 0 and its
+      // ring word at offset 1; a list head's ring word is at SPECB+1.
+      const word = (address) => machine.memory_word(address, machine.simulated_time).value;
+      const ringMembers = (headRingAddress) => {
+        const members = [];
+        let offset = rightHalf(word(headRingAddress));
+        while (0o024000 + offset !== headRingAddress && members.length < 4096) {
+          members.push(0o024000 + offset);
+          offset = rightHalf(word(0o024000 + offset));
+        }
+        return members;
+      };
+      const ringMembersBefore = (headRingAddress) => {
+        const members = [];
+        let offset = rightHalf(memoryBeforeSelectedCommand.get(headRingAddress));
+        while (0o024000 + offset !== headRingAddress && members.length < 4096) {
+          members.push(0o024000 + offset);
+          offset = rightHalf(memoryBeforeSelectedCommand.get(0o024000 + offset));
+        }
+        return members;
+      };
+      const LINES_RING = 0o024204;
+      const FREES_RING = 0o024042;
+      const POINTS_RING = 0o024300;
+      const lineRingWord = drawnLineAddress + 1;
+      const firstPointBefore = 0o024000
+        + rightHalf(memoryBeforeSelectedCommand.get(drawnLineAddress + 0o10));
+      const secondPointBefore = 0o024000
+        + rightHalf(memoryBeforeSelectedCommand.get(drawnLineAddress + 0o12));
+      assert.ok(ringMembersBefore(LINES_RING).includes(lineRingWord),
+        "the drawn line must be in the LINES ring before ERASE");
+      assert.ok(commandEntryAddresses.has("007576"),
+        "Q1.3 must enter the original ERASE routine");
+      assert.ok(commandEntryAddresses.has("007622"),
+        "ERASE must call the original DELETE routine");
+      assert.equal(rightHalf(word(drawnLineAddress)), FREES_RING - 3 - 0o024000,
+        "DELETE must retie the line block's TYPE word to FREES");
+      assert.ok(!ringMembers(LINES_RING).includes(lineRingWord),
+        "the deleted line must leave the LINES ring");
+      assert.ok(ringMembers(FREES_RING).includes(lineRingWord),
+        "the deleted line block must join the FREES ring");
+      assert.equal(rightHalf(word(drawnLineAddress + 0o10)), 0,
+        "DELETE must clear the line's first endpoint tie");
+      assert.equal(rightHalf(word(drawnLineAddress + 0o12)), 0,
+        "DELETE must clear the line's second endpoint tie");
+      const pointsAfter = ringMembers(POINTS_RING);
+      assert.ok(pointsAfter.includes(firstPointBefore + 1) && pointsAfter.includes(secondPointBefore + 1),
+        "both endpoints must remain in the POINTS ring; only Q1.4 with meta deletes unattached points");
+
+      // The picture's own display file must drop the line.  Before the
+      // command it carried the line's unit-60 words under the line's list
+      // index; afterwards it must carry none.  The display sequence rebuilds
+      // the file after MOVED, so it is polled over two seconds.  With the
+      // only line gone the file is legitimately empty; the INK label is not
+      // part of it.
+      const lineIndex = drawnLineAddress - 0o024000;
+      const lineWordsBefore = displayFileBeforeSelectedCommand.objects.get(lineIndex)?.count ?? 0;
+      assert.ok(lineWordsBefore > 0,
+        "the display file must carry the line's unit-60 words before ERASE");
+
+      // The scope output of the picture display must lose the segment.
+      // Points are attributed to the picture by the executing address, so
+      // the tracking cross, the pen marker, and the lost-pen search vectors,
+      // which the program draws over blank glass once its only line is
+      // gone, do not enter either set.
+      let lineWordsAfter = 0;
+      const sampleEnd = machine.simulated_time + 2;
+      const afterPictureByKey = new Map();
+      const emitterAddresses = new Map();
+      while (machine.simulated_time < sampleEnd) {
+        const windowEnd = machine.simulated_time + 0.25;
+        while (machine.simulated_time < windowEnd) {
+          const state = machine.control_state();
+          const pictureOutput = isPictureDisplayState(state);
+          for (const event of stepBatch(1)) {
+            if (event?.kind !== "scope_point" || event.unit !== 0o60 || !pictureOutput) continue;
+            afterPictureByKey.set(`${event.physical_x},${event.physical_y}`,
+              { x: event.physical_x, y: event.physical_y });
+            const emitter = `${octal(state.sequence, 2)}:${octal(state.instruction_address, 6)}`;
+            emitterAddresses.set(emitter, (emitterAddresses.get(emitter) ?? 0) + 1);
+          }
+        }
+        lineWordsAfter = Math.max(lineWordsAfter, displayFileByObject().objects.get(lineIndex)?.count ?? 0);
+        assert.equal(machine.alarm_active, false, machine.last_alarm);
+      }
+      const afterPicture = [...afterPictureByKey.values()];
+      assert.equal(lineWordsAfter, 0, "the display file must carry no words for the deleted line");
+      const beforePicture = picturePointsBeforeSelectedCommand;
+      const afterPictureAwayFromPen = afterPicture;
+      if (beforePicture.length < 20) {
+        console.error(JSON.stringify({
+          failure: "no picture points before ERASE",
+          emitters: Object.fromEntries([...scopeEmitterHistogram.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25)),
+        }));
+      }
+      assert.ok(beforePicture.length >= 20,
+        `the picture display must have drawn at least 20 distinct points before ERASE (saw ${beforePicture.length})`);
+      // Fit the earlier picture points to the chord between their extremes.
+      const extremes = beforePicture.reduce((acc, point) => ({
+        min: point.x + point.y < acc.min.x + acc.min.y ? point : acc.min,
+        max: point.x + point.y > acc.max.x + acc.max.y ? point : acc.max,
+      }), { min: beforePicture[0], max: beforePicture[0] });
+      const chord = { x: extremes.max.x - extremes.min.x, y: extremes.max.y - extremes.min.y };
+      const chordLength = Math.hypot(chord.x, chord.y);
+      const distanceToChord = (point) => Math.abs(
+        chord.x * (point.y - extremes.min.y) - chord.y * (point.x - extremes.min.x),
+      ) / chordLength;
+      const alongChord = (point) => (
+        chord.x * (point.x - extremes.min.x) + chord.y * (point.y - extremes.min.y)
+      ) / chordLength;
+      const inliers = beforePicture.filter((point) => distanceToChord(point) <= 2);
+      if (inliers.length < 0.8 * beforePicture.length) {
+        console.error(JSON.stringify({
+          failure: "picture before ERASE is not one line",
+          chordFrom: extremes.min,
+          chordTo: extremes.max,
+          beforePicture: [...beforePicture].sort((a, b) => a.x - b.x || a.y - b.y),
+          outliers: beforePicture.filter((point) => distanceToChord(point) > 2)
+            .sort((a, b) => a.x - b.x || a.y - b.y),
+        }));
+      }
+      assert.ok(inliers.length >= 0.8 * beforePicture.length,
+        "the picture before ERASE must be one collinear run, the drawn line");
+      const survivorsOnChord = afterPictureAwayFromPen.filter((point) =>
+        distanceToChord(point) <= 1.5
+        && alongChord(point) > 12 && alongChord(point) < chordLength - 12);
+      if (survivorsOnChord.length > 0) {
+        console.error(JSON.stringify({
+          failure: "picture points remain on the deleted segment",
+          emitterAddresses: Object.fromEntries(emitterAddresses),
+          chordFrom: extremes.min,
+          chordTo: extremes.max,
+          chordLength,
+          beforePicture: beforePicture.length,
+          afterPicture: afterPicture.length,
+          survivors: survivorsOnChord.map((point) => ({
+            ...point,
+            along: Number(alongChord(point).toFixed(1)),
+            off: Number(distanceToChord(point).toFixed(2)),
+          })),
+        }, null, 2));
+      }
+      assert.equal(survivorsOnChord.length, 0,
+        "no picture point may remain on the interior of the deleted segment");
+      console.log(JSON.stringify({
+        selectedCommand,
+        selectedObject,
+        drawnLineAddress: octal(drawnLineAddress, 6),
+        enteredErase: true,
+        enteredDelete: true,
+        lineTypeTieAfter: octal(rightHalf(word(drawnLineAddress)), 6),
+        linesRingAfter: ringMembers(LINES_RING).map((a) => octal(a, 6)),
+        freesRingAfterIncludesLine: true,
+        endpointsRetained: [octal(firstPointBefore, 6), octal(secondPointBefore, 6)],
+        lineDisplayWordsBefore: lineWordsBefore,
+        lineDisplayWordsAfter: lineWordsAfter,
+        picturePointsBefore: beforePicture.length,
+        collinearPicturePointsBefore: inliers.length,
+        picturePointsAfter: afterPicture.length,
+        chordLength: Number(chordLength.toFixed(1)),
+        listChanges: fixedListChanges,
       }, null, 2));
       process.exit(0);
     }

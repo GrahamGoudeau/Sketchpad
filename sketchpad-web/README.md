@@ -163,6 +163,17 @@ original `FIXIT` routine links that line into Sketchpad's `FIXEDS` list without
 allocating a new object.  The regression then presses Q2.7.  The original
 `UNFIX` routine restores every changed list word.
 
+A delete regression presses Q1.3 on the selected assembly-created line.  The
+original `ERASE` routine calls `DELETE`, which reties the line block from the
+`LINES` list to the `FREES` list and clears its endpoint ties.  Both endpoints
+stay in the `POINTS` list, as the thesis reserves "Delete points" for a
+separate button.  The display file at `100000` loses every word that named
+the line.  The regression also compares the scope points the picture display
+emitted before and after the command.  It attributes a point to the picture
+only when the display sequence was executing the display-file routine at
+`200206` through `200334`; the tracking cross, the pen marker, and the
+lost-pen search vectors from `200335` are not picture output.
+
 A third regression enters `DESIGNATE`, `STARTDRAW`, and `STARTC`.  It proves
 that the assembly allocates circle records and that unit 60 emits a quantized
 circular arc.  The browser and Rust layers do not calculate the arc.
@@ -207,6 +218,7 @@ npm run test:assembly
 npm run test:circle
 npm run test:constraint
 npm run test:fix
+npm run test:delete
 npm run test:perpendicular
 npm run test:flange
 npm run test:relax-trace

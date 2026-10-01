@@ -4093,3 +4093,117 @@ Commit `eef0282` was pushed to `main`. GitHub Actions run `36814018444`
 passed. No production release was deployed from this workstation; the live
 site still serves release `20260920T025136Z` from checkpoint 85, so the
 public page runs the checkpoint 85 clock until the next deployment.
+
+
+## Checkpoint 87: Original ERASE and the Display Architecture
+
+Date: 2026-10-01
+
+The demonstration register lists deletion as implied by both films but not
+exercised. This checkpoint drives the original `ERASE` routine through the
+existing constraint harness and, in verifying it, maps where the display
+sequence's scope output actually comes from.
+
+### The ERASE path
+
+The `READIT` dispatch in 2XMX (sk.tx2as:879) sends Q1.3 to `ERASE`
+(sk.tx2as:2224). The handwritten button map on the same page, marked "FOR
+MOVIE", labels 1.3 `DEL`. `ERASE` returns at once if `LPLOST` is set,
+deletes every object in `MOVINGS` if any is moving, and otherwise deletes
+the object at `ATBITS+1`, the one the pen aims at. `DELETE` (sk.tx2as:2246)
+moves the block's `TYPE` tie from its generic list to `DEADS`, removes the
+block from every ring its ties name through `LTAKE`, and then moves it from
+`DEADS` to `FREES`.
+
+The assembled 2XMX unit, listed with `tx2m4as --list`, places `ERASE` at
+`007575`, `ERASEX` at `007621`, and `DELETE` at `007622`. The harness
+records entry one word past the label, as it does for `FIXIT` at `005276`.
+
+### Regression
+
+`npm run test:delete` runs the constraint-only harness with
+`SELECT_COMMAND=1.3`. The harness draws a line, selects it with the pen, and
+presses Q1.3 while the original selection code reports a line. The
+assertions read only machine memory and unit-60 output:
+
+- Q1.3 enters `ERASE` and `ERASE` enters `DELETE`.
+- The line block's `TYPE` word, which tied it to `LINES` at `024201`, ties
+  it to `FREES` at `024037` afterwards. Its ring word leaves the `LINES`
+  ring at `024204` and joins the `FREES` ring at `024042`. The `LINES` ring
+  is empty.
+- Both endpoint ties at offsets `10` and `12` are cleared, and both
+  endpoint blocks remain in the `POINTS` ring at `024300`. Appendix B of
+  the thesis lists "Delete points 1.4" as a separate meta-button operation
+  for unattached points, and the assembly agrees.
+- The display file at `100000`, whose count is at `200032` and whose words
+  name their owning list index in bits 1.1 to 1.8 and 3.1 to 3.8, carried
+  222 words for the line before the command and none afterwards.
+- The picture display's scope points before the command form one collinear
+  run of 32 distinct points, and no picture point lies on that chord
+  afterwards.
+
+The list heads follow from the equalities at sk.tx2as:39-179: `LIST =
+24000`, `SMASBL = 6`, `MASBL = 24`, a generic block's ring word at offset
+`1`, and a list's hen ring word at `SPECB+1`. `MOVINGS+SPECB+1` is
+`024114`, which the earlier regressions already used.
+
+### What the display sequence draws, by address
+
+The scope-output assertion could not be written by geometry. After the
+only line is deleted the program has nothing under the pen, so it draws its
+lost-pen search pattern, whose vectors sweep the region the line occupied.
+Each scope point was therefore attributed to the instruction the display
+sequence was about to execute. The histogram over one second of a tracked
+line, and over two seconds after the deletion, gives this map of LYUO's
+T-memory block, which starts at `200134` with `hJMP TRACK`:
+
+- `200206` to `200334`: the picture. `RSX₃₄ 200032` loads the display-file
+  count, and unrolled `TSD₃₄ 100000` loops of eight words, with a one-word
+  tail at `200314`, transfer the file to the scope. A second transfer loop
+  at `200234` to `200255` is selected by tests of toggle register `377724`
+  at `200216` and `200226`; its condition has not been read in full.
+- `200335` to `200353`: the lost-pen search. A table at `202603` to
+  `202605`, indexed by X34, supplies a start word and two increments; the
+  loop at `200346` to `200351` draws one vector of X35 points. This is what
+  drew the vertical columns and the diagonal arm across the deleted line.
+- `200354` to `200400`: the frame prologue. It connects unit 61 with
+  `IOS₆₁ 30000`, loads X43 and X44 from the display-file count, and
+  exchanges display-file words at `100000` indexed by X43 and X44 before a
+  `TSD`. Unit 61 is the handbook's random number generator.
+- `001113` to `001271` in S memory: the tracking cross (`TR1A` to `TR1D`),
+  the `TR2` search, and the `TRLP2` pen-handler loop.
+
+The scope-output assertion counts a point as picture output only in the
+first range. The before and after samples then contain the line and
+nothing, respectively.
+
+### [DECOMP] notes
+
+- `[DECOMP]` The picture is a flat display file of scope words at
+  `100000`, counted at `200032`, and each word carries the owning list
+  index. Objects do not draw themselves each frame; a rebuild after `MOVED`
+  regenerates the file, and the light pen identifies objects from the index
+  in the word it saw.
+- `[DECOMP]` The display routine exchanges display-file words under
+  control of unit 61, the random number generator, before each frame. The
+  purpose is not yet established; the thesis discusses display order for
+  the plotter and flicker, and `ORDSTARTB` and `ORDSTARTW` in `READIT`
+  reorder lines explicitly. A C rendering must preserve that the display
+  order is not the creation order.
+- `[DECOMP]` The lost-pen search is table-driven vectors, not a spiral in
+  code. The table at `202603` holds the pattern; the loop is generic.
+- `[DECOMP]` A small marker is drawn around the pen position on a four-unit
+  grid by code outside the display file. The emitting addresses were
+  `001301` to `001374`, `TRSAV` through `PERIODIC`, which `TR5` hands to
+  sequence 76 with `RXF₇₆ TRSAV`. The marker's purpose is not yet
+  identified.
+- `[DECOMP]` Deleting a line leaves its endpoints as unattached points in
+  `POINTS`. "Delete points" is a separate, meta-guarded operation.
+
+### Harness note
+
+The delete branch found that `displayCount` at `200032` is legitimately
+zero once the only line is gone, and that the `INK` label is not part of
+the display file: it is drawn only while the program waits for the first
+pen acquisition. An earlier draft of the assertion parked the pen on `INK`
+and failed for that reason.
