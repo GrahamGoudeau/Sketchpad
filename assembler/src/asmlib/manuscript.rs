@@ -689,22 +689,26 @@ impl MacroParameterValue {
     ) -> Option<MacroParameterValue> {
         match self {
             MacroParameterValue::Value(script, expression) => {
-                if let Some((holdbit, defer_span, fragments)) =
-                    expression.structured_substitution(outer_bindings)
-                {
-                    Some(MacroParameterValue::Fragments {
-                        holdbit,
-                        defer_span,
-                        fragments,
-                    })
-                } else {
-                    expression
+                match expression.structured_substitution(
+                    outer_bindings,
+                    OnUnboundMacroParameter::ElideReference,
+                    macros,
+                ) {
+                    Some(Some((holdbit, defer_span, fragments))) => {
+                        Some(MacroParameterValue::Fragments {
+                            holdbit,
+                            defer_span,
+                            fragments,
+                        })
+                    }
+                    Some(None) => None,
+                    None => expression
                         .substitute_macro_parameters(
                             outer_bindings,
                             OnUnboundMacroParameter::ElideReference,
                             macros,
                         )
-                        .map(|expression| MacroParameterValue::Value(*script, expression))
+                        .map(|expression| MacroParameterValue::Value(*script, expression)),
                 }
             }
             MacroParameterValue::Fragments {

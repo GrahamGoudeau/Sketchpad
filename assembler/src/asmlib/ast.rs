@@ -370,10 +370,22 @@ impl ArithmeticExpression {
         ArithmeticExpression { first, tail }
     }
 
+    /// Substitute a macro parameter whose argument carried script
+    /// fragments (for example `IVAL+LIST_α`) when it is the first atom of
+    /// this expression.  The expression's tail (for example `+B` in the
+    /// macro body `LDB A+B`) is appended to the matching fragment after
+    /// its own macro parameters are substituted.
+    ///
+    /// Returns `None` when the first atom is not such a parameter, so
+    /// the caller falls back to plain substitution; `Some(None)` when a
+    /// parameter in the tail is unbound and the instruction is therefore
+    /// omitted; and `Some(Some(..))` with the substituted fragments.
     pub(super) fn structured_substitution(
         &self,
         param_values: &MacroParameterBindings,
-    ) -> Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)> {
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)>> {
         let Atom::SymbolOrLiteral(SymbolOrLiteral::Symbol(script, name, _)) = &self.first.magnitude
         else {
             return None;
@@ -393,8 +405,15 @@ impl ArithmeticExpression {
             _ => return None,
         };
         let (_, expression) = fragments.iter_mut().find(|(got, _)| got == script)?;
-        expression.tail.extend(self.tail.clone());
-        Some((holdbit, defer_span, fragments))
+        let mut tail: Vec<(Operator, SignedAtom)> = Vec::with_capacity(self.tail.len());
+        for (op, atom) in &self.tail {
+            match atom.substitute_macro_parameters(param_values, on_missing, macros) {
+                Some(atom) => tail.push((*op, atom)),
+                None => return Some(None),
+            }
+        }
+        expression.tail.extend(tail);
+        Some(Some((holdbit, defer_span, fragments)))
     }
 
     fn symbol_uses(
@@ -1805,11 +1824,13 @@ impl CommaDelimitedFragment {
     fn structured_substitution(
         &self,
         param_values: &MacroParameterBindings,
-    ) -> Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)> {
+        on_missing: OnUnboundMacroParameter,
+        macros: &BTreeMap<SymbolName, MacroDefinition>,
+    ) -> Option<Option<(HoldBit, Option<Span>, Vec<(Script, ArithmeticExpression)>)>> {
         let InstructionFragment::Arithmetic(expression) = &self.fragment else {
             return None;
         };
-        expression.structured_substitution(param_values)
+        expression.structured_substitution(param_values, on_missing, macros)
     }
 
     fn substitute_macro_parameters(
@@ -1893,9 +1914,14 @@ impl UntaggedProgramInstruction {
     ) -> Option<UntaggedProgramInstruction> {
         let mut result = Vec::new();
         for fragment in self.fragments.iter() {
-            if let Some((argument_holdbit, defer_span, fragments)) =
-                fragment.structured_substitution(param_values)
-            {
+            let structured = match fragment.structured_substitution(param_values, on_missing, macros) {
+                Some(Some(structured)) => Some(structured),
+                // A parameter in the body's tail is unbound: the
+                // instruction is omitted, as for plain substitution.
+                Some(None) => return None,
+                None => None,
+            };
+            if let Some((argument_holdbit, defer_span, fragments)) = structured {
                 let last = fragments.len() - 1;
                 result.extend(fragments.iter().enumerate().map(|(index, (_, expr))| {
                     CommaDelimitedFragment {

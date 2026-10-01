@@ -1598,3 +1598,40 @@ fn test_diagnose_duplicate_tags_in_macro_body() {
     assert!(!errors.is_empty());
     assert!(errors.iter().any(|e| e.to_string().contains(expected_msg)));
 }
+
+#[test]
+fn test_macro_body_tail_is_substituted_after_a_subscripted_parameter() {
+    // Sketchpad's `LDAE` macro loads four consecutive words into A, B, C,
+    // and D.  Its body adds the second, third, and fourth parameters to
+    // the first: `LDB A+B`.  When the first argument carries a script
+    // fragment (`IVAL+LIST₁`, an indexed address), the body's tail must
+    // still substitute `B`; leaving it unsubstituted silently assembled
+    // the symbol `B` as the TX-2's B register at 377605.
+    let program = assemble_source(
+        concat!(
+            "IVAL=20\n",
+            "LIST=24000\n",
+            "☛☛DEF LDAE|A,B,C,D\n",
+            "LDA A\n",
+            "LDB A+B\n",
+            "LDC A+C\n",
+            "LDD A+D\n",
+            "☛☛EMD\n",
+            "100|\n",
+            "LDAE|IVAL+LIST₁,1,2,3\n",
+        ),
+        Default::default(),
+    )
+    .expect("a subscripted first parameter with a tail is valid");
+
+    assert_eq!(program.chunks.len(), 1);
+    assert_eq!(
+        program.chunks[0].words,
+        vec![
+            u36!(0o002401_024020),
+            u36!(0o002501_024021),
+            u36!(0o002601_024022),
+            u36!(0o002701_024023),
+        ]
+    );
+}
