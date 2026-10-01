@@ -44,13 +44,13 @@ def layout(graph, snapshot):
     # 1. The master tree, on the left.
     root_ring = next(r for r in rings if r["size"] > 3 and all(blocks[m["block"]]["type"] in ("master", "?") for m in r["members"]))
     root = root_ring["head"]["block"]
-    root_xy = (-4.3, 0.6)
+    root_xy = (-2.3, -0.1)
     pos[root] = root_xy
     categories = [m["block"] for m in root_ring["members"] if m["block"] != root]
     n = len(categories)
     for i, c in enumerate(categories):
         ang = math.pi / 2 + 2 * math.pi * i / n
-        pos[c] = (root_xy[0] + 1.1 * math.cos(ang), root_xy[1] + 1.1 * math.sin(ang))
+        pos[c] = (root_xy[0] + 0.8 * math.cos(ang), root_xy[1] + 0.8 * math.sin(ang))
         # the category's own ring: its type masters, on an arc further out
         cring = next((r for r in rings if r["head"]["block"] == c), None)
         if not cring:
@@ -60,7 +60,7 @@ def layout(graph, snapshot):
         spread = min(2.6, 0.32 * k)
         for j, m in enumerate(members):
             a = ang + (j - (k - 1) / 2) * (spread / max(k, 1))
-            radius = 2.4 if blocks[m]["type"] == "master" else 2.9
+            radius = 1.8 if blocks[m]["type"] == "master" else 2.15
             pos[m] = (root_xy[0] + radius * math.cos(a), root_xy[1] + radius * math.sin(a))
 
     # 2. The drawing, on the right, at real scope positions.
@@ -101,10 +101,10 @@ def layout(graph, snapshot):
     # 3. Everything else: freed blocks in a pile, unknowns beside the tree.
     pile = [b for b in blocks if b not in pos and blocks[b]["type"] == "frees"]
     for i, b in enumerate(pile):
-        pos[b] = (-6.2 + 0.28 * (i % 9), -2.6 - 0.28 * (i // 9))
+        pos[b] = (-6.4 + 0.26 * (i % 9), -0.9 - 0.26 * (i // 9))
     rest = [b for b in blocks if b not in pos]
     for i, b in enumerate(rest):
-        pos[b] = (-1.2, 2.8 - 0.35 * i)
+        pos[b] = (-5.0, 2.6 - 0.35 * i)
     return {b: [x, y] for b, (x, y) in pos.items()}
 
 

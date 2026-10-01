@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { ScopeRecorder } from "./scope-recorder.mjs";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import init, {
@@ -185,6 +185,29 @@ function fitCircularLocus(points) {
 }
 
 const scopeRecorder = process.env.SCOPE_RECORD ? new ScopeRecorder(process.env.SCOPE_RECORD) : null;
+// MEMORY_TIMELINE=<path> appends one JSON line per change of the list
+// area (24000 to the allocation pointer, plus the scope window statics),
+// checked every quarter second of simulated time: the first line is the
+// full state, later lines carry only the changed words.  Test-bed
+// bookkeeping; the machine runs exactly as without it.
+const memoryTimeline = process.env.MEMORY_TIMELINE ? { path: process.env.MEMORY_TIMELINE, last: null, nextAt: 0 } : null;
+function recordMemoryTimeline() {
+  const now = Number(machine.simulated_time);
+  if (now < memoryTimeline.nextAt) return;
+  memoryTimeline.nextAt = now + 0.25;
+  const top = 0o024000 + rightHalf(machine.memory_word(0o024000, now).value) + 0o100;
+  const current = new Map();
+  for (let a = 0o024000; a < top; a += 1) current.set(a, machine.memory_word(a, now).value);
+  for (const a of [0o200034, 0o200035, 0o200036]) current.set(a, machine.memory_word(a, now).value);
+  const changes = {};
+  let changed = 0;
+  for (const [a, v] of current) {
+    if (memoryTimeline.last === null || memoryTimeline.last.get(a) !== v) { changes[octal(a, 6)] = octal(v); changed += 1; }
+  }
+  if (changed === 0) return;
+  appendFileSync(memoryTimeline.path, `${JSON.stringify({ time: now, phase, full: memoryTimeline.last === null, changes })}\n`);
+  memoryTimeline.last = current;
+}
 function stepBatch(ticks = 20_000) {
   const tracingConstraintInput = process.env.TRACE_47 === "1"
     && ["expose-perpendicular-handles", "attach-perpendicular-handle"].includes(phase);
@@ -293,6 +316,7 @@ function stepBatch(ticks = 20_000) {
   try {
     events = machine.step_batch(machine.simulated_time, ticks);
     if (scopeRecorder) scopeRecorder.consume(events, phase);
+    if (memoryTimeline) recordMemoryTimeline();
   } catch (error) {
     console.error(JSON.stringify({
       failure: "step batch",

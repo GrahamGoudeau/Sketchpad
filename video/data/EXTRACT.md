@@ -54,3 +54,22 @@ hen back-offsets, every tie from a hen's right half, and every type
 from the `TYPE` word's master; it needs no knowledge of block layouts
 beyond the master block table. `layout.py` places the blocks with a
 small force-directed relaxation so rings stay compact.
+
+## Memory growing under use (the picture-in-picture chapter)
+
+```sh
+cd sketchpad-web
+MEMORY_TIMELINE=/tmp/flange.timeline.jsonl SCOPE_RECORD=/tmp/flange npm run test:flange
+cd ../video
+python3 data/timeline.py /tmp/flange.timeline.jsonl > build/flange-keyframes.json
+# one scope frame per keyframe, cropped to the drawing, into build/flange-pip/NNNN.png
+manim -qh scenes/memory_growth.py MemoryGrowth
+```
+
+`MEMORY_TIMELINE` appends a JSON line whenever the list area changes,
+checked every quarter second of simulated time: the first line is the
+whole area, later lines only the changed words. `timeline.py` replays
+the lines, rebuilds the ring graph at each change, and keeps a keyframe
+at every structural change and at most twice a second while only
+positions move. The scope frame for each keyframe is the recorder's
+frame at the same simulated time.
