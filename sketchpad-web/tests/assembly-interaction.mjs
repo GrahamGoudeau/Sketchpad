@@ -3554,6 +3554,265 @@ assert.ok(machine.light_pen_detection_count > 0n, "the emulated light pen must d
 assert.equal(queueBefore, 0, "the input queue must start empty");
 assert.ok(reachedReadit || queueAfter === 0, "sequence 76 must consume the DRAW command through READIT");
 
+if (process.env.INSTANCE_ONLY === "1") {
+  // Instance workflow as in the 1963 film: the master figure is in one
+  // picture, the operator calls for another picture through toggle register
+  // 24 (PICNUM, sk2.tx2as:3520), and presses INSTANCE (Q2.4, SUBPIC,
+  // sk.tx2as:1299) with toggle register 25 (NITOG) naming the master.  The
+  // instance moves with the pen; while it moves the knobs feed ΔSIZE and
+  // ΔROT into the moving transform; STOP (Q1.6) leaves it.  Repair R073
+  // (sk2.tx2as:2005) is what lets MAGI return after expanding the master.
+  phase = "instance";
+  const word = (address) => machine.memory_word(address, machine.simulated_time).value;
+  const meta = (address) => machine.memory_word(address, machine.simulated_time).meta;
+  const signed36 = (value) => (value >= 2 ** 35 ? value - (2 ** 36 - 1) : value);
+  const ringMembers = (headRingAddress) => {
+    const members = [];
+    let offset = rightHalf(word(headRingAddress));
+    while (0o024000 + offset !== headRingAddress && members.length < 4096) {
+      members.push(0o024000 + offset);
+      offset = rightHalf(word(0o024000 + offset));
+    }
+    return members;
+  };
+  const PICTURES_RING = 0o024160;
+  const CURPICS_RING = 0o024122;
+  const INSTANCES_RING = 0o024350;
+  const INSTANCES_BLOCK = 0o024345;
+  const MOVINGS_RING = 0o024114;
+  const PNAME = 0o17;
+  const IWHAT = 0o14;
+  const IVAL = 0o20;
+  const chordOf = (points) => {
+    if (points.length === 0) return { points: 0 };
+    const extremes = points.reduce((acc, point) => ({
+      min: point.x + point.y < acc.min.x + acc.min.y ? point : acc.min,
+      max: point.x + point.y > acc.max.x + acc.max.y ? point : acc.max,
+    }), { min: points[0], max: points[0] });
+    const inliers = points.filter((point) => {
+      const dx = extremes.max.x - extremes.min.x;
+      const dy = extremes.max.y - extremes.min.y;
+      const length = Math.hypot(dx, dy) || 1;
+      return Math.abs(dx * (point.y - extremes.min.y) - dy * (point.x - extremes.min.x)) / length <= 3;
+    });
+    return {
+      from: extremes.min, to: extremes.max,
+      length: Math.hypot(extremes.max.x - extremes.min.x, extremes.max.y - extremes.min.y),
+      angle: Math.atan2(extremes.max.y - extremes.min.y, extremes.max.x - extremes.min.x) * 180 / Math.PI,
+      center: { x: (extremes.min.x + extremes.max.x) / 2, y: (extremes.min.y + extremes.max.y) / 2 },
+      points: points.length,
+      inliers: inliers.length,
+    };
+  };
+  const ownersOfDisplayFile = () => {
+    const file = displayFileByObject();
+    return { count: file.displayCount, byIndex: Object.fromEntries([...file.objects.values()].map((o) => [octal(o.index, 6), o.count])) };
+  };
+  const ivalOf = (address) => {
+    const rcos = signed36(word(address + IVAL));
+    const rsin = signed36(word(address + IVAL + 1));
+    return { rcos, rsin, radius: Math.hypot(rcos, rsin), angle: Math.atan2(rsin, rcos) * 180 / Math.PI };
+  };
+  const close = (actual, expected, tolerance, message) => assert.ok(
+    Math.abs(actual - expected) <= tolerance,
+    `${message}: expected ${expected} within ${tolerance}, saw ${actual}`,
+  );
+  const masterWords = () => {
+    const geometry = lineGeometryAt(drawnLineAddress);
+    return [...geometry.first, ...geometry.second].map((value) => octal(value));
+  };
+  const masterLength = () => {
+    const geometry = lineGeometryAt(drawnLineAddress);
+    const [x1, y1, x2, y2] = [...geometry.first, ...geometry.second].map(signed36);
+    return Math.hypot(x2 - x1, y2 - y1);
+  };
+  const masterWordsBefore = masterWords();
+  const masterLengthBefore = masterLength();
+  const lineIndex = drawnLineAddress - 0o024000;
+  const knobQuarters = [0, 0, 0, 0];
+  const offsets = [0, 2, 4, 2, 0, -2, -4, -2];
+  let tremorStep = 0;
+  const penTremor = (amplitude = 1) => {
+    machine.set_light_pen(
+      (selectionPoint.x + amplitude * offsets[tremorStep % 8]) / 1022,
+      1 - (selectionPoint.y + amplitude * offsets[(tremorStep + 2) % 8]) / 1022,
+      26 / 1022,
+      true,
+    );
+    tremorStep += 1;
+  };
+  const tremor = (seconds) => {
+    const end = Number(machine.simulated_time) + seconds;
+    while (Number(machine.simulated_time) < end) {
+      penTremor();
+      runUntilTime(Number(machine.simulated_time) + 0.025);
+    }
+  };
+  const turnWhileMoving = (quarterIndex, detents, seconds) => {
+    // One detent every seconds/detents of machine time, stepping one tick
+    // at a time so the knob and pen changes land at the scheduled instants.
+    const stepSeconds = seconds / Math.abs(detents);
+    let next = Number(machine.simulated_time);
+    const seen = { shafttest: 0, shaftins: 0, maxRot: 0, maxSize: 0 };
+    for (let step = 0; step < Math.abs(detents); step += 1) {
+      while (Number(machine.simulated_time) < next) {
+        const state = machine.control_state();
+        if (state.instruction_address === 0o001370) seen.shafttest += 1;
+        if (state.instruction_address === 0o001431) seen.shaftins += 1;
+        stepBatch(1);
+        const rot = signed36(word(0o200056));
+        const size = signed36(word(0o200055) & 0o377777777777);
+        if (Math.abs(rot) > Math.abs(seen.maxRot)) seen.maxRot = rot;
+        if (Math.abs(size) > Math.abs(seen.maxSize)) seen.maxSize = size;
+      }
+      knobQuarters[quarterIndex] = (knobQuarters[quarterIndex] + (detents > 0 ? 0o40 : 0o740)) & 0o777;
+      machine.set_knob_register(...knobQuarters, false);
+      penTremor();
+      next += stepSeconds;
+    }
+    tremor(0.5);
+    return seen;
+  };
+  // Sample the picture display while the hand keeps the pen alive.  A
+  // motionless pen on blank glass lets the tracker lose it, and the
+  // original lost-pen path then completes the moving instance.
+  const samplePictureWhileMoving = (seconds) => {
+    const points = new Map();
+    const end = Number(machine.simulated_time) + seconds;
+    while (Number(machine.simulated_time) < end) {
+      penTremor(0.25);
+      for (const point of samplePictureScopePoints(0.025)) points.set(`${point.x},${point.y}`, point);
+    }
+    return [...points.values()];
+  };
+  const report = {};
+
+  // Pen on the master line's midpoint, tracking.
+  const lineStats = phaseScope.get("verify-line");
+  const centerX = (lineStats.x[0] + lineStats.x[1]) / 2;
+  const centerY = (lineStats.y[0] + lineStats.y[1]) / 2;
+  const selectionPoint = verificationScope.reduce((closest, point) => {
+    const distanceSquared = (point.x - centerX) ** 2 + (point.y - centerY) ** 2;
+    return distanceSquared < closest.distanceSquared ? { ...point, distanceSquared } : closest;
+  }, { x: null, y: null, distanceSquared: Infinity });
+  machine.set_light_pen(selectionPoint.x / 1022, 1 - selectionPoint.y / 1022, 26 / 1022, true);
+  assert.ok(runUntil(() => !meta(0o200042), 5, 200),
+    "the tracker must hold the pen on the master line");
+  const picturesBefore = ringMembers(PICTURES_RING);
+  assert.equal(picturesBefore.length, 1, "one picture must exist before the switch");
+  const masterPictureBlock = picturesBefore[0] - 1;
+  const curpicsBefore = word(CURPICS_RING);
+  const displayBefore = ownersOfDisplayFile();
+  assert.ok((displayBefore.byIndex[octal(lineIndex, 6)] ?? 0) > 0,
+    "the master line must be in the display file before the switch");
+  report.picture0 = { masterPictureBlock: octal(masterPictureBlock, 6), display: displayBefore };
+
+  // Call for picture 1 through toggle register 24.
+  machine.set_toggle_register(0o24, 0, 0, 0, 1, false);
+  assert.ok(runUntil(() => ringMembers(PICTURES_RING).length === 2, 10, 200),
+    "PERIODIC must notice the new picture number and CHANGEPIC must create picture 1");
+  tremor(1);
+  const picturesAfter = ringMembers(PICTURES_RING);
+  const newPictureBlock = picturesAfter.map((a) => a - 1).find((a) => a !== masterPictureBlock);
+  assert.equal(rightHalf(word(newPictureBlock + PNAME)), 1, "the new picture must carry name 1 from toggle register 24");
+  assert.equal(rightHalf(word(masterPictureBlock + PNAME)), 0, "the master picture must keep name 0");
+  assert.notEqual(word(CURPICS_RING), curpicsBefore, "CURPICS must now hold the new picture");
+  assert.equal(rightHalf(word(0o200054)), 1, "CPNAME must be the called-for picture");
+  assert.equal(meta(0o200054), false, "CHANGEPIC must clear PICCHANGE");
+  assert.equal(ownersOfDisplayFile().count, 0, "the new picture must display nothing");
+  assert.equal(meta(0o200042), false, "the tracker must keep the pen across the picture change");
+  report.picture1 = { newPictureBlock: octal(newPictureBlock, 6), masterWords: masterWords() };
+
+  // INSTANCE with toggle register 25 naming picture 0 (its right half is 0).
+  const instancesBefore = ringMembers(INSTANCES_RING);
+  const entered = new Set();
+  setCommand(2, 4, true);
+  const pressDeadline = machine.simulated_time + 5;
+  while (machine.simulated_time < pressDeadline && !entered.has("005271")) {
+    const state = machine.control_state();
+    if (state.sequence === 0o76 && state.instruction_address >= 0o005124 && state.instruction_address <= 0o005300) {
+      entered.add(octal(state.instruction_address, 6));
+    }
+    stepBatch(1);
+  }
+  tremor(0.5);
+  setCommand(2, 4, false);
+  tremor(1);
+  assert.ok(entered.has("005124") && entered.has("005201") && entered.has("005271"),
+    "Q2.4 must enter SUBPIC, create the instance at SUBPICS, and leave it moving at SUBPIT1");
+  const instancesAfter = ringMembers(INSTANCES_RING);
+  assert.equal(instancesAfter.length, instancesBefore.length + 1, "SUBPIC must allocate one instance block");
+  const instanceBlock = instancesAfter.find((a) => !instancesBefore.includes(a)) - 1;
+  const instanceIndex = instanceBlock - 0o024000;
+  assert.equal(0o024000 + rightHalf(word(instanceBlock)), INSTANCES_BLOCK,
+    "the instance block's TYPE word must tie it to INSTANCES");
+  assert.equal(0o024000 + rightHalf(word(instanceBlock + IWHAT)), masterPictureBlock,
+    "IWHAT must name the master picture");
+  assert.equal(0o024000 + rightHalf(word(instanceBlock + 4)), newPictureBlock,
+    "the instance must belong to the new picture");
+  const moving = ringMembers(MOVINGS_RING);
+  assert.ok(moving.includes(instanceBlock + 0o7), "the new instance must be in MOVINGS");
+  assert.equal(meta(0o200055), true, "SUBPIC must set SHAFTUSE so the knobs belong to the instance");
+  const displayMoving = ownersOfDisplayFile();
+  assert.ok((displayMoving.byIndex[octal(instanceIndex, 6)] ?? 0) > 0,
+    "the display file must carry words owned by the instance");
+  assert.equal(displayMoving.byIndex[octal(lineIndex, 6)] ?? 0, 0,
+    "the master line itself must not appear in picture 1's display file");
+  const chordMoving = chordOf(samplePictureWhileMoving(1));
+  assert.ok(chordMoving.points >= 12 && chordMoving.inliers >= 0.8 * chordMoving.points,
+    "the displayed instance must be one line, the master's line transformed");
+  const ival0 = ivalOf(instanceBlock);
+  assert.equal(ival0.rsin, 0, "a new instance starts unrotated");
+  report.instance = { block: octal(instanceBlock, 6), display: displayMoving, chord: chordMoving, ival: ival0, masterWords: masterWords() };
+
+  // Rotation knob (quarter 1) while moving: IVAL rotates, the chord turns,
+  // its length holds.
+  assert.ok(ringMembers(MOVINGS_RING).includes(instanceBlock + 0o7), "the instance must still be moving before the rotation turn");
+  const rotationTurn = turnWhileMoving(3, 60, 1.2);
+  const ival1 = ivalOf(instanceBlock);
+  const chord1 = chordOf(samplePictureWhileMoving(1));
+  if (ival1.rsin === 0) console.error(JSON.stringify({ failure: "no rotation", rotationTurn, ival1 }));
+  assert.notEqual(ival1.rsin, 0, "the rotation knob must put a sine term into IVAL");
+  assert.ok(Math.abs(ival1.angle) > 10, `IVAL must rotate by more than 10 degrees (saw ${ival1.angle.toFixed(1)})`);
+  close(ival1.radius / ival0.radius, 1, 0.02, "rotation must keep the instance size");
+  assert.ok(Math.abs(chord1.angle - chordMoving.angle) > 10, "the displayed instance must turn with IVAL");
+  close(chord1.length / chordMoving.length, 1, 0.03, "rotation must keep the displayed length");
+  report.rotation = { ival: ival1, chord: chord1, turn: rotationTurn, masterWords: masterWords() };
+
+  // Size knob (quarter 2) while moving: IVAL shrinks, the chord shrinks by
+  // the same ratio, the angle holds.
+  assert.ok(ringMembers(MOVINGS_RING).includes(instanceBlock + 0o7), "the instance must still be moving before the size turn");
+  const sizeTurn = turnWhileMoving(2, 60, 1.2);
+  const ival2 = ivalOf(instanceBlock);
+  const chord2 = chordOf(samplePictureWhileMoving(1));
+  assert.ok(ival2.radius < 0.9 * ival1.radius, "the size knob must shrink IVAL");
+  close(chord2.length / chord1.length, ival2.radius / ival1.radius, 0.05,
+    "the displayed instance must shrink with IVAL");
+  close(chord2.angle, chord1.angle, 2, "the size knob must not rotate the instance");
+  report.size = { ival: ival2, chord: chord2, turn: sizeTurn, masterWords: masterWords() };
+
+  // STOP leaves the instance in picture 1.
+  stopMovingAndWaitForReturn("instance");
+  tremor(1);
+  assert.equal(ringMembers(MOVINGS_RING).length, 0, "STOP must empty MOVINGS");
+  assert.ok(ringMembers(INSTANCES_RING).includes(instanceBlock + 1), "the instance must remain in INSTANCES");
+  const ival3 = ivalOf(instanceBlock);
+  close(ival3.radius, ival2.radius, 1, "STOP must keep the instance size");
+  close(ival3.angle, ival2.angle, 0.01, "STOP must keep the instance rotation");
+  const chord3 = chordOf(samplePictureScopePoints(1));
+  close(chord3.length / chord2.length, 1, 0.05, "the stopped instance must stay displayed at its size");
+  // CHANGEPIC rewrites the outgoing picture's coordinates (checkpoint 89
+  // records the exact negate-and-swap seen); the master line's length in
+  // page units is the invariant asserted here.
+  close(masterLength() / masterLengthBefore, 1, 0.001, "the master line's page length must never change");
+  report.stopped = {
+    ival: ival3, chord: chord3, display: ownersOfDisplayFile(),
+    masterWordsBefore, masterWordsAfter: masterWords(), masterLength: masterLength(),
+  };
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(0);
+}
+
 if (process.env.KNOBS_ONLY === "1") {
   // The four shaft encoders at 377620 control the scope window.  LYUO's
   // SHAFTTEST (sk2.tx2as:4134) differences the register against LSHAFT once

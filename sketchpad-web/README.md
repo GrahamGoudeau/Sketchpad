@@ -42,7 +42,7 @@ modes, but it does not show a fixed grid on the display.
 The bundled tape contains seven compatible historical Sketchpad jobs and one
 separate inferred initialization word.  Its entry point is octal address
 `200140`.  Its SHA-256 is
-`a149adcf9911a7cc5a12fad351d52840de11e4b44a402a3069b725f199dca0a4`.
+`5ad636c382bd8d3d21ce5faea59b994004634fe8c883de0a4362dc353f7132f6`.
 
 The browser runs the paper tape through the CPU and WebAssembly.  It draws the
 unit-60 output on the canvas.  Pointer motion over the scope always sets the
@@ -182,6 +182,19 @@ scope centre `SCCEN` at `200035` and `200036`, and quarter 2 changes nothing
 while no instance is moving.  The line's page coordinates never change; the
 picture display follows as `511 + (page - SCCEN) * 512 / SCSZ`.
 
+An instance regression follows the 1963 film's rivet workflow with one line
+as the master.  It calls for picture 1 through toggle register 24, which the
+original `PERIODIC` and `CHANGEPIC` turn into a new current picture, presses
+Q2.4 with toggle register 25 naming picture 0, and verifies that `SUBPIC`
+allocates an instance block tied to `INSTANCES`, naming the master in `IWHAT`
+and belonging to picture 1, that the instance is in `MOVINGS` with `SHAFTUSE`
+set, and that the display file carries words owned by the instance and none
+by the master line.  While the instance moves, quarter 1 rotates `IVAL` and
+turns the displayed line without changing its length, and quarter 2 shrinks
+`IVAL` and the displayed line by the same ratio.  `STOPMOVEP` leaves the
+instance in place.  Source repair R073 is what lets the display builder
+return after expanding the master.
+
 A third regression enters `DESIGNATE`, `STARTDRAW`, and `STARTC`.  It proves
 that the assembly allocates circle records and that unit 60 emits a quantized
 circular arc.  The browser and Rust layers do not calculate the arc.
@@ -228,6 +241,7 @@ npm run test:constraint
 npm run test:fix
 npm run test:delete
 npm run test:knobs
+npm run test:instance
 npm run test:perpendicular
 npm run test:flange
 npm run test:relax-trace

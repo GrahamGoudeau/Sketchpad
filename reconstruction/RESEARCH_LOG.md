@@ -4303,3 +4303,134 @@ there and checks that the display follows `SCSZ` in both directions.
 - `[DECOMP]` Knob ownership is a mode bit: `SHAFTUSE` in `ΔSIZE` hands
   quarters 2 and 1 to a moving instance as rotation and size changes. The
   same knob is translation or rotation depending on what is moving.
+
+Commit `5f788b3` was pushed to `main`. GitHub Actions run `36817588353`
+passed. No release was deployed.
+
+
+## Checkpoint 89: The First Instance, and Repair R073 in the Display Builder
+
+Date: 2026-10-01
+
+The 1963 film's rivet is an instance: a figure drawn as its own picture
+and then placed, moved, resized, and rotated in another picture. This
+checkpoint drives that workflow through the original assembly with one
+line as the master. Doing so exposed a transcription error that had made
+every instance hang the main sequence.
+
+### Picture switching
+
+`PICNUM` is toggle register 24 (sk2.tx2as:3520, "# OF PICTURE YOU WANT").
+LYUO's `PERIODIC` differences its right half against `LPICNUM` once per
+display cycle and, on a change, sets `PICCHANGE` and copies the value into
+`CPNAME` at `200054`. `PICCHANGE` is the meta bit of `CPNAME`. ONLW's
+`START76` calls `CHANGEPIC`, which wraps up the current picture, searches
+`PICTURES` for a block whose `PNAME` (offset 17) matches `CPNAME`, creates
+one with `MAKA PICTURES` if none matches, sets `SCSZ` from its `PSIZE`,
+makes it the member of `CURPICS`, zeroes `SCCEN`, and clears `PICCHANGE`.
+The boot picture is therefore picture 0, named by the zero toggle
+register. The regression sets quarter 1 of toggle 24 to 1 and observes a
+second `PICTURES` member named 1, a new `CURPICS` member, `CPNAME` 1 with
+its meta bit clear, and an empty display file.
+
+### INSTANCE
+
+`READIT` sends Q2.4 to `SUBPIC` (sk.tx2as:1299). With nothing moving and
+nothing aimed at, `SUBPIC3` copies toggle register 25 (`NITOG`) into
+`NINAME`, sets the initial size `NIRR` from `SCSZ`, and searches `PICTURES`
+for a block whose `PNAME` right half equals `NINAME`. `SUBPICS` then makes
+an `INSTANCES` block, sets `SHAFTUSE`, stores the size in `IVAL` and the
+pen position in `IP`, ties `IWHAT` to the master picture, creates an
+instance-point constraint and a point for each attacher of the master
+through `SUBPIT`, and leaves the instance moving through `MOVEα`. The
+instance block's offset 4 ties it to the picture it belongs to.
+
+The assembled addresses are `SUBPIC` 005124, `SUBPICS` 005201, and
+`SUBPIT1` 005271; the regression requires all three.
+
+### The hang, and R073
+
+With the transcription as it stood, pressing INSTANCE left sequence 76
+executing `¹⁴JPQ 205735` at 205735 forever. 205735 is `MAG1X`, the return
+slot of `MAG1`, the per-part dispatcher of ONLW's display-file builder
+`MAG`. `MAG1` stores its return in `MAG1X` and branches through the part's
+generic block to its display routine; for instances that is `MAGI`.
+`MAGI` expands the master picture by calling `MAG1` for each of the
+master's parts, which overwrites `MAG1X` with the inner return. Before the
+expansion it saves a return word into the master picture's `PSAVE`
+(offset 20) and at `MAGILV` it restores that word. The transcription
+saved `MAGIX`, the instance routine's own exit, and restored into `MAG1X`.
+Since `MAGI` is only ever entered from `MAG1`, `MAGIX` always holds `JPQ
+MAG1X`, so the restore wrote `MAG1X`'s own address into `MAG1X`.
+
+A 300-DPI render of Part 2 PDF page 47 (document page 197) shows the save
+line as `MOVE|MAG1X→²PSAVE+LISTγ`: the glyph after `MAG` is the small
+slanted `1` seen in `MAG1` on page 198 and in the restore line, not the
+tall serifed `I` of the adjacent `JPQ MAGIX` lines. Repair R073 reads
+`MAGIX` as `MAG1X` at sk2.tx2as:2005. The save and restore now move the
+same word, the per-part return survives the recursion, and the instance
+is displayed. The repaired word changes the ONLW job, so the merged tape's
+SHA-256 is now
+`5ad636c382bd8d3d21ce5faea59b994004634fe8c883de0a4362dc353f7132f6` at the
+same 78,144 bytes. The RELAX trace was regenerated; only its tape
+provenance field changed.
+
+### Regression
+
+`npm run test:instance` passes with these observations. The display file
+of picture 1 carries 180 words, all owned by the instance's list index;
+the master line's own index appears nowhere in it. The displayed instance
+is one collinear run of 181 scope units at 45 degrees, the master's line
+at the instance's initial size. Sixty detents on quarter 1 while the
+instance moves rotate `IVAL` by 27.2 degrees and the displayed line by
+26.7 degrees with its length unchanged; `SHAFTINS` ran six times for 236
+`SHAFTTEST` visits, so the knob is read every display cycle but the
+difference crosses a detent only every tenth cycle at this cadence. Sixty
+detents on quarter 2 shrink `IVAL` to 0.71 of its radius and the displayed
+line to 0.68 of its length with the angle unchanged. Q1.6 through the
+harness's existing stop helper empties `MOVINGS`, keeps the instance in
+`INSTANCES`, and leaves 128 display words owned by it.
+
+### Open interpretation: the outgoing picture is moved by twice its centre
+
+`CHANGEPIC`'s wrap-up (`CPWRAPA` to `CPWRAP3`) computes the outgoing
+picture's extent through each part's `HOWBIG`, stores `PSIZE`, forms
+`MATRX` and `MATRY` with `HSUM`, complements them, sets an identity
+matrix, and applies each part's `MOVIT`. The intent read from the listing
+is to translate the picture so that its centre is at the page origin.
+The regression observed the master line's two coordinate pairs exactly
+negated and swapped by the switch: each point moved by minus the sum of
+the two extremes, twice the half sum. The picture's length was preserved.
+The instance consequently displays about 115 scope units from the pen,
+the master's own centre scaled into the instance, where the film shows
+the rivet at the pen. Two candidate causes are visible and neither is
+established: the `HSUM` macro's shift count is `{-1,-1,,-1,-1}+((Q)∧(770,))`,
+whose comma-built term depends on how the assembler reads `770,`; and
+`CPWRAP1` and `CPWRAP3` apply `MOVIT` over both `PPART` and `PICBLKS`, so a
+part in both rings would move twice. The regression therefore asserts the
+master's page length, not its coordinates, and the next checkpoint should
+settle this before any multi-part instance is attempted.
+
+### [DECOMP] notes
+
+- `[DECOMP]` Pictures are named, not numbered: a 36-bit `PNAME` compared
+  by right half against a toggle register. "Picture 0" is the picture
+  named by an all-zero register.
+- `[DECOMP]` The display-file builder is a recursive descent over rings
+  with self-modifying return slots. `MAG1` dispatches each part through
+  its generic block's `DISPLAY` word; `MAGI` saves the dispatcher's return
+  and the five matrix words in the master picture's `PSAVE` area, guards
+  against a picture that contains itself and against nesting deeper than
+  `EXLEVEL` ("OUT TOO FAR"), and restores on the way out. A C rendering
+  needs an explicit stack where the listing uses `PSAVE`.
+- `[DECOMP]` An instance is a similarity transform stored as `R cos α`,
+  `R sin α`, `X`, `Y` in `IVAL`. While it moves, the main loop builds a
+  2 by 2 matrix from `ΔROT` and `ΔSIZE` each iteration and `76MOVI`
+  applies it to `IVAL` and to the instance's attacher points, so knob
+  changes are integrated per display cycle rather than set absolutely.
+- `[DECOMP]` Display-file words from an expanded instance are owned by the
+  instance's index, not by the master's parts. The light pen can select
+  the instance as a whole but not its interior.
+- `[DECOMP]` The knobs change meaning with state: with `SHAFTUSE` set the
+  size and rotation quarters belong to the moving instance and the
+  translation knobs are ignored; otherwise they move the scope window.

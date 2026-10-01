@@ -66,7 +66,7 @@ bad transcription.
 
 ## Current Assembly Frontier
 
-Repairs R001 through R070 and the validator changes let the complete source
+Repairs R001 through R073 and the validator changes let the complete source
 parse, expand, and assemble.  The two files contain eight separate historical
 M4 assembly jobs.  They are not one assembly job.
 
@@ -81,14 +81,17 @@ shorter `OPLW` job is not in this set.  A separate one-word inferred
 initialization tape sets the no-old-designation sentinel used by `DESIGNATE`.
 The merged tape has 12,944 words in 28 blocks.  It starts at octal address
 `200140`.  It is 78,144 bytes.  Its SHA-256 is
-`a149adcf9911a7cc5a12fad351d52840de11e4b44a402a3069b725f199dca0a4`.
+`5ad636c382bd8d3d21ce5faea59b994004634fe8c883de0a4362dc353f7132f6`.
 
 The simulator runs this image through WebAssembly.  The executing assembly
 draws `INK`, creates a line, selects it with the emulated light pen, creates a
 horizontal-or-vertical constraint, and changes the line through `RELAX`.  It
 also links the line through `FIXIT` and restores it through `UNFIX`.
 `DESIGNATE` now preserves a center point.  `STARTDRAW` then creates circle
-records and emits a quantized circular arc through unit 60.  Browser code only
+records and emits a quantized circular arc through unit 60.  `ERASE` deletes
+a selected line, the shaft encoders scale and move the scope window, and
+`SUBPIC` creates an instance of one picture in another, rotates and resizes
+it with the knobs while it moves, and leaves it with `STOPMOVEP`.  Browser code only
 sets modeled hardware inputs and renders unit-60 output.  It does not create,
 select, constrain, solve, or draw geometry.  The canonical application runs at
 `https://sketchpad.acyclic.sh/`.
@@ -277,6 +280,7 @@ file marks it clearly and the log records the alternatives.
 | R069 | `sk.tx2as:6723` | verified | 500-DPI render of Sketchpad part 1, PDF page 152; the dispatch table prints `hJMP HOVSCOMP` at octal address `023771` between `PRLCOMP` and `IBVERTCOMP` | Restore the omitted HOV dispatch entry.  HOV constraints now call their comparison routine instead of the following independent-variable routine. |
 | R070 | `sk2.tx2as:2886` | verified | 500-DPI render of Sketchpad part 2, PDF page 68 (document page 218); the operand clearly reads `x1|x3`; adjacent matrix operations use the same indexed form | Remove the extra transcribed `S` and `beta` symbols from the `LDA x1|x3` operand.  `SLVAD2` now loads the next matrix term instead of executable memory, preserves the free coordinate, completes both solver passes, and returns from `RELAX`. |
 | R071 | `sk.tx2as:1844` | verified | 600-DPI render of Sketchpad part 1, PDF page 42 (document page 40); the macro argument has the round `0` form; the `LTAKE` definition addresses a list key at offset `N` and its link at `N+1`; an assembly trace shows `alpha` addresses the following field and leaves the deleted dummy in the picture ring | Read `LTAKE alpha×beta` as `LTAKE 0×beta`.  `MERGER` now removes the current duplicate list membership instead of the following field when it joins a typical variable to a real point. |
+| R073 | `sk2.tx2as:2005` | verified | 300-DPI render of Sketchpad part 2, PDF page 47 (document page 197): the glyph after `MAG` in `MOVE\|MAG1X→²PSAVE+LISTγ` has the small slanted `1` form of `MAG1` on page 198 and of the restore line `MOVE\|²LIST+PSAVEβ→¹MAG1X`, not the tall serifed `I` of the adjacent `JPQ MAGIX` lines; `MAGI` saves the per-part dispatcher return `MAG1X` before it expands the master picture through `MAG1` and restores it at `MAGILV`; with `MAGIX` saved, the restore writes `MAG1X`'s own address into `MAG1X` and the main sequence loops there after the first instance is created | Read `MOVE\|MAGIX` as `MOVE\|MAG1X`.  Instances now display and the main sequence returns from the display builder. |
 | R072 | `sk2.tx2as:3740` | verified | 220-DPI render of Sketchpad part 2, PDF page 89 (document page 239); the final `STAE` operation reads `STD`; the `D` matches the `LDD` operation in the preceding `LDAE` macro; all three other surviving `STAE` definitions store A, B, C, and D in order | Read `STA A+D` as `STD A+D`.  The LYUO selector now preserves an object's packed identity when it moves the second of two nearby-object records into the first slot. |
 
 ## Publication Gate

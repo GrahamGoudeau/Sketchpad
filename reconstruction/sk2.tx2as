@@ -2002,7 +2002,7 @@ MAGIGOA@arr@
                 JPQ #+2
                 JPQ MAGIX       **RECURSIVE PICTURE
                 DPX @sub_beta@@sub_pipe@@sub_gamma@ PSAVE+LIST
-                MOVE|MAGIX@arr@@sup_2@ PSAVE+LIST@sub_gamma@
+                MOVE|MAG1X@arr@@sup_2@ PSAVE+LIST@sub_gamma@
                 REX @sub_beta@ 5
                 LDA @sub_beta@ MATS
                 STA @sub_beta@@sub_pipe@@sub_gamma@ LIST+PSAVE+1
