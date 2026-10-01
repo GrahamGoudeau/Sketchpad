@@ -4725,3 +4725,102 @@ with `MATD` the master's `PSIZE`; whether `MATD` is loaded once at
   the direct words `24021` and `741` rest on M4's textual parameter
   substitution, which the assembler now applies to the tail as well.
 
+Commits `91cae9e` and `c780c63` were pushed to `main`. GitHub Actions run
+`36823868820` passed. No release was deployed.
+
+## Checkpoint 94: An Instance of a Six-Line Figure
+
+Date: 2026-10-01
+
+The film's instances are of figures, not of single lines: the rivet, and
+the small copies of the flange near the end of the Lincoln Laboratory
+reel. `npm run test:instance-figure` now drives the original code
+through an instance of a six-line master, rotates and shrinks it while
+it moves, and stops it, checking the displayed figure against the
+master's own geometry at every stage.
+
+### Fixture
+
+`POLYLINE_ONLY=1` draws the six-edge outline of the earlier polyline
+regression (corners (575,575), (735,575), (735,675), (655,675),
+(655,775), (575,775), closed by `MERGER` onto the first point) and then,
+instead of exiting, continues into the instance block with the master
+picture holding six lines on six shared points. The rest is checkpoint
+89's workflow: pen on the first line, toggle 24 calls for picture 1,
+Q2.4 with toggle 25 naming picture 0, the rotation and size knobs one
+detent at a time while the instance moves, STOP.
+
+### Comparison
+
+The instance's display words all carry the instance's index, so its
+points cannot be attributed to the master's lines through the display
+file. The check is geometric. The master's six segments are read from
+the `LINES` ring through `lineGeometryAt` and mapped through the display
+rule of checkpoint 88 with the `SCSZ` and `SCCEN` of the moment; the 95
+picture-0 points sampled through the display routine lie within 2 scope
+units of those segments, which validates the mapping before it is used.
+The segments are then transformed by the similarity the thesis
+describes: scale from `IVAL`'s radius, rotation by minus `IVAL`'s angle
+(the `ROTATER` reading of checkpoint 92, with the scope's y upward), and
+a translation that starts at the image's centroid and is refined by
+twelve iterations of the mean vector from each image point to its
+nearest point on the mapped segments. Two measures follow: the 98th
+percentile of the image points' distances to the mapped figure (limit 4
+scope units), and the worst gap between any of seventeen stations along
+each mapped segment and its nearest image point (limit 8), which fails
+if a line is missing or short.
+
+### Results
+
+| Stage | `IVAL` (R, α) | Scale | Image points | 98th distance | Worst gap |
+| --- | --- | --- | --- | --- | --- |
+| Moving, fresh | 4718592, 0° | 1.288 (from diameters) | 635 | 2.86 | 4.16 |
+| After rotation knob | 4718589, 40.84° | 1.288 | 564 | 2.79 | 5.19 |
+| After size knob | 3348776, 40.84° | 0.914 | 459 | 2.68 | 3.13 |
+| Stopped | 3348776, 40.84° | 0.914 | 86 | 1.15 | 4.06 |
+
+The counter-fits that the test also requires to fail do fail: the
+rotated figure against an unrotated mapping misses by 77.7 (distance)
+and 79.1 (gap), and the shrunk figure against the pre-shrink scale by
+46.4 and 62.0. The moving stages carry several hundred points because
+the pen tremor that keeps the tracker alive shifts the moving instance
+by up to a unit between display passes; the stopped figure is 86 points
+at the display's own spacing.
+
+The fresh instance's scale, 1.288 from the two figures' diameters, is
+`IVAL`'s radius over the master picture's `PSIZE` word (block offset
+0o16): 4718592 / 3680712 = 1.282, within half a percent. Both instance
+modes now assert that rule; the one-line master's chord of 364.2 scope
+units passes it too. `PSIZE` here is 0o16024710 page units, which at
+`SCSZ` 18874368 is 99.85 scope units: the outline's half-height, its
+larger half-extent. Which routine writes `PSIZE` has not been traced;
+checkpoint 89 saw `CHANGEPIC` re-centre the outgoing picture, and the
+half-extent is presumably set in the same pass.
+
+The master's six lines display at 8 scope units between points in
+picture 0 (top edge at x = 584, 592, 600, …) and the instance's lines
+at the same 8 units at scale 1.29 (x = 650, 658, 666, …) and at scale
+0.91, so the line display steps in scope units, not page units.
+
+### Open
+
+- The film shows several small copies of the flange; this fixture makes
+  one instance of the undistorted outline. Several instances of one
+  master, and an instance of the constrained flange (the flange fixture
+  ends in the solver and does not yet continue into instancing), are the
+  next steps toward that scene.
+- `PSIZE`'s writer.
+
+- `[DECOMP]` An instance's display scale is `IVAL`'s radius over its
+  master picture's `PSIZE`, the master's half-extent in page units; a
+  fresh instance has R = 0o22000000, so it appears at 0o22000000 /
+  `PSIZE` times the master's size, larger than the master when the
+  master is small.
+- `[DECOMP]` Positive `IVAL` angles turn the instance clockwise on the
+  scope: `ROTATER`'s x' = x cos α + y sin α, y' = y cos α − x sin α is a
+  rotation by −α in page coordinates with y upward.
+- `[DECOMP]` Line display subdivides in scope units (8 per point here),
+  not in page units, so an enlarged instance is drawn with more points
+  per line, not sparser ones.
+
+

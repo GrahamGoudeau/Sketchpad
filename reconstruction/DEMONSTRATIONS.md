@@ -32,7 +32,7 @@ film under Alan Kay's 1986 commentary; timestamps in parentheses).
 | 2:45 to 3:45 (1:38 to 2:36) | A second drawing: circular arc over a crossed box (the rivet) | `DESIGNATE`, `STARTC`, lines | proven for arcs and lines; the complete rivet figure is not reproduced |
 | 3:45 to 4:30 (2:38 to 3:20) | Rivet placed on the flange as an instance and moved into position | `SUBPIC`, `MAGI`, the ONLW moving transform, `STOPMOVEP`, `MAKPATA`, `76MOVIT` | proven with a one-line master by `npm run test:instance` and, with an attacher, by `npm run test:instance-attacher`; the rivet figure is not reproduced |
 | 4:30 to 5:10 (3:20 to 3:58) | Instances resized and repositioned; pen drags instance | `SHAFTINS`, `ΔROT`, `ΔSIZE`, `76MOVI` | proven for rotation and size while moving |
-| 5:10 to 6:27 (4:00 to 4:14) | Several small copies of the flange made at reduced scale | instance and copy routines; the scope scale knob is proven by `npm run test:knobs` | not exercised |
+| 5:10 to 6:27 (4:00 to 4:14) | Several small copies of the flange made at reduced scale | `SUBPIC`, `MAGI`, `ΔSIZE`; the scope scale knob is proven by `npm run test:knobs` | proven for one instance of the six-edge outline shrunk by the size knob (`npm run test:instance-figure`, checkpoint 94); several copies and the constrained flange as master are not exercised |
 
 ## MIT Science Reporter, "Computer Sketchpad", 1964
 
@@ -47,16 +47,18 @@ program on the same machine, and is outside this reconstruction.
 | 3:40 to 4:10 | Circular arc drawn from a designated centre | `DESIGNATE`, `STARTC` | proven |
 | 4:15 to 5:05 | A triangle closed and adjusted | lines, `MERGER` | proven for the primitives |
 | 5:25 to 6:35 | A rough quadrilateral made into a rectangle by constraints | `MAKECONS`, `RELAX` | proven for the P constraint; the four-sided figure is not reproduced |
-| 6:55 to 7:45 | A smaller figure placed inside the rectangle and moved | instances or moving a subpicture | not exercised |
+| 6:55 to 7:45 | A smaller figure placed inside the rectangle and moved | instances or moving a subpicture | proven for a six-line instance moved, rotated, and resized with the pen and knobs (`npm run test:instance-figure`); the film's figure is not reproduced |
 | 7:50 to 8:45 | A figure with a vertical member and a trapezoid, apparently a truss, adjusted | constraints, possibly fixed points (`FIXIT`) | `FIXIT` and `UNFIX` proven; the figure is not reproduced |
 | 9:10 to 9:50 | Picture enlarged until lines leave the scope | `SHAFTTEST`, `SCSZ`, `SCCEN` | proven by `npm run test:knobs` |
 
 ## Capabilities the films show that need a regression
 
-- Instances of a figure with several parts; the one-line instance is
-  proven, and TIE, the instance-point constraint, and the image point's
-  position on the displayed instance are proven by `npm run
-  test:instance-attacher` (checkpoints 92 and 93).
+- Several instances of one master, and an instance of the constrained
+  flange. The one-line and six-line instances are proven (`npm run
+  test:instance`, `npm run test:instance-figure`), and TIE, the
+  instance-point constraint, and the image point's position on the
+  displayed instance by `npm run test:instance-attacher` (checkpoints
+  92 to 94).
 - Copying a figure.
 - Deleting a line through `ERASE` and the unattached points through
   `POINTSOUT` are both proven by `npm run test:delete`.

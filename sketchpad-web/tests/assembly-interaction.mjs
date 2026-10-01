@@ -2491,13 +2491,14 @@ if (polylineMode) {
     assert.equal(closingMerged, true,
       "the closing endpoint must share the first point record after the original merger path");
   }
-  if (!perpendicularMode) {
+  if (!perpendicularMode && process.env.INSTANCE_ONLY !== "1") {
     if (process.env.WAIT_AFTER_POLYLINE === "1") {
       runUntilTime(machine.simulated_time + 100);
     }
     console.log(JSON.stringify(polylineReport, null, 2));
     process.exit(0);
   }
+  if (perpendicularMode) {
 
   function mapPointToDisplay(target, targetPointAddress) {
     const targetIndex = targetPointAddress - 0o024000;
@@ -3507,6 +3508,7 @@ if (polylineMode) {
   assert.ok(perpendicularResults.every(({ cosine }) => Math.abs(cosine) < 0.001),
     "the original P constraints and RELAX solver must make adjacent lines perpendicular");
   process.exit(0);
+  }
 }
 
 if (process.env.CONSTRAINT_ONLY !== "1" && process.env.CIRCLE_ONLY !== "1") console.log(JSON.stringify({
@@ -3604,6 +3606,107 @@ if (process.env.INSTANCE_ONLY === "1") {
       inliers: inliers.length,
     };
   };
+  // A multi-part master: POLYLINE_ONLY=1 draws the six-edge outline before
+  // this block, so the master picture holds six lines on six shared points.
+  // The instance's display words all carry the instance's own index, so the
+  // displayed figure is compared as an unlabeled point set against the
+  // master's six segments, read from the LINES ring and mapped through the
+  // display rule of checkpoint 88, under the similarity the thesis
+  // describes: scale from IVAL's radius, rotation from its angle, and a
+  // translation that the pen sets and the fit refines.
+  const multiPartMaster = polylineMode;
+  const LINES_RING = 0o024204;
+  const scopeOfPage = (x, y) => ({
+    x: 511 + (signed36(x) - signed36(word(0o200035))) * 512 / word(0o200034),
+    y: 511 + (signed36(y) - signed36(word(0o200036))) * 512 / word(0o200034),
+  });
+  const masterSegmentsNow = () => ringMembers(LINES_RING).map((member) => {
+    const geometry = lineGeometryAt(member - 1);
+    return { from: scopeOfPage(geometry.first[0], geometry.first[1]), to: scopeOfPage(geometry.second[0], geometry.second[1]) };
+  });
+  const pointToSegment = (p, seg) => {
+    const dx = seg.to.x - seg.from.x;
+    const dy = seg.to.y - seg.from.y;
+    const length2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - seg.from.x) * dx + (p.y - seg.from.y) * dy) / length2));
+    const qx = seg.from.x + t * dx;
+    const qy = seg.from.y + t * dy;
+    return { distance: Math.hypot(p.x - qx, p.y - qy), x: qx, y: qy };
+  };
+  const nearestOnSegments = (p, segments) => segments.reduce((best, seg) => {
+    const hit = pointToSegment(p, seg);
+    return hit.distance < best.distance ? hit : best;
+  }, { distance: Infinity });
+  const diameterOf = (points) => {
+    let best = 0;
+    for (let i = 0; i < points.length; i += 1) {
+      for (let j = i + 1; j < points.length; j += 1) {
+        best = Math.max(best, Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y));
+      }
+    }
+    return best;
+  };
+  const endpointsOf = (segments) => segments.flatMap((seg) => [seg.from, seg.to]);
+  const percentile = (values, q) => [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(q * values.length))];
+  // ROTATER (sk2.tx2as, 207031) maps x' = (x·MATM + y·MATO)/MATD + MATRX and
+  // y' = (y·MATM − x·MATO)/MATD + MATRY with MATM = R cos α and MATO = R sin
+  // α, a rotation by −α of page coordinates, which the scope maps with y
+  // upward (checkpoint 88).
+  const similarityFit = (segments, image, scale, angleDegrees) => {
+    const ends = endpointsOf(segments);
+    const cm = { x: ends.reduce((a, p) => a + p.x, 0) / ends.length, y: ends.reduce((a, p) => a + p.y, 0) / ends.length };
+    const ci = { x: image.reduce((a, p) => a + p.x, 0) / image.length, y: image.reduce((a, p) => a + p.y, 0) / image.length };
+    const theta = -angleDegrees * Math.PI / 180;
+    const mapPoint = (p, c) => ({
+      x: c.x + scale * ((p.x - cm.x) * Math.cos(theta) - (p.y - cm.y) * Math.sin(theta)),
+      y: c.y + scale * ((p.x - cm.x) * Math.sin(theta) + (p.y - cm.y) * Math.cos(theta)),
+    });
+    let centre = ci;
+    let mapped = null;
+    // Refine the translation only: shift by the mean vector from each image
+    // point to its nearest point on the mapped segments.
+    for (let iteration = 0; iteration < 12; iteration += 1) {
+      mapped = segments.map((seg) => ({ from: mapPoint(seg.from, centre), to: mapPoint(seg.to, centre) }));
+      let sx = 0;
+      let sy = 0;
+      for (const p of image) {
+        const hit = nearestOnSegments(p, mapped);
+        sx += p.x - hit.x;
+        sy += p.y - hit.y;
+      }
+      centre = { x: centre.x + sx / image.length, y: centre.y + sy / image.length };
+    }
+    mapped = segments.map((seg) => ({ from: mapPoint(seg.from, centre), to: mapPoint(seg.to, centre) }));
+    const onFigure = image.map((p) => nearestOnSegments(p, mapped).distance);
+    // Coverage: sixteen stations along each mapped segment must each have an
+    // image point nearby, so no line of the master is missing or short.
+    const coverage = mapped.map((seg) => {
+      let worst = 0;
+      for (let k = 0; k <= 16; k += 1) {
+        const q = { x: seg.from.x + (seg.to.x - seg.from.x) * k / 16, y: seg.from.y + (seg.to.y - seg.from.y) * k / 16 };
+        let best = Infinity;
+        for (const p of image) best = Math.min(best, Math.hypot(p.x - q.x, p.y - q.y));
+        worst = Math.max(worst, best);
+      }
+      return worst;
+    });
+    return {
+      scale, angleDegrees, imagePoints: image.length, centre,
+      onFigure98: percentile(onFigure, 0.98), onFigureMax: Math.max(...onFigure),
+      onFigureMean: onFigure.reduce((a, b) => a + b, 0) / onFigure.length,
+      coverageMax: Math.max(...coverage), coverage,
+      segments, mapped, image,
+    };
+  };
+  const onFigureTolerance = 4;
+  const coverageTolerance = 8;
+  const fitHolds = (fit) => fit.onFigure98 <= onFigureTolerance && fit.coverageMax <= coverageTolerance;
+  const assertFigure = (fit, message) => {
+    if (!fitHolds(fit)) console.error(JSON.stringify({ failure: "figure fit", message, fit }));
+    assert.ok(fitHolds(fit),
+      `${message}: 98th-percentile distance to the figure ${fit.onFigure98.toFixed(1)} (limit ${onFigureTolerance}), worst coverage gap ${fit.coverageMax.toFixed(1)} (limit ${coverageTolerance}), scale ${fit.scale.toFixed(3)}, angle ${fit.angleDegrees.toFixed(1)}`);
+  };
+  const summarizeFit = (fit) => ({ ...fit, segments: undefined, mapped: undefined, image: undefined });
   const ownersOfDisplayFile = () => {
     const file = displayFileByObject();
     return { count: file.displayCount, byIndex: Object.fromEntries([...file.objects.values()].map((o) => [octal(o.index, 6), o.count])) };
@@ -3698,6 +3801,19 @@ if (process.env.INSTANCE_ONLY === "1") {
   machine.set_light_pen(selectionPoint.x / 1022, 1 - selectionPoint.y / 1022, 26 / 1022, true);
   assert.ok(runUntil(() => !meta(0o200042), 5, 200),
     "the tracker must hold the pen on the master line");
+  // The master figure as picture 0 displays it, sampled with the pen alive.
+  const masterFigure = multiPartMaster ? samplePictureWhileMoving(1) : [];
+  const masterSegments = multiPartMaster ? masterSegmentsNow() : [];
+  if (multiPartMaster) {
+    assert.equal(masterSegments.length, 6, "the master picture must hold the six outline lines");
+    assert.ok(masterFigure.length >= 60, `the master outline must display as a figure (saw ${masterFigure.length} points)`);
+    // The display rule must put the sampled picture points on the segments
+    // read from memory; this checks the mapping before it is used.
+    const masterOnSegments = masterFigure.map((p) => nearestOnSegments(p, masterSegments).distance);
+    assert.ok(Math.max(...masterOnSegments) <= 2,
+      `picture 0's points must lie on its six lines as mapped (worst ${Math.max(...masterOnSegments).toFixed(1)})`);
+    report.masterFigure = { points: masterFigure.length, segments: masterSegments, diameter: diameterOf(endpointsOf(masterSegments)) };
+  }
   const picturesBefore = ringMembers(PICTURES_RING);
   assert.equal(picturesBefore.length, 1, "one picture must exist before the switch");
   const masterPictureBlock = picturesBefore[0] - 1;
@@ -3815,11 +3931,37 @@ if (process.env.INSTANCE_ONLY === "1") {
     "the display file must carry words owned by the instance");
   assert.equal(displayMoving.byIndex[octal(lineIndex, 6)] ?? 0, 0,
     "the master line itself must not appear in picture 1's display file");
-  const chordMoving = chordOf(samplePictureWhileMoving(1));
-  assert.ok(chordMoving.points >= 12 && chordMoving.inliers >= 0.8 * chordMoving.points,
-    "the displayed instance must be one line, the master's line transformed");
+  const figureMoving = samplePictureWhileMoving(1);
+  const chordMoving = chordOf(figureMoving);
+  if (!multiPartMaster) {
+    assert.ok(chordMoving.points >= 12 && chordMoving.inliers >= 0.8 * chordMoving.points,
+      "the displayed instance must be one line, the master's line transformed");
+  }
   const ival0 = ivalOf(instanceBlock);
   assert.equal(ival0.rsin, 0, "a new instance starts unrotated");
+  // The fresh instance's scale against the master's display is taken from
+  // the two figures' diameters; later stages must follow IVAL from it.
+  const scale0 = multiPartMaster ? diameterOf(figureMoving) / diameterOf(endpointsOf(masterSegments)) : null;
+  // The instance displays at IVAL's radius over the master picture's PSIZE
+  // (block word 0o16): a fresh instance's R of 0o22000000 against the
+  // master's half-extent.  The one-line master is checked by its chord.
+  const masterPsize = signed36(word(masterPictureBlock + 0o16));
+  const expectedScale0 = ival0.radius / masterPsize;
+  if (multiPartMaster) {
+    close(scale0 / expectedScale0, 1, 0.02, "the fresh instance's scale must be IVAL's radius over the master's PSIZE");
+  } else {
+    const masterSegment = masterSegmentsNow();
+    assert.equal(masterSegment.length, 1, "the one-line master must hold one line");
+    const masterScopeLength = Math.hypot(masterSegment[0].to.x - masterSegment[0].from.x, masterSegment[0].to.y - masterSegment[0].from.y);
+    close(chordMoving.length / masterScopeLength / expectedScale0, 1, 0.03,
+      "the fresh instance's length must be the master's times IVAL's radius over PSIZE");
+  }
+  if (multiPartMaster) {
+    assert.ok(figureMoving.length >= 60, `the moving instance must display as a figure (saw ${figureMoving.length} points)`);
+    const fit0 = similarityFit(masterSegments, figureMoving, scale0, 0);
+    assertFigure(fit0, "the fresh instance must be the master figure, scaled and unrotated");
+    report.figure0 = { ...summarizeFit(fit0), diameter: diameterOf(figureMoving), masterPsize: octal(word(masterPictureBlock + 0o16)), scsz: word(0o200034) };
+  }
   let instanceAttacherPoint = null;
   if (withAttacher) {
     const newPoints = ringMembers(POINTS_RING).filter((a) => !pointsBeforeInstance.includes(a));
@@ -3855,13 +3997,23 @@ if (process.env.INSTANCE_ONLY === "1") {
   assert.ok(ringMembers(MOVINGS_RING).includes(instanceBlock + 0o7), "the instance must still be moving before the rotation turn");
   const rotationTurn = turnWhileMoving(3, 60, 1.2);
   const ival1 = ivalOf(instanceBlock);
-  const chord1 = chordOf(samplePictureWhileMoving(1));
+  const figure1 = samplePictureWhileMoving(1);
+  const chord1 = chordOf(figure1);
   if (ival1.rsin === 0) console.error(JSON.stringify({ failure: "no rotation", rotationTurn, ival1 }));
   assert.notEqual(ival1.rsin, 0, "the rotation knob must put a sine term into IVAL");
   assert.ok(Math.abs(ival1.angle) > 10, `IVAL must rotate by more than 10 degrees (saw ${ival1.angle.toFixed(1)})`);
   close(ival1.radius / ival0.radius, 1, 0.02, "rotation must keep the instance size");
-  assert.ok(Math.abs(chord1.angle - chordMoving.angle) > 10, "the displayed instance must turn with IVAL");
-  close(chord1.length / chordMoving.length, 1, 0.03, "rotation must keep the displayed length");
+  if (multiPartMaster) {
+    const fit1 = similarityFit(masterSegments, figure1, scale0 * ival1.radius / ival0.radius, ival1.angle);
+    const unrotated = similarityFit(masterSegments, figure1, scale0 * ival1.radius / ival0.radius, 0);
+    assert.ok(!fitHolds(unrotated),
+      `the displayed figure must have turned (unrotated fit ${unrotated.onFigure98.toFixed(1)}, ${unrotated.coverageMax.toFixed(1)})`);
+    assertFigure(fit1, "the rotated instance must be the master figure turned by IVAL's angle");
+    report.figure1 = { ...summarizeFit(fit1), unrotated: summarizeFit(unrotated) };
+  } else {
+    assert.ok(Math.abs(chord1.angle - chordMoving.angle) > 10, "the displayed instance must turn with IVAL");
+    close(chord1.length / chordMoving.length, 1, 0.03, "rotation must keep the displayed length");
+  }
   sampleImage("after rotation");
   report.rotation = { ival: ival1, chord: chord1, turn: rotationTurn, masterWords: masterWords() };
 
@@ -3870,11 +4022,21 @@ if (process.env.INSTANCE_ONLY === "1") {
   assert.ok(ringMembers(MOVINGS_RING).includes(instanceBlock + 0o7), "the instance must still be moving before the size turn");
   const sizeTurn = turnWhileMoving(2, 60, 1.2);
   const ival2 = ivalOf(instanceBlock);
-  const chord2 = chordOf(samplePictureWhileMoving(1));
+  const figure2 = samplePictureWhileMoving(1);
+  const chord2 = chordOf(figure2);
   assert.ok(ival2.radius < 0.9 * ival1.radius, "the size knob must shrink IVAL");
-  close(chord2.length / chord1.length, ival2.radius / ival1.radius, 0.05,
-    "the displayed instance must shrink with IVAL");
-  close(chord2.angle, chord1.angle, 2, "the size knob must not rotate the instance");
+  if (multiPartMaster) {
+    const fit2 = similarityFit(masterSegments, figure2, scale0 * ival2.radius / ival0.radius, ival2.angle);
+    const unshrunk = similarityFit(masterSegments, figure2, scale0 * ival1.radius / ival0.radius, ival2.angle);
+    assert.ok(!fitHolds(unshrunk),
+      `the displayed figure must have shrunk (unshrunk fit ${unshrunk.onFigure98.toFixed(1)}, ${unshrunk.coverageMax.toFixed(1)})`);
+    assertFigure(fit2, "the resized instance must be the master figure at IVAL's radius");
+    report.figure2 = { ...summarizeFit(fit2), unshrunk: summarizeFit(unshrunk) };
+  } else {
+    close(chord2.length / chord1.length, ival2.radius / ival1.radius, 0.05,
+      "the displayed instance must shrink with IVAL");
+    close(chord2.angle, chord1.angle, 2, "the size knob must not rotate the instance");
+  }
   sampleImage("after size");
   report.size = { ival: ival2, chord: chord2, turn: sizeTurn, masterWords: masterWords() };
 
@@ -3886,8 +4048,15 @@ if (process.env.INSTANCE_ONLY === "1") {
   const ival3 = ivalOf(instanceBlock);
   close(ival3.radius, ival2.radius, 1, "STOP must keep the instance size");
   close(ival3.angle, ival2.angle, 0.01, "STOP must keep the instance rotation");
-  const chord3 = chordOf(samplePictureScopePoints(1));
-  close(chord3.length / chord2.length, 1, 0.05, "the stopped instance must stay displayed at its size");
+  const figure3 = samplePictureScopePoints(1);
+  const chord3 = chordOf(figure3);
+  if (multiPartMaster) {
+    const fit3 = similarityFit(masterSegments, figure3, scale0 * ival3.radius / ival0.radius, ival3.angle);
+    assertFigure(fit3, "the stopped instance must stay the master figure at its size and angle");
+    report.figure3 = summarizeFit(fit3);
+  } else {
+    close(chord3.length / chord2.length, 1, 0.05, "the stopped instance must stay displayed at its size");
+  }
   if (withAttacher) {
     // The attacher's image is a real point of picture 1.  Map its page
     // coordinates through the scope window (checkpoint 88) and it must sit

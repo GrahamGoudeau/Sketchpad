@@ -90,8 +90,9 @@ also links the line through `FIXIT` and restores it through `UNFIX`.
 `DESIGNATE` now preserves a center point.  `STARTDRAW` then creates circle
 records and emits a quantized circular arc through unit 60.  `ERASE` deletes
 a selected line, the shaft encoders scale and move the scope window, and
-`SUBPIC` creates an instance of one picture in another, rotates and resizes
-it with the knobs while it moves, and leaves it with `STOPMOVEP`.  Browser code only
+`SUBPIC` creates an instance of one picture in another, a line or a six-line
+figure with an attacher, rotates and resizes it with the knobs while it
+moves, and leaves it with `STOPMOVEP`.  Browser code only
 sets modeled hardware inputs and renders unit-60 output.  It does not create,
 select, constrain, solve, or draw geometry.  The canonical application runs at
 `https://sketchpad.acyclic.sh/`.
