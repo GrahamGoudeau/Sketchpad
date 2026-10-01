@@ -4957,4 +4957,57 @@ whole picture shrunk to a few units by the scale knob.
   instance is skipped; the recursion is guarded against a picture that
   contains itself and against depth.
 
+## Checkpoint 96: Nested Instances
+
+Date: 2026-10-01
+
+Every flange copy in the film carries its rivet, an instance inside an
+instance. Both multi-part instance regressions now end by calling for
+picture 2 through toggle register 24, naming picture 1 in toggle
+register 25, and pressing INSTANCE: a fresh instance of the picture that
+holds the two copies, which `MAGI` must expand through two levels.
+
+### Checks
+
+Picture 1's content as it was last displayed is known exactly: the two
+copies' mapped segment sets from checkpoints 94 and 95, twelve segments
+in scope coordinates. The nested instance's display is compared with
+them under the usual similarity. The scale is checked against the rule
+of checkpoint 94 with picture 1's own `PSIZE`, which `CHANGEPIC` must
+have written when picture 1 was switched out, and the rotation knob is
+turned on the outer instance so both inner figures must turn together.
+After STOP the inner instances' `IVAL` words are required unchanged.
+
+### Results
+
+| Master of the copies | Picture 1 `PSIZE` | Scale by rule | Scale measured | Fresh (points, 98th, gap) | Rotated 40.84° | Stopped |
+| --- | --- | --- | --- | --- | --- | --- |
+| Six-edge outline | 0o47446407 | 0.455 | 0.459 | 350, 2.99, 3.83 | 372, 3.48, 4.19 | 64, 1.43, 5.21 |
+| Solved flange | 0o56617160 | 0.385 | 0.387 | 364, 2.76, 4.69 | 403, 2.47, 4.64 | 63, 1.11, 5.60 |
+
+Picture 1's `PSIZE` is set on switching out, as checkpoint 94 supposed:
+0o47446407 page units is 281 scope units at the window in use,
+consistent with the half-extent of the two copies, whose centres stood
+413 units apart in x with their own widths beyond that. The
+nested instance appears at `IVAL`'s radius over that `PSIZE`, the same
+rule as a first-level instance, and the outer rotation turns both inner
+figures about the outer instance's point with their own rotations and
+sizes preserved. The display file of picture 2 carries only the outer
+instance's index (477 words for the outline case), so two levels of
+expansion still attribute every word to the top-level part.
+
+The register's last instance gap is closed; what the films show of
+instances is now driven through the original code, with the film's own
+figures still not reproduced line for line.
+
+- `[DECOMP]` Instance expansion composes similarities by multiplying
+  the moving matrix: `MAGIGO1` rotates the inner instance's `IP` by the
+  outer transform for the translation, products `MATS` with `ISIZE`/
+  `MATD` for the scale, and `ROTATER` of the inner `IVAL` for the
+  rotation, saving the outer matrix in `PSAVE` to restore after the
+  inner picture.
+- `[DECOMP]` A display-file word names the top-level part of the
+  current picture that produced it, never the inner part, so pen
+  selection inside a nested instance resolves to the outermost instance.
+
 

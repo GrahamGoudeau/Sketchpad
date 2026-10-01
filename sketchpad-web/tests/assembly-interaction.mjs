@@ -4220,6 +4220,76 @@ if (process.env.INSTANCE_ONLY === "1") {
       display: ownersOfDisplayFile(), masterWordsAfter: masterWords(), masterLength: masterLength(),
     };
     close(masterLength() / masterLengthBefore, 1, 0.001, "the master line's page length must never change");
+
+    // Nested instances, as every flange copy in the film is (each carries
+    // its rivet instance): call for picture 2, name picture 1 in toggle
+    // register 25, and make an instance of the picture that holds the two
+    // copies.  MAGI must expand two levels; the display is checked against
+    // both copies' known figures under the new instance's transform.
+    machine.set_toggle_register(0o24, 0, 0, 0, 2, false);
+    assert.ok(runUntil(() => ringMembers(PICTURES_RING).length === 3, 10, 200),
+      "CHANGEPIC must create picture 2");
+    tremor(1);
+    const picture2Block = ringMembers(PICTURES_RING).map((a) => a - 1).find((a) => rightHalf(word(a + PNAME)) === 2);
+    assert.ok(picture2Block, "picture 2 must carry name 2");
+    assert.equal(rightHalf(word(0o200054)), 2, "CPNAME must be picture 2");
+    assert.equal(ownersOfDisplayFile().count, 0, "picture 2 must display nothing");
+    const picture1Psize = signed36(word(newPictureBlock + 0o16));
+    assert.ok(picture1Psize > 0, `picture 1 must have a PSIZE after it is switched out (saw ${picture1Psize})`);
+    machine.set_toggle_register(0o25, 0o500, 0, 0, 1, false);
+    const instancesBeforeNested = ringMembers(INSTANCES_RING);
+    const nestedEntered = new Set();
+    setCommand(2, 4, true);
+    const nestedDeadline = machine.simulated_time + 5;
+    while (machine.simulated_time < nestedDeadline && !nestedEntered.has("005271")) {
+      const state = machine.control_state();
+      if (state.sequence === 0o76 && state.instruction_address >= 0o005124 && state.instruction_address <= 0o005300) {
+        nestedEntered.add(octal(state.instruction_address, 6));
+      }
+      stepBatch(1);
+    }
+    tremor(0.5);
+    setCommand(2, 4, false);
+    tremor(1);
+    assert.ok(nestedEntered.has("005271"), "Q2.4 must leave an instance of picture 1 moving");
+    const instancesAfterNested = ringMembers(INSTANCES_RING);
+    assert.equal(instancesAfterNested.length, instancesBeforeNested.length + 1, "SUBPIC must allocate the nested instance");
+    const nestedBlock = instancesAfterNested.find((a) => !instancesBeforeNested.includes(a)) - 1;
+    assert.equal(0o024000 + rightHalf(word(nestedBlock + IWHAT)), newPictureBlock, "the nested instance's IWHAT must name picture 1");
+    assert.equal(0o024000 + rightHalf(word(nestedBlock + 4)), picture2Block, "the nested instance must belong to picture 2");
+    const nestedIval0 = ivalOf(nestedBlock);
+    assert.equal(nestedIval0.rsin, 0, "a fresh instance of picture 1 starts unrotated");
+    // Picture 1's content, as displayed: the two copies' mapped figures.
+    const picture1Segments = [...fit3.mapped, ...secondFit.mapped];
+    const nestedFigure0 = samplePictureWhileMoving(1);
+    assert.ok(nestedFigure0.length >= 80, `the nested instance must display both copies (saw ${nestedFigure0.length} points)`);
+    const nestedScaleRule = nestedIval0.radius / picture1Psize;
+    const nestedScale0 = diameterOf(nestedFigure0) / diameterOf(endpointsOf(picture1Segments));
+    close(nestedScale0 / nestedScaleRule, 1, 0.03, "the nested instance's scale must be IVAL's radius over picture 1's PSIZE");
+    const nestedFit0 = similarityFit(picture1Segments, nestedFigure0, nestedScale0, 0);
+    assertFigure(nestedFit0, "the nested instance must show both copies as picture 1 displayed them, scaled");
+    // Rotate the outer instance: both inner figures turn together.
+    const nestedTurn = turnWhileMoving(3, 40, 0.8);
+    const nestedIval1 = ivalOf(nestedBlock);
+    assert.ok(Math.abs(nestedIval1.angle) > 10, "the rotation knob must turn the nested instance");
+    const nestedFigure1 = samplePictureWhileMoving(1);
+    const nestedFit1 = similarityFit(picture1Segments, nestedFigure1, nestedScale0 * nestedIval1.radius / nestedIval0.radius, nestedIval1.angle);
+    assertFigure(nestedFit1, "the rotated nested instance must turn both copies together by IVAL's angle");
+    stopMovingAndWaitForReturn("nested instance");
+    tremor(1);
+    assert.equal(ringMembers(MOVINGS_RING).length, 0, "STOP must empty MOVINGS after the nested instance");
+    const nestedIval3 = ivalOf(nestedBlock);
+    const nestedFigure3 = samplePictureScopePoints(1);
+    const nestedFit3 = similarityFit(picture1Segments, nestedFigure3, nestedScale0 * nestedIval3.radius / nestedIval0.radius, nestedIval3.angle);
+    assertFigure(nestedFit3, "the stopped nested instance must keep both copies' figures");
+    assert.deepEqual(ivalOf(instanceBlock), ival3, "the inner instances' IVAL must not change");
+    assert.deepEqual(ivalOf(secondBlock), secondIval3, "the inner copy's IVAL must not change");
+    report.nested = {
+      block: octal(nestedBlock, 6), picture2: octal(picture2Block, 6), picture1Psize: octal(picture1Psize),
+      scaleRule: nestedScaleRule, scaleMeasured: nestedScale0, ival0: nestedIval0, ival1: nestedIval1, turn: nestedTurn,
+      fit0: summarizeFit(nestedFit0), fit1: summarizeFit(nestedFit1), fit3: summarizeFit(nestedFit3),
+      display: ownersOfDisplayFile(),
+    };
   }
   console.log(JSON.stringify(report, null, 2));
   process.exit(0);
