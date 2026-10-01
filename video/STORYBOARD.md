@@ -6,6 +6,12 @@ picture becomes light and light becomes a selection, pictures inside
 pictures, and constraints as objects. Seven chapters of one mechanism
 each, about twelve minutes.
 
+Audience: someone with a CS degree who knows structs, pointers, and
+linked lists and nothing about the TX-2. Each chapter starts from
+something they already know, moves at one idea per caption with room
+to read it, and shows the real thing only after the shape of it is
+clear.
+
 Rule for every frame: nothing is illustrated from imagination. Memory
 views come from snapshots of the emulator's list memory, display views
 from the recorder's scope frames, and every label is the name the
@@ -43,15 +49,17 @@ will see."
 
 Question answered: where does a line live?
 
-Shows: the pen draws one line on the scope (recorder frames). The
-camera dives into list memory. The line is a block of twenty words at
-its address; each word is either a value or a link. Word 0 (`TYPE`)
-ties the block to the LINES master block; word 1 is the ring word that
-puts it on the ring of all lines; word 4 (`BWHOS`) names its picture;
-words 10 and 12 (`LSP`, `LEP`) name its start and end points. Follow
-`LSP` to the point block: words 20 and 21 (`PVAL`) are the coordinates,
-and word 14 (`PLS`) heads the ring of lines that use this point. Half a
-word holds a previous link and half a next link: a ring word.
+Shows, in order: the pen draws one line on the scope (recorder
+frames); how you would write it today, a `struct Line` with two point
+pointers and an owner, a `struct Point` with coordinates and a list of
+lines; then the real blocks as boxes at their real addresses, the line
+at 025261 pointing at its two points and its picture, with the
+observation that the line holds no coordinates; then what a pointer
+is on this machine, the real word 767000 001215 with its right half as
+the address; then the idea of a ring, a doubly linked list with its
+ends joined, and the point's ring of lines with its one member; and
+finally the whole line as twelve raw words with their roles. The hen
+back-offset trick is left for chapter 3.
 
 Data: `data/first-line.json`, the list area before and after the first
 line of `npm run test:first-line`, with the display file and statics;

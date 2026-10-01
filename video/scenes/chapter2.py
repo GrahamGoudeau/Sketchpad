@@ -1,7 +1,10 @@
 """Chapter 2: one object in memory.
 
-Every value shown comes from data/first-line.json, a snapshot of the
-emulator's list memory before and after the first line of the
+Audience: someone with a CS degree who knows structs, pointers, and
+linked lists, and nothing about the TX-2.
+
+Every address and value shown comes from data/first-line.json, a
+snapshot of the emulator's list memory after the first line of the
 first-line regression, and every frame of the scope comes from the
 recorder's output of the same run.  Field names are the equalities of
 the original listing (sk.tx2as).
@@ -10,15 +13,15 @@ Render:  manim -qh scenes/chapter2.py Chapter2
 Needs:   build/first-line-frames/NNNN.png (see data/EXTRACT.md)
 """
 import json
-import os
+import textwrap
 from pathlib import Path
 
 from manim import (
-    DOWN, LEFT, RIGHT, UP, UL, UR, DL, DR, ORIGIN,
+    DOWN, LEFT, RIGHT, UP, UR, ORIGIN,
     BLACK, WHITE, GREY_B, GREY_C, YELLOW, BLUE_C, GREEN_C, ORANGE, RED_C,
     Arrow, CurvedArrow, FadeIn, FadeOut, ImageMobject, Indicate, Rectangle,
-    Scene, Text, Transform, VGroup, Write, Create, Group, SurroundingRectangle,
-    always_redraw, Line, Dot, Circle, config,
+    RoundedRectangle, Scene, Text, VGroup, Write, Create, SurroundingRectangle,
+    Line, Dot, Circle, Paragraph, config,
 )
 
 HERE = Path(__file__).resolve().parent
@@ -30,184 +33,192 @@ MONO = "Noto Sans Mono"
 LIST = 0o24000
 LINE = int(DATA["lineAddress"], 8)
 AFTER = DATA["after"]
+FRAME_W = config.frame_width
 
 
 def word(address):
     return AFTER[f"{address:06o}"]
 
 
-def half(w):
+def halves(w):
     return w[:6], w[6:]
 
 
-# Field names from the listing's equalities.  A tie is a hen word at an
-# even offset, whose right half names the block it points to and whose
-# left quarter is the negative of the offset, followed by its ring word.
-LINE_FIELDS = {
-    0: ("TYPE", "what kind of block: the LINES master block"),
-    1: ("", "ring word: this line on the ring of all lines"),
-    2: ("SPECB", ""),
-    3: ("", ""),
-    4: ("BWHOS", "which picture this block belongs to"),
-    5: ("", "ring word: this line among the picture's parts"),
-    6: ("", ""),
-    7: ("", ""),
-    8: ("LSP", "start point of the line"),
-    9: ("", "ring word: this line on the start point's ring"),
-    10: ("LEP", "end point of the line"),
-    11: ("", "ring word: this line on the end point's ring"),
-}
-POINT_FIELDS = {
-    0: ("TYPE", "the POINTS master block"),
-    1: ("", "ring word: this point on the ring of all points"),
-    4: ("BWHOS", "which picture"),
-    5: ("", "ring word: among the picture's blocks"),
-    12: ("PLS", "lines and circles on this point (ring head)"),
-    13: ("", "ring word: head of that ring"),
-    16: ("PVAL", "x coordinate"),
-    17: ("PVAL+1", "y coordinate"),
-}
+def tie(address):
+    """The block an even (hen) word points to: LIST plus its right half."""
+    return LIST + int(halves(word(address))[1], 8)
 
 
-def block_table(base, length, fields, scale=0.5, title=None):
-    """A column of words: address, octal value, field name."""
-    rows = VGroup()
-    for i in range(length):
-        a = base + i
-        w = word(a)
-        name, _ = fields.get(i, ("", ""))
-        left, right = half(w)
-        addr = Text(f"{a:06o}", font=MONO, font_size=22, color=GREY_B)
-        off = Text(f"+{i:02o}", font=MONO, font_size=18, color=GREY_C)
-        lh = Text(left, font=MONO, font_size=22, color=WHITE)
-        rh = Text(right, font=MONO, font_size=22, color=WHITE)
-        nm = Text(name, font=MONO, font_size=20, color=YELLOW)
-        row = VGroup(addr, off, lh, rh, nm)
-        addr.move_to(LEFT * 2.6)
-        off.next_to(addr, RIGHT, buff=0.15)
-        lh.next_to(off, RIGHT, buff=0.3)
-        rh.next_to(lh, RIGHT, buff=0.12)
-        nm.next_to(rh, RIGHT, buff=0.35)
-        rows.add(row)
-    rows.arrange(DOWN, buff=0.12, aligned_edge=LEFT)
-    for row in rows:
-        row[0].align_to(rows[0][0], LEFT)
-    rows.scale(scale)
-    group = VGroup(rows)
-    if title:
-        t = Text(title, font=MONO, font_size=26, color=WHITE)
-        t.next_to(rows, UP, buff=0.25).align_to(rows, LEFT)
-        group.add(t)
-    return group, rows
+START = tie(LINE + 0o10)
+END = tie(LINE + 0o12)
+PICTURE = tie(LINE + 0o4)
+
+
+def caption_text(text, size=30):
+    lines = textwrap.wrap(text, 58)
+    p = Paragraph(*lines, alignment="center", font_size=size, line_spacing=0.9)
+    if p.width > FRAME_W - 1.0:
+        p.scale_to_fit_width(FRAME_W - 1.0)
+    return p.to_edge(DOWN, buff=0.45)
+
+
+def struct_box(title, fields, width=3.2, color=WHITE, mono_values=True):
+    """A box drawn like a struct: a title and one row per field."""
+    t = Text(title, font=MONO, font_size=26, color=color)
+    rows = VGroup(*[
+        Text(f, font=MONO, font_size=20, color=WHITE if mono_values else GREY_B) for f in fields
+    ]).arrange(DOWN, buff=0.12, aligned_edge=LEFT)
+    body = VGroup(t, rows).arrange(DOWN, buff=0.2, aligned_edge=LEFT)
+    box = RoundedRectangle(corner_radius=0.15, width=max(width, body.width + 0.5),
+                           height=body.height + 0.5, color=color, stroke_width=2)
+    body.move_to(box.get_center())
+    return VGroup(box, t, rows)
 
 
 class Chapter2(Scene):
     def construct(self):
         self.camera.background_color = BLACK
+        caption = caption_text("You draw a line.  Where does the computer keep it?")
+
+        def say(text, size=30):
+            nonlocal caption
+            new = caption_text(text, size)
+            self.play(FadeOut(caption), run_time=0.25)
+            self.play(FadeIn(new), run_time=0.4)
+            caption = new
 
         # 1. The line is drawn, on the real scope output.
-        caption = Text("You draw a line.", font_size=40).to_edge(DOWN, buff=0.6)
-        scope = ImageMobject(str(FRAMES[0])).scale_to_fit_width(9.0).to_edge(UP, buff=0.7)
+        scope = ImageMobject(str(FRAMES[0])).scale_to_fit_width(8.5).to_edge(UP, buff=0.7)
         frame_box = SurroundingRectangle(scope, color=GREY_C, buff=0.05)
         self.add(scope, frame_box)
-        self.play(Write(caption), run_time=1.0)
+        self.play(FadeIn(caption), run_time=0.8)
         step = max(1, len(FRAMES) // 60)
         for path in FRAMES[::step]:
-            new = ImageMobject(str(path)).scale_to_fit_width(9.0).move_to(scope)
+            new = ImageMobject(str(path)).scale_to_fit_width(8.5).move_to(scope)
             self.remove(scope)
             scope = new
             self.add(scope)
-            self.wait(1 / 15)
-        self.wait(0.8)
-
-        # 2. Where does it go?  Address and twelve words.
-        caption2 = Text(f"Where does it go?  Address {LINE:06o}, twelve words.",
-                        font_size=34).to_edge(DOWN, buff=0.6)
-        self.play(FadeOut(caption, run_time=0.3), FadeIn(caption2, run_time=0.5))
-        caption = caption2
-        self.play(scope.animate.scale(0.5).to_corner(UR, buff=0.4),
-                  frame_box.animate.scale(0.5).to_corner(UR, buff=0.4))
-        line_table, line_rows = block_table(LINE, 12, LINE_FIELDS, scale=0.62, title="the line")
-        line_table.to_edge(LEFT, buff=0.6).shift(UP * 0.4)
-        self.play(FadeIn(line_table, lag_ratio=0.05), run_time=2)
-        self.wait(1.0)
-
-        # 3. TYPE: what this is.
-        def say(text):
-            nonlocal caption
-            new = Text(text, font_size=30).to_edge(DOWN, buff=0.6)
-            self.play(FadeOut(caption, run_time=0.3), FadeIn(new, run_time=0.5))
-            caption = new
-
-        say("The first word says what this is: its right half names the LINES master block.")
-        self.play(Indicate(line_rows[0][3], color=BLUE_C, scale_factor=1.3))
-        self.wait(1.5)
-
-        # 4. Ring words: previous and next, both halves.
-        say("The second word puts it on the ring of every line: previous link, next link.")
-        prev_lbl = Text("prev", font=MONO, font_size=18, color=GREEN_C).next_to(line_rows[1][3], RIGHT, buff=0.5)
-        next_lbl = Text("next", font=MONO, font_size=18, color=ORANGE).next_to(prev_lbl, RIGHT, buff=0.25)
-        self.play(line_rows[1][2].animate.set_color(GREEN_C), line_rows[1][3].animate.set_color(ORANGE),
-                  FadeIn(prev_lbl), FadeIn(next_lbl))
-        self.wait(1.2)
-        say("Both halves say 000204: the ring head, in the LINES master block. One line, a ring of one.")
-        head = Text(f"024204  {word(0o24204)}   LINES ring head", font=MONO, font_size=20, color=GREY_B)
-        head.next_to(line_table, DOWN, buff=0.5).align_to(line_table, LEFT)
-        self.play(FadeIn(head))
-        arc1 = CurvedArrow(line_rows[1][3].get_right(), head.get_left() + RIGHT * 0.2, angle=-1.2, color=ORANGE, stroke_width=2)
-        arc2 = CurvedArrow(head.get_right(), line_rows[1][2].get_left() + LEFT * 0.1, angle=-1.2, color=GREEN_C, stroke_width=2)
-        self.play(Create(arc1), Create(arc2))
-        self.wait(1.5)
-        self.play(FadeOut(arc1), FadeOut(arc2), FadeOut(head), FadeOut(prev_lbl), FadeOut(next_lbl))
-
-        # 5. Hen words: the even words.
-        say("The even words are hens. Their left quarter counts back to the start of the block.")
-        hens = VGroup(*[line_rows[i][2] for i in (2, 4, 6, 8, 10)])
-        self.play(hens.animate.set_color(RED_C))
-        back = VGroup(*[
-            Text(f"{w[:3]} = -{i:o}", font=MONO, font_size=16, color=RED_C).next_to(line_rows[i][3], RIGHT, buff=0.9)
-            for i, w in ((2, word(LINE + 2)), (4, word(LINE + 4)), (6, word(LINE + 6)), (8, word(LINE + 8)), (10, word(LINE + 10)))
-        ])
-        self.play(FadeIn(back))
-        self.wait(2.0)
-        say("From any ring word, step back one, read the quarter, and you have found the block.")
-        self.wait(1.5)
-        self.play(FadeOut(back), hens.animate.set_color(WHITE))
-
-        # 6. Ties: BWHOS, LSP, LEP.
-        say("A hen's right half is a tie: BWHOS names the picture this line belongs to.")
-        self.play(Indicate(line_rows[4][3], color=BLUE_C, scale_factor=1.3))
-        self.wait(1.2)
-        say("LSP and LEP name the two points. Follow LSP.")
-        self.play(Indicate(line_rows[8][3], color=BLUE_C, scale_factor=1.3),
-                  Indicate(line_rows[10][3], color=BLUE_C, scale_factor=1.3))
-        start = LIST + int(half(word(LINE + 8))[1], 8)
-        point_table, point_rows = block_table(start, 18, POINT_FIELDS, scale=0.5, title="the start point")
-        point_table.to_edge(RIGHT, buff=0.5).shift(UP * 0.2)
-        self.play(FadeOut(scope), FadeOut(frame_box))
-        self.play(FadeIn(point_table, lag_ratio=0.04), run_time=2)
-        tie = CurvedArrow(line_rows[8][3].get_right() + RIGHT * 0.1, point_rows[0][0].get_left() + LEFT * 0.1,
-                          angle=-0.6, color=BLUE_C, stroke_width=2)
-        self.play(Create(tie))
-        self.wait(1.0)
-
-        # 7. The point: coordinates and its own ring.
-        say("The point is a block of its own. Two words are numbers: the coordinates, PVAL.")
-        self.play(point_rows[16][2].animate.set_color(YELLOW), point_rows[16][3].animate.set_color(YELLOW),
-                  point_rows[17][2].animate.set_color(YELLOW), point_rows[17][3].animate.set_color(YELLOW))
-        self.wait(1.8)
-        say("And it has a ring of its own, PLS: every line that touches this point.")
-        self.play(Indicate(point_rows[13][2], color=ORANGE, scale_factor=1.2),
-                  Indicate(point_rows[13][3], color=ORANGE, scale_factor=1.2))
-        back_tie = CurvedArrow(point_rows[13][3].get_left() + LEFT * 0.1, line_rows[9][3].get_right() + RIGHT * 0.1,
-                               angle=0.8, color=ORANGE, stroke_width=2)
-        self.play(Create(back_tie))
-        say("That ring's one member is the line we started from, at its ninth word.")
-        self.wait(2.0)
-
-        # 8. Close.
-        say("Nothing is stored twice. Everything is reached by following links around rings.")
+            self.wait(1 / 10)
         self.wait(2.5)
-        self.play(FadeOut(tie), FadeOut(back_tie), FadeOut(line_table), FadeOut(point_table),
-                  FadeOut(caption))
+        say("Somewhere in the computer's memory, that line now exists.  Let's go and find it.")
+        self.wait(3.0)
+
+        # 2. How you would write it today.
+        self.play(FadeOut(scope), FadeOut(frame_box))
+        say("First, how you would do it today.  A struct for the line, a struct for each point, pointers between them.")
+        today_line = struct_box("struct Line", ["Point *start;", "Point *end;", "Picture *owner;"], color=BLUE_C)
+        today_point = struct_box("struct Point", ["int x, y;", "List lines_here;"], color=GREEN_C)
+        today = VGroup(today_line, today_point).arrange(RIGHT, buff=1.6).shift(UP * 0.6)
+        self.play(FadeIn(today_line), FadeIn(today_point))
+        a1 = Arrow(today_line[2][0].get_right(), today_point[0].get_left(), buff=0.15, color=BLUE_C, stroke_width=3)
+        self.play(Create(a1))
+        self.wait(4.0)
+        say("Sketchpad did exactly this in 1963.  No structs, no pointer types, no language to help.  Just words of memory.")
+        self.wait(4.0)
+        self.play(FadeOut(today), FadeOut(a1))
+
+        # 3. The real blocks at their real addresses.
+        say("Now the real thing.  These are the actual blocks, at their actual addresses, right after that line was drawn.")
+        line_box = struct_box(f"line  @ {LINE:06o}", ["start  -> point", "end    -> point", "owner  -> picture"], color=BLUE_C)
+        p1_box = struct_box(f"point @ {START:06o}", [f"x = {word(START + 0o20)[3:]}", f"y = {word(START + 0o21)[3:]}", "lines here: ring"], color=GREEN_C)
+        p2_box = struct_box(f"point @ {END:06o}", [f"x = {word(END + 0o20)[3:]}", f"y = {word(END + 0o21)[3:]}", "lines here: ring"], color=GREEN_C)
+        pic_box = struct_box(f"picture @ {PICTURE:06o}", ["parts: ring", "points: ring"], color=ORANGE)
+        line_box.move_to(LEFT * 3.8 + UP * 1.4)
+        p1_box.move_to(RIGHT * 3.4 + UP * 2.3)
+        p2_box.move_to(RIGHT * 3.4 + DOWN * 0.3)
+        pic_box.move_to(LEFT * 3.8 + DOWN * 1.4)
+        self.play(FadeIn(line_box))
+        self.play(FadeIn(p1_box), FadeIn(p2_box), FadeIn(pic_box))
+        a_start = Arrow(line_box[2][0].get_right(), p1_box[0].get_left(), buff=0.15, color=GREEN_C, stroke_width=3)
+        a_end = Arrow(line_box[2][1].get_right(), p2_box[0].get_left(), buff=0.15, color=GREEN_C, stroke_width=3)
+        a_pic = Arrow(line_box[2][2].get_bottom(), pic_box[0].get_top(), buff=0.15, color=ORANGE, stroke_width=3)
+        self.play(Create(a_start), Create(a_end), Create(a_pic), run_time=1.5)
+        self.wait(3.0)
+        say("The line block points at its two end points and at the picture it belongs to.")
+        self.wait(3.5)
+        say("Notice the line has no coordinates of its own.  The points hold them, and any number of lines can share a point.")
+        self.play(Indicate(p1_box[2][0], color=YELLOW), Indicate(p2_box[2][0], color=YELLOW), run_time=2)
+        self.wait(3.5)
+
+        # 4. What a pointer looks like here.
+        say("What does a pointer look like on this machine?  A word is 36 bits.  An address is 18.  So a pointer is half a word.")
+        self.wait(3.0)
+        say("Here is the real word that says 'start point'.  Its right half is the address.")
+        w = word(LINE + 0o10)
+        lh, rh = halves(w)
+        word_view = VGroup(
+            Text(f"{LINE + 0o10:06o}:", font=MONO, font_size=28, color=GREY_B),
+            Text(lh, font=MONO, font_size=34, color=GREY_B),
+            Text(rh, font=MONO, font_size=34, color=GREEN_C),
+        ).arrange(RIGHT, buff=0.35).move_to(LEFT * 2.0 + UP * 0.3)
+        self.play(FadeOut(a_start), FadeOut(a_end), FadeOut(a_pic),
+                  FadeOut(line_box), FadeOut(p2_box), FadeOut(pic_box))
+        self.play(FadeIn(word_view))
+        lbl = Text(f"right half: {rh} + base {LIST:o} = {START:06o}, the start point",
+                   font=MONO, font_size=20, color=GREEN_C).next_to(word_view, DOWN, buff=0.35)
+        self.play(FadeIn(lbl))
+        a_w = Arrow(word_view[2].get_top(), p1_box[0].get_left(), buff=0.15, color=GREEN_C, stroke_width=3)
+        self.play(Create(a_w))
+        self.wait(4.0)
+        self.play(FadeOut(word_view), FadeOut(lbl), FadeOut(a_w))
+
+        # 5. Lists are rings.
+        say("One more idea and we're done.  Every list in Sketchpad is a ring: a doubly linked list whose ends are joined.")
+        self.play(p1_box.animate.move_to(LEFT * 3.5 + UP * 0.5))
+        ring_center = RIGHT * 2.8 + UP * 0.4
+        ring = Circle(radius=1.6, color=GREY_C, stroke_width=2).move_to(ring_center)
+        head = Dot(ring.point_at_angle(3.14159 / 2), color=GREEN_C, radius=0.11)
+        head_l = Text("ring head (in the point)", font=MONO, font_size=18, color=GREEN_C).next_to(head, UP, buff=0.15)
+        member = Dot(ring.point_at_angle(-3.14159 / 2), color=BLUE_C, radius=0.11)
+        member_l = Text("the line's link word", font=MONO, font_size=18, color=BLUE_C).next_to(member, DOWN, buff=0.15)
+        self.play(Create(ring), FadeIn(head), FadeIn(head_l), FadeIn(member), FadeIn(member_l), run_time=1.5)
+        self.wait(2.5)
+        say("Rings mean you can start walking from any member, and remove any member, without searching from a head.")
+        self.wait(4.0)
+        say("The point keeps a ring of the lines that touch it.  One line so far, so previous and next both lead back to the head.")
+        rw = word(LINE + 0o11)
+        plh, prh = halves(rw)
+        ring_word = VGroup(
+            Text(f"{LINE + 0o11:06o}:", font=MONO, font_size=24, color=GREY_B),
+            Text(plh, font=MONO, font_size=28, color=GREEN_C),
+            Text(prh, font=MONO, font_size=28, color=ORANGE),
+        ).arrange(RIGHT, buff=0.3).next_to(ring, DOWN, buff=0.9)
+        tags = VGroup(
+            Text("prev", font=MONO, font_size=16, color=GREEN_C).next_to(ring_word[1], DOWN, buff=0.1),
+            Text("next", font=MONO, font_size=16, color=ORANGE).next_to(ring_word[2], DOWN, buff=0.1),
+        )
+        self.play(FadeIn(ring_word), FadeIn(tags))
+        self.wait(4.5)
+        self.play(FadeOut(ring), FadeOut(head), FadeOut(head_l), FadeOut(member), FadeOut(member_l),
+                  FadeOut(ring_word), FadeOut(tags), FadeOut(p1_box))
+
+        # 7. The whole line, all twelve words.
+        say("So here is the whole line as the machine holds it: twelve words.")
+        
+        rows = VGroup()
+        names = {0: "type", 1: "ring: all lines", 4: "owner picture", 5: "ring: picture parts",
+                 8: "start point", 9: "ring: lines on start", 10: "end point", 11: "ring: lines on end"}
+        for i in range(12):
+            a = LINE + i
+            lh, rh = halves(word(a))
+            row = VGroup(
+                Text(f"{a:06o}", font=MONO, font_size=22, color=GREY_B),
+                Text(lh, font=MONO, font_size=22, color=WHITE),
+                Text(rh, font=MONO, font_size=22, color=WHITE),
+                Text(names.get(i, ""), font=MONO, font_size=20, color=YELLOW),
+            ).arrange(RIGHT, buff=0.35)
+            rows.add(row)
+        rows.arrange(DOWN, buff=0.1, aligned_edge=LEFT)
+        for row in rows:
+            row[1].align_to(rows[0][1], LEFT)
+            if row[3].has_points():
+                row[3].align_to(rows[0][3], LEFT)
+        rows.scale(0.8).move_to(UP * 0.4)
+        self.play(FadeIn(rows, lag_ratio=0.05), run_time=2.5)
+        self.wait(3.0)
+        say("A type, three pointers, and four ring links.  Not one coordinate.")
+        self.wait(4.0)
+        say("Lines, points, pictures, constraints: everything in Sketchpad is a block like this, on rings like these.")
+        self.wait(4.0)
+        self.play(FadeOut(rows), FadeOut(caption))
         self.wait(0.5)
