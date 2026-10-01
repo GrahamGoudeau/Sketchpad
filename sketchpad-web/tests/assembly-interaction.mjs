@@ -208,7 +208,25 @@ function recordMemoryTimeline() {
   appendFileSync(memoryTimeline.path, `${JSON.stringify({ time: now, phase, full: memoryTimeline.last === null, changes })}\n`);
   memoryTimeline.last = current;
 }
+// TICK_TRACE=<path>:<from>:<to> writes one JSON line per machine tick
+// inside the simulated-time window [from, to] seconds: time, sequence,
+// address, instruction, duration, and the scope and pen events the tick
+// produced.  Test-bed bookkeeping; the machine runs exactly as without it.
+const tickTrace = process.env.TICK_TRACE
+  ? (([path, from, to]) => ({ path, from: Number(from), to: Number(to) }))(process.env.TICK_TRACE.split(":"))
+  : null;
+function tickTraceActive(ticks = 1) {
+  // A batch of `ticks` could reach the window if it starts before the
+  // window's end and could end after its start (at most ~20 us per tick).
+  const now = Number(machine.simulated_time);
+  return tickTrace !== null && now <= tickTrace.to && now + ticks * 20e-6 >= tickTrace.from;
+}
 function stepBatch(ticks = 20_000) {
+  if (tickTrace && ticks > 1 && tickTraceActive(ticks)) {
+    const events = [];
+    for (let tick = 0; tick < ticks; tick += 1) events.push(...stepBatch(1));
+    return events;
+  }
   const tracingConstraintInput = process.env.TRACE_47 === "1"
     && ["expose-perpendicular-handles", "attach-perpendicular-handle"].includes(phase);
   if ((fineAssemblyTrace
@@ -314,9 +332,21 @@ function stepBatch(ticks = 20_000) {
   }
   let events;
   try {
+    const tickStart = tickTrace ? Number(machine.simulated_time) : 0;
     events = machine.step_batch(machine.simulated_time, ticks);
     if (scopeRecorder) scopeRecorder.consume(events, phase);
     if (memoryTimeline) recordMemoryTimeline();
+    if (tickTrace && ticks === 1 && tickStart >= tickTrace.from && tickStart <= tickTrace.to) {
+      appendFileSync(tickTrace.path, `${JSON.stringify({
+        time: tickStart, duration: Number(machine.simulated_time) - tickStart,
+        penDetections: Number(machine.light_pen_detection_count),
+        sequence: octal(tracedControl.sequence, 2), address: octal(tracedControl.instruction_address, 6),
+        instruction: tracedControl.instruction,
+        events: events.filter((e) => e && (e.kind === "scope_point" || e.kind === "light_pen" || e.kind === "flag")).map((e) => (
+          e.kind === "scope_point" ? { kind: e.kind, unit: e.unit, x: e.physical_x, y: e.physical_y } : { kind: e.kind, ...e }
+        )),
+      })}\n`);
+    }
   } catch (error) {
     console.error(JSON.stringify({
       failure: "step batch",

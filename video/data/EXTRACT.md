@@ -73,3 +73,22 @@ the lines, rebuilds the ring graph at each change, and keeps a keyframe
 at every structural change and at most twice a second while only
 positions move. The scope frame for each keyframe is the recorder's
 frame at the same simulated time.
+
+## The machine in software, and how it was brought back
+
+```sh
+cd sketchpad-web
+TICK_TRACE=/tmp/ticks.jsonl:196.000:196.040 npm run test:first-line   # 40 ms of ticks
+cp /tmp/ticks.jsonl ../video/build/ticks.jsonl
+cd ../video
+python3 data/codemap.py > build/codemap.json
+python3 data/reconstruction_data.py > build/reconstruction.json
+manim -qh scenes/emulator.py Emulator
+manim -qh scenes/reconstruction.py Reconstruction
+```
+
+`TICK_TRACE=<path>:<from>:<to>` makes the harness step one tick at a
+time inside the window and append each tick's time, sequence, address,
+instruction, duration, and scope events. `codemap.py` counts lines per
+crate and directory. `reconstruction_data.py` reads the research log's
+checkpoints, the repair register, and git history.

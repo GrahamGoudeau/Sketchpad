@@ -19,6 +19,20 @@ original listing gives the thing. The data layer is in `data/`, the
 Manim scenes in `scenes/`. Narration is drafted here beside each
 chapter and recorded last.
 
+## Chapter 0: How it was brought back
+
+Question answered: where did this come from, and why should you trust it?
+
+Shows, from the repository's own records (`data/reconstruction_data.py`,
+nothing typed in): the scanned pages and the transcribed assembly with
+its bracketed doubts; the assembler and emulator commits since day one;
+the repair register by evidence class with one row read out (R074);
+the research log's checkpoints per day with a few titles; the growth of
+the regression suite; and the project's rule, no overlays, no cheated
+logic, no host-side geometry.
+
+Scene: `scenes/reconstruction.py`.
+
 ## Chapter 1: The machine
 
 Question answered: what is this program running on?
@@ -44,6 +58,21 @@ each a sequence with a priority. The display is a sequence. The pen is
 a sequence. The buttons are a sequence. Sketchpad is the lowest
 priority program on the machine, and that fact shapes everything you
 will see."
+
+## Chapter 1b: The machine in software
+
+Question answered: how does the emulator work?
+
+Shows: the code's real shape, every crate and directory sized by its
+line count (`data/codemap.py`); forty milliseconds of the real machine
+tick by tick from `TICK_TRACE` on the first-line regression, as lanes
+per sequence with a sweeping cursor, the instruction under the cursor
+read out, and the scope points landing on a mini scope as sequence 60
+emits them; the share of time by sequence; rows of Table 7-8 as the
+emulator holds them (`cpu/src/control/timing.rs`); and the boundary:
+`step_batch` out, pen and buttons and knobs in, nothing else.
+
+Scene: `scenes/emulator.py`.
 
 ## Chapter 2: One object in memory (the pilot)
 
