@@ -19,7 +19,7 @@ from manim import (
     DOWN, UP, LEFT, RIGHT, ORIGIN, UL, UR, DL, DR, BLACK, WHITE, GREY_B, GREY_C, GREY_D, YELLOW, BLUE_C, GREEN_C,
     ORANGE, RED_C, PURPLE_B, TEAL_C, VGroup, Group, Scene, Text, Paragraph, FadeIn, FadeOut, Rectangle, Line,
     Dot, config, ImageMobject, SurroundingRectangle, Create, LaggedStart, Transform, Indicate, Flash,
-    rate_functions,
+    rate_functions, AddTextLetterByLetter,
 )
 
 HERE = Path(__file__).resolve().parent
@@ -70,13 +70,28 @@ class Reconstruction(Scene):
                 self.wait(hold)
 
         # ---- 1. One line of text ----
-        q0 = quote('"' + T["featured"][0]["text"] + '"', width=60, size=26)
-        self.play(FadeIn(q0), run_time=1.0)
-        say("September 14th, 2026, 10:44 pm. A voice-dictated message to a coding agent.", 3.0)
+        stamp0 = Text("2026-09-14  22:44 UTC", font=MONO, font_size=18, color=GREY_B).move_to(UP * 2.4)
+        self.play(FadeIn(stamp0), run_time=0.6)
+        self.wait(1.2)
+        full = T["operator"][0]["text"]
+        typed = Paragraph(*textwrap.wrap(full, 64), font=MONO, font_size=22, color=WHITE, line_spacing=0.95)
+        if typed.width > FRAME_W - 1.6:
+            typed.scale_to_fit_width(FRAME_W - 1.6)
+        typed.move_to(UP * 0.6)
+        for line in typed:
+            self.play(AddTextLetterByLetter(line, time_per_char=0.018))
+        self.wait(1.0)
+        say("A message, dictated into a phone, to a coding agent. Typos and all. Find the code, email me a link.", 3.6)
+        say("That is the whole request. No plan. No budget. No mention of running anything.", 3.4)
+        self.play(FadeOut(typed), run_time=0.4)
+        q0 = quote('"' + T["featured"][0]["text"] + '"', width=60, size=26).move_to(UP * 0.8)
+        self.play(FadeIn(q0), run_time=0.6)
+        say("Four minutes later the agent has the scans and the half-finished transcription. Then the question that matters.", 3.2)
         q1 = quote('"' + T["featured"][1]["text"] + '"', width=60, size=26, color=YELLOW).next_to(q0, DOWN, buff=0.6)
         self.play(FadeIn(q1), run_time=0.8)
-        say("Nine minutes later. Nobody had ever run Sketchpad again. That was the project.", 3.2)
-        self.play(FadeOut(q1), run_time=0.3)
+        self.wait(1.6)
+        say("Nine minutes in. Nobody had run Sketchpad in half a century. That became the project, in one sentence and one emoji.", 3.8)
+        self.play(FadeOut(q1), FadeOut(stamp0), run_time=0.3)
         self.play(q0.animate.scale(0.42).move_to(UP * 3.45), run_time=0.8)
 
         # ---- 2. The explosion ----
