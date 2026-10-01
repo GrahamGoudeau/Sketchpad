@@ -26,7 +26,7 @@ film under Alan Kay's 1986 commentary; timestamps in parentheses).
 | --- | --- | --- | --- |
 | 1:27 (0:20) | `INK` label and pen acquisition | `STARTS`, tracker in LYUO | proven |
 | 1:33 to 1:48 (0:22 to 0:38) | Six-edge polyline drawn with the pen and the draw button | `STARTDRAW`, `STOPMOVEP`, `MERGER` | proven |
-| 1:48 to 1:51 (0:38 to 0:41) | Corners made "mutually perpendicular" in one visible correction | `MAKECONS` with code octal 37, `RELAX`, `PRLCOMP` | proven; timing compared in checkpoint 86 |
+| 1:48 to 1:51 (0:38 to 0:41) | Corners made "mutually perpendicular" in one visible correction | `MAKECONS` with code octal 37, `RELAX`, `PRLCOMP` | proven; timing compared in checkpoints 86, 97, and 98: on the film's visible intervals the emulated solve is within the film's time |
 | 1:54 to 2:36 (0:46 to 1:30) | Additional lines drawn across the flange and made parallel or perpendicular | same | proven for the P constraint; the exact figure is not reproduced |
 | 2:36 to 2:42 (1:30 to 1:36) | Flange detail with repeated short dashes | not identified | not exercised |
 | 2:45 to 3:45 (1:38 to 2:36) | A second drawing: circular arc over a crossed box (the rivet) | `DESIGNATE`, `STARTC`, lines | proven for arcs and lines; the complete rivet figure is not reproduced |

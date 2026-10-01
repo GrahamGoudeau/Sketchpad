@@ -5122,4 +5122,92 @@ eight words each, which cannot matter to the display sequence's share.
 Commit `cc50b84` was pushed to `main`. GitHub Actions run `36827995657`
 passed. No release was deployed.
 
+Commit `f1efb86` was pushed to `main`. GitHub Actions run `36829148225`
+passed. No release was deployed.
+
+## Checkpoint 98: The Visible Correction, Like for Like
+
+Date: 2026-10-01
+
+Checkpoint 86 compared the emulated first `RELAX` pass, 0.62 s, with
+the film's visible intervals, 0.35 to 0.45 s of main rotation and 0.65
+to 0.85 s to settle, and called the emulator slower by a factor of
+about 1.5. It also noted that the film shows in-pass geometry, so a
+pass boundary is not what the film's boundaries mark. This checkpoint
+makes the comparison on the film's terms: when the lines visibly move
+and when they visibly stop.
+
+### What the solver shows while it runs
+
+`RELAX_MOTION_TRACE=1` records every change of the six lines'
+coordinates during the solve, with the simulated time and the worst
+corner cosine. With the pen lifted and three passes, the solve of the
+regression's flange (initial worst cosine 0.2278, the farthest point
+25.7 scope units from its final place) changed the geometry 36 times:
+
+| Time after `FIX` | Pass | Worst cosine | Farthest point from final, scope units |
+| --- | --- | --- | --- |
+| 0.000 | before | 0.2278 | 25.70 |
+| 0.110 | 1 | 0.2278 | 18.96 |
+| 0.212 | 1 | 0.2241 | 18.96 |
+| 0.314 | 1 | 0.0865 | 7.45 |
+| 0.418 | 1 | 0.0370 | 7.45 |
+| 0.518 | 1 | 0.0370 | 4.92 |
+| 0.618 | 1 | 0.0370 | 4.92 |
+| 0.936 | 2 | 0.0184 | 1.76 |
+| 1.024 | 2 | 0.0139 | 1.09 |
+| 1.289 | 2 | 0.0064 | 0.77 |
+| 1.378 | 2 | 0.0049 | 0.77 |
+| 1.681 | 3 | 0.0049 | 0.32 |
+| 1.859 | 3 | 0.0013 | 0.14 |
+| 2.126 | 3 | 0.0005 | 0.00 |
+
+Each row is a pair of point moves 0.10 s apart in pass 1 and 0.09 s
+apart later: the solver moves one point at a time, and the display,
+running independently, shows each move as it lands. The first move
+comes 0.11 s after `FIX`; the pass boundary at 0.62 s is 0.1 s after
+the last move of pass 1, and the first move of pass 2 is 0.32 s after
+that boundary, the solver's between-pass work.
+
+### On the film's terms
+
+The transfers are 320 by 240 and the scope fills about 200 lines of
+that, so one video pixel is about five scope units; a point within
+five units of its final place has stopped moving in the film, and a
+move of two units cannot be seen. On that scale the emulated
+correction, measured from its first visible move:
+
+| Interval | Emulated, from first move | Film, from onset (checkpoint 86) |
+| --- | --- | --- |
+| Bulk of the rotation (farthest point from 25.7 to 7.45 units) | 0.20 s | 0.35 to 0.45 s "main rotation" |
+| Last move of pass 1 | 0.41 s (0.51 s to the final pair) | |
+| Within one video pixel (5 units) of final | 0.41 s | 0.65 to 0.85 s "settled" |
+| Within two scope units of final | 0.83 s | |
+| Within one scope unit | 1.18 s | |
+
+Read this way the emulated solve is not slower than the film. Its
+bulk rotation is faster than the film's by a factor near two, its
+first pass's moves span 0.41 to 0.51 s where the film's main rotation
+spans 0.35 to 0.45 s, and it is within a video pixel of its final
+figure at 0.41 s where the film settles at 0.65 to 0.85 s. The
+earlier factor of 1.5 came from setting a pass boundary, which the
+film cannot show, against the film's visible intervals.
+
+What the comparison cannot fix: the film's flange starts farther from
+square than the regression's (the last edge at 1:46 is visibly
+ragged), and a larger error makes larger moves but not more of them,
+so the film's longer rotation may be the operator's error rather than
+the machine's speed; the film's native frame rate is still unknown
+(checkpoint 86); and the film's smooth-looking rotation may be frame
+blending in the transfer of the same point-by-point moves. The
+emulator's clock is the handbook's, with the shift rate inferred
+(checkpoint 86) and bounded (checkpoint 97). Within those limits, the
+constraint solving runs in the film's time.
+
+- `[DECOMP]` `RELAX` is visibly incremental: one point moves at a
+  time, about every 0.1 s on the TX-2, and the independent display
+  shows each move, so the operator sees the figure walk into shape
+  rather than snap; a reimplementation that solved and then drew would
+  look different from the film.
+
 
