@@ -4528,6 +4528,9 @@ body, and the ring and display-file assertions carry the proof.
   in, and a decompiler must evaluate these at assembly time, not at run
   time.
 
+Commit `4978ec6` was pushed to `main`. GitHub Actions run `36821017594`
+passed. No release was deployed.
+
 
 ## Checkpoint 91: Delete Points Under the Meta Button
 
@@ -4552,3 +4555,75 @@ points leave `POINTS`, and that both point blocks join `FREES`.
 - `[DECOMP]` "Unattached" is a structural test, `ATATAP` equal to zero,
   not a geometric one; and the meta button is read from the same register
   word as the buttons, as its metabit.
+
+Commit `47169ab` was pushed to `main`. GitHub Actions run `36821422235`
+passed. No release was deployed.
+
+
+## Checkpoint 92: Attachers Through TIE, and an Open Image Coordinate
+
+Date: 2026-10-01
+
+The rivet in the film is fastened to the flange through attachers. The
+thesis's TIE button (2.6) makes the aimed-at object an attacher of its
+picture, and an instance of that picture then carries, for each attacher,
+a point and an instance-point constraint. `INSTANCE_ATTACHER=1` on the
+instance regression drives that path.
+
+### Proven
+
+With `SHOWPOINTS` on from boot, the pen aims at the master line's second
+endpoint through the display file and the harness presses Q2.6.
+`READIT` enters `MAKPATA` at `005374`, which moves the endpoint's
+`ATATAP` tie into the master picture's `PATAP` ring and sets the tie to
+the picture. The first endpoint, acquired at `INK`, has no display words
+of its own and cannot be aimed at.
+
+After the picture switch and INSTANCE, `SUBPIT` creates exactly one new
+`POINTS` block in picture 1 and one `IPCONS` block. The constraint's
+`IPCP` names the new point, `IPCI` names the instance, and `IPCV` names
+the master's endpoint. The instance displays, moves, rotates, and resizes
+as in checkpoint 89, and STOP leaves it.
+
+### Open
+
+The image point's coordinates after the move are not where the thesis
+puts them. For a virgin point at page (0o13112000, 0o13112000), an
+instance `IVAL` of (0o12653140, 0o11273310, 0o26510440, 0o26635620), and
+a master `PSIZE` of 0o13112000, the similarity transform gives an image
+near (6.32 million, 11.27 million) in page units. The point holds
+(0o31212656016, 0o12653140): an x about five hundred times the page
+scale and a y equal to `R cos α`. Checked and not the cause: the `HSUM`
+and `HDIF` repair R074; the `ROTATER` expansion, whose omitted `PROD`
+parameters drop their loads as the handbook's macro rule requires and
+whose arithmetic reads as x' = (x·MATM + y·MATO)/MATD + MATRX and y' =
+(y·MATM − x·MATO)/MATD + MATRY; the ring conventions, since the
+constraint's three fields name the right blocks. Not yet checked: the
+sign and scale conventions of `MATD` as `PSIZE` against the fixed-point
+form of `IVAL`, the `LDAE`/`STAE` transfer of `IVAL` into the matrix
+words at `76MOVI`, and whether the image is computed once at creation or
+on every loop. The mode is kept outside `npm test` until the coordinate
+is explained, and no assertion in it has been weakened to pass.
+
+A series of the image words during the move narrows the question. With
+`IVAL` at (0o22000000, 0, X, Y), the image reads (0o31222002656,
+0o22000000) at every sample; after the rotation knob, with `IVAL`
+(0o15473774, 0o13613061, …), it reads (0o31215476652, 0o15473774);
+after the size knob, with `IVAL` (0o12653140, 0o11273310, …), it reads
+(0o31212656016, 0o12653140). The image is therefore recomputed on every
+main-loop iteration, as `76MOVIT` is written, and its y is `MATM`, the
+`R cos α` of the moment, exactly, with no `MATRY` added and no
+`−x·MATO/MATD` term visible, while its x stays near 0o31222000000
+whatever `IVAL` does. `ROTATER`'s `PROD` steps multiply the coordinate by
+`MATM` and divide by `MATD`; the virgin point's coordinates equal `MATD`,
+so an exact integer quotient would be `MATM` for the first product and
+the sum would then carry `MATRY`. The observed words fit neither an
+integer nor an overflow-saturated reading cleanly. The next step is to
+trace `ROTATER` instruction by instruction in this call with the A and B
+registers and the overflow indicator, and to read the handbook's `MUL`
+and `DIV` alignment (section 3, pages 3-40 to 3-44) against the
+emulator's `op_multiply` and `op_divide`.
+
+- `[DECOMP]` An attacher is a membership, not a flag: the object sits in
+  the picture's `PATAP` ring through its own `ATATAP` word, and the same
+  word later ties the instance's image point to its constraint.

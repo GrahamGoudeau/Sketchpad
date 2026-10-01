@@ -197,7 +197,12 @@ by the master line.  While the instance moves, quarter 1 rotates `IVAL` and
 turns the displayed line without changing its length, and quarter 2 shrinks
 `IVAL` and the displayed line by the same ratio.  `STOPMOVEP` leaves the
 instance in place.  Source repair R073 is what lets the display builder
-return after expanding the master.
+return after expanding the master.  `INSTANCE_ATTACHER=1` adds the thesis's
+attacher workflow: TIE (Q2.6, `MAKPATA`) on the master's endpoint, then an
+instance that carries an instance-point constraint and an image point.  The
+structure is verified; the image point's coordinates are an open question
+recorded in research log checkpoint 92, so that mode is not part of
+`npm test`.
 
 A third regression enters `DESIGNATE`, `STARTDRAW`, and `STARTC`.  It proves
 that the assembly allocates circle records and that unit 60 emits a quantized

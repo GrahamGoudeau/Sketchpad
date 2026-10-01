@@ -46,7 +46,7 @@ function setSelectedCommand(held) {
 machine.set_toggle_register(0o20, 0o400, 0, 0, 0, process.env.FIX_FROM_BOOT === "1");
 machine.set_toggle_register(
   0o25,
-  perpendicularMode ? 0o700 : 0o400 | (polylineMode ? 0o100 : 0),
+  perpendicularMode ? 0o700 : 0o400 | ((polylineMode || process.env.INSTANCE_ATTACHER === "1") ? 0o100 : 0),
   perpendicularMode ? 0o400 : 0,
   0,
   constraintCode,
@@ -3707,6 +3707,63 @@ if (process.env.INSTANCE_ONLY === "1") {
     "the master line must be in the display file before the switch");
   report.picture0 = { masterPictureBlock: octal(masterPictureBlock, 6), display: displayBefore };
 
+  // Optional attacher: designate the master line's second endpoint with TIE
+  // (Q2.6, MAKPATA, sk.tx2as:1389), which moves the aimed-at object into the
+  // picture's PATAP ring and ties its ATATAP word to the picture.
+  const withAttacher = process.env.INSTANCE_ATTACHER === "1";
+  const IPCONS_RING = 0o024444;
+  const POINTS_RING = 0o024300;
+  const PATAP = 0o12;
+  const ATATAP = 0o2;
+  const PVAL = 0o20;
+  let attacherPoint = null;
+  if (withAttacher) {
+    // The second endpoint: the first is the point acquired at INK, which the
+    // display file does not carry as a point of its own.
+    attacherPoint = lineGeometryAt(drawnLineAddress).secondAddress;
+    const attacherIndex = attacherPoint - 0o024000;
+    // SHOWPOINTS (toggle 25, bit 4.7) is on from boot in this mode, so the
+    // endpoints are in the display file for the pen to aim at.
+    const aimedAtAttacher = () => word(0o200044) !== 0
+      && Array.from({ length: 8 }, (_, offset) => rightHalf(word(0o200045 + offset))).includes(attacherIndex);
+    const candidates = displayPointCandidatesForListIndex(attacherIndex);
+    if (candidates.length === 0) {
+      console.error(JSON.stringify({ failure: "no point display words", attacherIndex: octal(attacherIndex, 6), display: ownersOfDisplayFile(), toggle25: octal(word(0o377725)) }));
+    }
+    assert.ok(candidates.length > 0, "the endpoint must be in the display file with points shown");
+    let aimed = false;
+    for (const candidate of candidates) {
+      machine.set_light_pen(candidate.x / 1022, 1 - candidate.y / 1022, 26 / 1022, true);
+      runUntilTime(Number(machine.simulated_time) + 0.15);
+      if (aimedAtAttacher() || runUntil(aimedAtAttacher, 1, 20)) { aimed = true; break; }
+    }
+    assert.ok(aimed, "the pen must aim at the master line's second endpoint");
+    const tieEntered = new Set();
+    setCommand(2, 6, true);
+    const tieDeadline = machine.simulated_time + 5;
+    while (machine.simulated_time < tieDeadline && !tieEntered.has("005374")) {
+      const state = machine.control_state();
+      if (state.sequence === 0o76 && state.instruction_address === 0o005374) tieEntered.add("005374");
+      stepBatch(1);
+    }
+    runUntilTime(Number(machine.simulated_time) + 0.5);
+    setCommand(2, 6, false);
+    runUntilTime(Number(machine.simulated_time) + 0.5);
+    assert.ok(tieEntered.has("005374"), "Q2.6 must enter the original MAKPATA");
+    assert.ok(ringMembers(masterPictureBlock + PATAP + 1).includes(attacherPoint + ATATAP + 1),
+      "the endpoint must join the master picture's PATAP ring");
+    // A tie word names the block it ties to, as the TYPE ties name LINES or
+    // INSTANCES by their block base; the hen offset is implied by the ring.
+    assert.equal(0o024000 + rightHalf(word(attacherPoint + ATATAP)), masterPictureBlock,
+      "the endpoint's ATATAP word must tie to the master picture");
+    // Back to the midpoint, tracking, for the rest of the workflow.
+    machine.set_light_pen(selectionPoint.x / 1022, 1 - selectionPoint.y / 1022, 26 / 1022, true);
+    assert.ok(runUntil(() => !meta(0o200042), 5, 200), "the tracker must hold the pen on the master line again");
+    report.attacher = { point: octal(attacherPoint, 6), patap: ringMembers(masterPictureBlock + PATAP + 1).map((a) => octal(a, 6)) };
+  }
+  const pointsBeforeInstance = ringMembers(POINTS_RING);
+  const ipconsBeforeInstance = ringMembers(IPCONS_RING);
+
   // Call for picture 1 through toggle register 24.
   machine.set_toggle_register(0o24, 0, 0, 0, 1, false);
   assert.ok(runUntil(() => ringMembers(PICTURES_RING).length === 2, 10, 200),
@@ -3763,8 +3820,36 @@ if (process.env.INSTANCE_ONLY === "1") {
     "the displayed instance must be one line, the master's line transformed");
   const ival0 = ivalOf(instanceBlock);
   assert.equal(ival0.rsin, 0, "a new instance starts unrotated");
+  let instanceAttacherPoint = null;
+  if (withAttacher) {
+    const newPoints = ringMembers(POINTS_RING).filter((a) => !pointsBeforeInstance.includes(a));
+    const newConstraints = ringMembers(IPCONS_RING).filter((a) => !ipconsBeforeInstance.includes(a));
+    assert.equal(newPoints.length, 1, "SUBPIT must create one point for the one attacher");
+    assert.equal(newConstraints.length, 1, "SUBPIT must create one instance-point constraint");
+    instanceAttacherPoint = newPoints[0] - 1;
+    assert.equal(0o024000 + rightHalf(word(instanceAttacherPoint + 4)), newPictureBlock,
+      "the attacher's image must belong to picture 1");
+    report.instanceAttacher = { point: octal(instanceAttacherPoint, 6), constraint: octal(newConstraints[0] - 1, 6) };
+  } else {
+    assert.equal(ringMembers(POINTS_RING).length, pointsBeforeInstance.length,
+      "an instance of a picture without attachers creates no points");
+  }
   report.instance = { block: octal(instanceBlock, 6), display: displayMoving, chord: chordMoving, ival: ival0, masterWords: masterWords() };
 
+  const imageSeries = [];
+  const sampleImage = (label) => {
+    if (!withAttacher || instanceAttacherPoint === null) return;
+    imageSeries.push({
+      label,
+      time: Number(machine.simulated_time),
+      image: [octal(word(instanceAttacherPoint + PVAL)), octal(word(instanceAttacherPoint + PVAL + 1))],
+      ival: Array.from({ length: 4 }, (_, i) => octal(word(instanceBlock + IVAL + i))),
+      matrix: Array.from({ length: 6 }, (_, i) => octal(word(0o200070 + i))),
+    });
+  };
+  if (withAttacher) {
+    for (let i = 0; i < 5; i += 1) { sampleImage(`moving ${i}`); tremor(0.2); }
+  }
   // Rotation knob (quarter 1) while moving: IVAL rotates, the chord turns,
   // its length holds.
   assert.ok(ringMembers(MOVINGS_RING).includes(instanceBlock + 0o7), "the instance must still be moving before the rotation turn");
@@ -3777,6 +3862,7 @@ if (process.env.INSTANCE_ONLY === "1") {
   close(ival1.radius / ival0.radius, 1, 0.02, "rotation must keep the instance size");
   assert.ok(Math.abs(chord1.angle - chordMoving.angle) > 10, "the displayed instance must turn with IVAL");
   close(chord1.length / chordMoving.length, 1, 0.03, "rotation must keep the displayed length");
+  sampleImage("after rotation");
   report.rotation = { ival: ival1, chord: chord1, turn: rotationTurn, masterWords: masterWords() };
 
   // Size knob (quarter 2) while moving: IVAL shrinks, the chord shrinks by
@@ -3789,6 +3875,7 @@ if (process.env.INSTANCE_ONLY === "1") {
   close(chord2.length / chord1.length, ival2.radius / ival1.radius, 0.05,
     "the displayed instance must shrink with IVAL");
   close(chord2.angle, chord1.angle, 2, "the size knob must not rotate the instance");
+  sampleImage("after size");
   report.size = { ival: ival2, chord: chord2, turn: sizeTurn, masterWords: masterWords() };
 
   // STOP leaves the instance in picture 1.
@@ -3801,6 +3888,38 @@ if (process.env.INSTANCE_ONLY === "1") {
   close(ival3.angle, ival2.angle, 0.01, "STOP must keep the instance rotation");
   const chord3 = chordOf(samplePictureScopePoints(1));
   close(chord3.length / chord2.length, 1, 0.05, "the stopped instance must stay displayed at its size");
+  if (withAttacher) {
+    // The attacher's image is a real point of picture 1.  Map its page
+    // coordinates through the scope window (checkpoint 88) and it must sit
+    // at one end of the displayed instance.
+    const scsz = word(0o200034);
+    const sccenX = signed36(word(0o200035));
+    const sccenY = signed36(word(0o200036));
+    const px = 511 + (signed36(word(instanceAttacherPoint + PVAL)) - sccenX) * 512 / scsz;
+    const py = 511 + (signed36(word(instanceAttacherPoint + PVAL + 1)) - sccenY) * 512 / scsz;
+    const toEnd = Math.min(Math.hypot(px - chord3.from.x, py - chord3.from.y), Math.hypot(px - chord3.to.x, py - chord3.to.y));
+    if (toEnd > 8) {
+      console.error(JSON.stringify({
+        failure: "attacher image off the instance",
+        pointWords: Array.from({ length: 0o24 }, (_, i) => octal(word(instanceAttacherPoint + i))),
+        masterAttacherWords: [octal(word(attacherPoint + PVAL)), octal(word(attacherPoint + PVAL + 1))],
+        ival: Array.from({ length: 4 }, (_, i) => octal(word(instanceBlock + IVAL + i))),
+        scsz, sccenX, sccenY, px, py, chordEnds: [chord3.from, chord3.to],
+        masterPsize: octal(word(masterPictureBlock + 0o16)),
+        newPicturePsize: octal(word(newPictureBlock + 0o16)),
+        isize: octal(word(instanceBlock + 0o16)),
+        matrix: Array.from({ length: 6 }, (_, i) => octal(word(0o200070 + i))),
+        instanceIp: [octal(word(instanceBlock + IVAL + 2)), octal(word(instanceBlock + IVAL + 3))],
+        imageSeries,
+        constraintWords: Array.from({ length: 0o24 }, (_, i) => octal(word((report.instanceAttacher ? parseInt(report.instanceAttacher.constraint, 8) : 0) + i))),
+        masterAttacher: octal(attacherPoint, 6),
+        imagePoint: octal(instanceAttacherPoint, 6),
+        instance: octal(instanceBlock, 6),
+      }));
+    }
+    assert.ok(toEnd <= 8, `the attacher's image must sit at an end of the displayed instance (distance ${toEnd.toFixed(1)})`);
+    report.attacherImage = { x: px, y: py, chordEnds: [chord3.from, chord3.to], distance: toEnd };
+  }
   // CHANGEPIC rewrites the outgoing picture's coordinates (checkpoint 89
   // records the exact negate-and-swap seen); the master line's length in
   // page units is the invariant asserted here.

@@ -53,8 +53,10 @@ program on the same machine, and is outside this reconstruction.
 
 ## Capabilities the films show that need a regression
 
-- Instances of a figure with several parts and with designated attachers;
-  the one-line instance is proven.
+- Instances of a figure with several parts; the one-line instance is
+  proven, and TIE plus the instance-point constraint structure are proven
+  under `INSTANCE_ATTACHER=1`, with the image point's coordinates open
+  (checkpoint 92).
 - Copying a figure.
 - Deleting a line through `ERASE` and the unattached points through
   `POINTSOUT` are both proven by `npm run test:delete`.
