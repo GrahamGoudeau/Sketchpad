@@ -162,6 +162,11 @@ bundles the recovered Sketchpad image in the WASM application and batches
 machine ticks across the JavaScript boundary.
 Commit `32e7961` adds the TX-2 light pen and connects browser pointer hits to
 flag 55.
+Commit `eef0282` replaces the inherited instruction timer with the measured
+durations of Table 7-8 of the Users Handbook for every instruction, deferred,
+and operand memory combination, records each instruction's memory references
+during execution, and counts chains of deferred cycles.  The shift rate is an
+inferred 0.4 microseconds per step; see research log checkpoint 86.
 
 The printed `2XMX` automatic table belongs to a different visible revision.
 Its automatic `COPYNUM` conflicts with the surviving explicit

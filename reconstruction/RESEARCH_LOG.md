@@ -3901,7 +3901,12 @@ hand is clear of the scope for 1.6 to 1.8 s before the correction begins.
 The film's frame rate and the telecine pull-down are not documented. A
 silent 16 mm film shot at 16 or 18 frames per second and transferred at 24
 would compress real time by up to one and a half; the durations above are
-transferred-video time.
+transferred-video time. A duplicated-frame count over fourteen seconds of
+hand motion did not reveal a pull-down cadence: the `57wj8diYpgY` transfer
+has 2% near-duplicate frames with no periodicity, and the 14% in
+`5RyU50qbvzQ` cluster where the hand pauses. Both transfers appear to
+have been frame-blended, so the native film rate cannot be recovered from
+frame duplication.
 
 ### Table 7-8 transcription
 
@@ -4083,3 +4088,8 @@ stable, the wasm32 target, wasm-pack 0.15.0 from `build.sh`, Node 26, and
 ffmpeg for the frame tiling. The handbook PDF, tesseract OCR of all 211
 pages, and the film frames stayed outside Git. The gate was `./build.sh`,
 `cargo test --locked --workspace`, and `npm test`.
+
+Commit `eef0282` was pushed to `main`. GitHub Actions run `36814018444`
+passed. No production release was deployed from this workstation; the live
+site still serves release `20260920T025136Z` from checkpoint 85, so the
+public page runs the checkpoint 85 clock until the next deployment.
