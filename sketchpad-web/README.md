@@ -152,7 +152,10 @@ operator's hand is clear of the scope in the 1963 film before the flange
 corrects.  `SCOPE_RECORD=<prefix>` on any regression writes the emulated
 scope output as raw 8-bit frames at 30 frames per second of simulated
 time, with a sidecar of frame times and fixture phases, for making films
-(research log checkpoint 99).  `RELAX_OPCODE_PROFILE=1` attributes the machine time of the
+(research log checkpoint 99).  `MEMORY_SNAPSHOT=<path>` on the first-line
+regression writes the list area before and after the line, the display
+file, and the statics as octal, for the structural film in `video/`
+(research log checkpoint 100).  `RELAX_OPCODE_PROFILE=1` attributes the machine time of the
 solve to each sequence and opcode in the report (research log checkpoint
 97).  `RELAX_PEN_HELD=1` keeps the pen tracking the last endpoint
 instead.  The display sequence then spends most of its time in the original

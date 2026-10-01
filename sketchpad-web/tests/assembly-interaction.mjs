@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { ScopeRecorder } from "./scope-recorder.mjs";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import init, {
@@ -1308,6 +1309,9 @@ const displayWordsBeforeDraw = Array.from({ length: 0o100 }, (_, offset) => ({
 }));
 const queueBefore = machine.memory_word(0o004127, machine.simulated_time).value;
 const listBefore = machine.memory_word(0o024000, machine.simulated_time).value;
+// MEMORY_SNAPSHOT=<path> writes the list area before and after the first
+// line, with the display file, for the structural film (video/).
+const memoryBeforeDraw = process.env.MEMORY_SNAPSHOT ? snapshot() : null;
 const memoryBefore = snapshot();
 const detectionsAfterBoot = Number(machine.light_pen_detection_count);
 const penAfterBoot = [
@@ -1896,6 +1900,21 @@ if (stopWithButton) {
 }
 
 if (process.env.TRACK_ONLY === "1") {
+function writeMemorySnapshot() {
+  if (!process.env.MEMORY_SNAPSHOT) return;
+  const asObject = (map) => Object.fromEntries([...map.entries()].map(([a, v]) => [octal(a, 6), octal(v)]));
+  const displayCount = rightHalf(machine.memory_word(0o200032, machine.simulated_time).value);
+  const statics = Object.fromEntries(Array.from({ length: 0o100 }, (_, i) => [octal(0o200000 + i, 6), octal(machine.memory_word(0o200000 + i, machine.simulated_time).value)]));
+  writeFileSync(process.env.MEMORY_SNAPSHOT, JSON.stringify({
+    simulatedSeconds: Number(machine.simulated_time),
+    lineAddress: octal(drawnLineAddress, 6),
+    before: asObject(memoryBeforeDraw),
+    after: asObject(snapshot()),
+    displayFile: Array.from({ length: displayCount }, (_, i) => octal(machine.memory_word(0o100000 + i, machine.simulated_time).value)),
+    statics,
+  }, null, 1));
+}
+
   if (process.env.SUMMARY_ONLY === "1") {
     const verificationByOrigin = {};
     for (const point of verificationScope) {
@@ -1932,6 +1951,7 @@ if (process.env.TRACK_ONLY === "1") {
       line: geometryForReport(lineGeometryAt(drawnLineAddress)),
       verificationByOrigin,
     }));
+    writeMemorySnapshot();
     process.exit(0);
   }
   console.log(JSON.stringify({
@@ -2001,6 +2021,7 @@ if (process.env.TRACK_ONLY === "1") {
     pseudoTrace,
     control: machine.control_state(),
   }, null, 2));
+  writeMemorySnapshot();
   process.exit(0);
 }
 

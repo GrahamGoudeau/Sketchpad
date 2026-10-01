@@ -5260,4 +5260,71 @@ arms are redrawn on every tracking pass under the 80 µs spot.
 The GIF itself is not kept in the repository; it is derived from the
 regression and this entry.
 
+## Checkpoint 100: A Structural Film, and Its Data Layer
+
+Date: 2026-10-01
+
+The project's owner asked for an educational film about how Sketchpad
+is built, in the manner of an animated mathematics lecture: the
+machine, the data structure, display, selection, instances, and
+constraints. The storyboard is `video/STORYBOARD.md`, seven chapters
+of one mechanism each, under one rule: every frame is generated from
+the emulator's memory or scope output, with the listing's own names.
+
+### Data layer
+
+`MEMORY_SNAPSHOT=<path>` on the first-line regression writes the list
+area before and after the line, the display file, and the statics at
+200000, as octal strings keyed by octal address. With `SCOPE_RECORD`
+(checkpoint 99) that is the whole data layer; `video/data/EXTRACT.md`
+gives the commands. The hook reads memory and writes a file; the gate
+passed unchanged with it in place.
+
+### What the first snapshot shows
+
+The first line is a block of twelve words at 025261 (fifty-three
+words of the list area change when it is drawn, including the
+allocation pointer at 024000, the LINES and POINTS ring heads, and the
+picture's two rings). Its layout, read off the snapshot against the
+equalities of sk.tx2as, is the n-component element of the thesis in
+the concrete:
+
+| Offset | Word | Reading |
+| --- | --- | --- |
+| +00 | `014014 000201` | `TYPE`: quarters 4 and 3 hold the block length, 0o14 words; the right half ties to the LINES master block at 024201 |
+| +01 | `000204 000204` | ring word on the LINES ring: previous and next both the ring head at 024204 |
+| +02, +03 | `775000 000000`, `001264 001264` | hen and empty ring for `SPECB` |
+| +04, +05 | `773000 001165`, `001172 001172` | `BWHOS`: the picture block at 025165; ring word on that picture's `PPART` ring (head at picture +5) |
+| +10, +11 | `767000 001215`, `001232 001232` | `LSP`: the start point at 025215; ring word on that point's `PLS` ring (head at point +15) |
+| +12, +13 | `765000 001237`, `001254 001254` | `LEP`: the end point at 025237; ring word on its `PLS` ring |
+
+The hen words' left quarters, 775, 773, 771, 767, 765, are the
+negatives of their own offsets, so any ring word leads back to its
+block's start by stepping to the word before it and reading the
+quarter. A field name in the equalities is the hen's offset, and the
+ring word follows it. The point blocks are 0o22 words with `PVAL` at
++20 and +21 and their `PLS` ring head at +15; the two points sit on
+the picture's `PICBLKS` ring (head at picture +3) while the line sits
+on its `PPART` ring (head at +5), which is why `MAGPIC` draws lines
+always and points only under `SHOWBLKS` or `SHOWPOINTS`. Allocation is
+a bump pointer: word 024000 moved from 1215 to 1275.
+
+### Pilot
+
+`video/scenes/chapter2.py` renders chapter 2, "one object in memory",
+with Manim from `video/data/first-line.json` and the recorder's frames
+of the same run: the line drawn on the scope, then the twelve words,
+the ring word's two halves, the hens' back-offsets, the ties, the
+start point's block with its coordinates and its own ring back to the
+line. Rendered output is not kept in the repository.
+
+- `[DECOMP]` The n-component element: a block is a `TYPE` word whose
+  upper quarters give the length and whose right half ties to the
+  master block of its kind, followed by pairs of a hen word (left
+  quarter minus the offset, right half a tie) and a ring word
+  (previous, next). Field names in the source are hen offsets.
+- `[DECOMP]` List memory is allocated by a bump pointer at `LIST`
+  (024000) until the free ring has members; the first blocks of a
+  session come from the top of the used area, not from `FREES`.
+
 
