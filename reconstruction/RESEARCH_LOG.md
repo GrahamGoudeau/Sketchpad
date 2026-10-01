@@ -4434,3 +4434,96 @@ settle this before any multi-part instance is attempted.
 - `[DECOMP]` The knobs change meaning with state: with `SHAFTUSE` set the
   size and rotation quarters belong to the moving instance and the
   translation knobs are ignored; otherwise they move the scope window.
+
+Commit `5dd4a84` was pushed to `main`. GitHub Actions run `36819520780`
+passed. No release was deployed.
+
+
+## Checkpoint 90: HSUM and HDIF Never Halved, and Repair R074
+
+Date: 2026-10-01
+
+Checkpoint 89 left open why `CHANGEPIC` moved the outgoing picture by
+twice its centre and why a new instance drew about 115 scope units from
+the pen. Both had one cause in the transcription of two macros.
+
+### The macros
+
+`HSUM|P,Q→R` and `HDIF|P,Q→R` compute the half sum and half difference of
+two words:
+
+```text
+LDA P
+ADD Q            (SUB Q in HDIF)
+SCA {-1,-1,,-1,-1}+((Q)∧(770,))
+STA R
+```
+
+The shift count is an RC word holding -1 in each quarter, which scales
+`A` right by one place, and the added term is zero by construction. The
+handbook's comma chart (page 6-8) places a value written `770,` in
+quarter 4, so `(Q)∧(770,)` ANDs the address of `Q` with a mask in bits
+27 through 35 and gives zero for any address. The term's purpose has not
+been read; it may have been a provision for a quarter-selecting
+configuration that was never used.
+
+### The transcription
+
+The Part 1 OPLW copies (sk.tx2as:2986, 3052) read `∧`. The six copies in
+Part 2, two each in ONLW, LYUO, and Y3HT, were transcribed as `@xor@`,
+and one LYUO copy as `+`. With XOR or plus the mask is no longer
+cancelled: `770` lands in the hold, configuration, and deferred-address
+bits of the instruction, and the assembler produced `h ³⁷SCA [rc]` at
+every site. The emulator then shifted by whatever the deferred fetch
+found, which was not -1, so neither macro halved. 300-DPI renders of
+Part 2 pages 16, 17, 87, 88, 119, and 120 show the logical-AND glyph at
+all six lines. Repair R074 reads them as `@and@`. This is the error class
+of R068, where XOR had replaced AND in eighteen masks. After the repair
+the combined tape contains no configuration-37 `SCA` and its SHA-256 is
+`8fb09e69115b272485138561ac0177f3c43648f2dab1608d956098305f02fe28`.
+
+### Effects
+
+`CHANGEPIC` now centres the outgoing picture: the master line's
+coordinate pairs become equal and opposite about the page origin instead
+of negated and swapped. The instance regression shows the new instance
+centred at (670, 672) with the pen at about (662, 661), within the
+tremor and the tracker's pseudo-pen offset, where before the repair it sat
+at (547, 547). The instance is larger, 364 scope units for the 221-unit
+master, because `PSIZE` and therefore the initial instance size now come
+from the properly centred extent; rotation by 40.8 degrees and the size
+knob to 0.71 of the radius follow `IVAL` as before.
+
+`HDIF` is also used in the LYUO pen routines and throughout the Y3HT line
+display generator `LMAG`, which forms half differences of the endpoints
+and of the scope centre. Every browser regression passes on the repaired
+tape, so the drawn lines, the tracker, and the solver still behave, but
+their arithmetic is now the listing's. The six-edge flange on the handbook
+clock with the pen lifted completes its first `RELAX` pass in 0.621 s and
+later passes in 0.745 to 0.760 s, unchanged to within a few
+milliseconds; the first pass now reduces the worst corner cosine to
+0.0370 rather than 0.0323, a different fixed-point path through the same
+solver. The RELAX trace was regenerated; only its tape provenance changed.
+
+One harness assertion was loosened. The delete regression had required the
+sampled address set to contain `DELETE`'s first word; on the repaired tape
+the display sequence took the tick after that fetch and the sample missed
+it although `DELETE` ran. The check now accepts any address in `DELETE`'s
+body, and the ring and display-file assertions carry the proof.
+
+### [DECOMP] notes
+
+- `[DECOMP]` Half sums and half differences are the basic geometry
+  primitive: the line generator, the picture extent, the scope centre, and
+  the pen position all go through `HSUM` and `HDIF`. A C rendering can use
+  an arithmetic shift, but must keep the four-quarter form where the
+  listing packs two coordinates in one word.
+- `[DECOMP]` Switching pictures is destructive to coordinates: the
+  outgoing picture is re-centred on the page origin and its `PSIZE` is
+  recomputed from the parts' `HOWBIG` routines. Page coordinates are not
+  stable across a picture change; only shape is.
+- `[DECOMP]` Macro arguments that are addresses can be used as bit
+  patterns. `(Q)∧(770,)` is one example; the R068 masks `(370,)` are
+  another. The comma chart decides which quarter a short constant lands
+  in, and a decompiler must evaluate these at assembly time, not at run
+  time.

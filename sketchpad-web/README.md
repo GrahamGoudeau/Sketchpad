@@ -42,7 +42,7 @@ modes, but it does not show a fixed grid on the display.
 The bundled tape contains seven compatible historical Sketchpad jobs and one
 separate inferred initialization word.  Its entry point is octal address
 `200140`.  Its SHA-256 is
-`5ad636c382bd8d3d21ce5faea59b994004634fe8c883de0a4362dc353f7132f6`.
+`8fb09e69115b272485138561ac0177f3c43648f2dab1608d956098305f02fe28`.
 
 The browser runs the paper tape through the CPU and WebAssembly.  It draws the
 unit-60 output on the canvas.  Pointer motion over the scope always sets the

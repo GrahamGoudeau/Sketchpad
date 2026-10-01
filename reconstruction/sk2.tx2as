@@ -563,7 +563,7 @@ STE B
 @hand@@hand@DEF HDIF|P,Q@arr@R
 LDA P
 SUB Q
-SCA {-1,-1,,-1,-1}+((Q)@xor@(770,))
+SCA {-1,-1,,-1,-1}+((Q)@and@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -629,7 +629,7 @@ STB G+1
 @hand@@hand@DEF HSUM@hamb@P,Q@arr@R
 LDA P
 ADD Q
-SCA {-1,-1,,-1,-1}+((Q)@xor@(770,))
+SCA {-1,-1,,-1,-1}+((Q)@and@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -3625,7 +3625,7 @@ STE B
 @hand@@hand@DEF HDIF|P,Q@arr@R
 LDA P
 SUB Q
-SCA {-1,-1,,-1,-1}+((Q)@xor@(770,))
+SCA {-1,-1,,-1,-1}+((Q)@and@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -3695,7 +3695,7 @@ DIREC1@hamb@P@arr@Q,P+1@arr@Q+1=T@arr@U
 LDA P
 ADD Q
 [Differently from previous version (doc_page 167, for example), this has + instead of ^ on the following line, typo?]
-SCA {-1,-1,,-1,-1}+((Q)+(770,))
+SCA {-1,-1,,-1,-1}+((Q)@and@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -5079,7 +5079,7 @@ STA T
 
 LDA P
 SUB Q
-SCA {-1,-1,,-1,-1}+(Q@xor@(770,))
+SCA {-1,-1,,-1,-1}+(Q@and@(770,))
 STA R
 @hand@@hand@EMD
 
@@ -5173,7 +5173,7 @@ DIREC1@hamb@P@arr@Q,P+1@arr@Q+1=T@arr@U
 @hand@@hand@DEF HSUM@hamb@P,Q@arr@R
 LDA P
 ADD Q
-SCA {-1,-1,,-1,-1}+((Q)@xor@(770,))
+SCA {-1,-1,,-1,-1}+((Q)@and@(770,))
 STA R
 @hand@@hand@EMD
 

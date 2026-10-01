@@ -4652,9 +4652,23 @@ if (process.env.CONSTRAINT_ONLY === "1") {
         + rightHalf(memoryBeforeSelectedCommand.get(drawnLineAddress + 0o12));
       assert.ok(ringMembersBefore(LINES_RING).includes(lineRingWord),
         "the drawn line must be in the LINES ring before ERASE");
+      if (![...commandEntryAddresses].some((a) => a >= "007622" && a <= "007724")) {
+        console.error(JSON.stringify({
+          failure: "ERASE did not reach DELETE",
+          selectedAtBits,
+          selectedObject,
+          beforeAtBits,
+          atBitsNow: octal(word(0o200044)),
+          lpLostNow: machine.memory_word(0o200042, machine.simulated_time).meta,
+          eraseAddresses: [...commandEntryAddresses].filter((a) => a >= "007575" && a <= "007622"),
+          linesRing: ringMembers(LINES_RING).map((a) => octal(a, 6)),
+        }));
+      }
       assert.ok(commandEntryAddresses.has("007576"),
         "Q1.3 must enter the original ERASE routine");
-      assert.ok(commandEntryAddresses.has("007622"),
+      // DELETE runs from 007622 to 007724; the sampled address set can miss
+      // any single word when another sequence takes the tick after it.
+      assert.ok([...commandEntryAddresses].some((a) => a >= "007622" && a <= "007724"),
         "ERASE must call the original DELETE routine");
       assert.equal(rightHalf(word(drawnLineAddress)), FREES_RING - 3 - 0o024000,
         "DELETE must retie the line block's TYPE word to FREES");

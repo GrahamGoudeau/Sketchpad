@@ -55,8 +55,6 @@ program on the same machine, and is outside this reconstruction.
 
 - Instances of a figure with several parts and with designated attachers;
   the one-line instance is proven.
-- The offset between a moving instance and the pen, recorded in checkpoint
-  89 as an open interpretation of `CHANGEPIC`'s wrap-up.
 - Copying a figure.
 - Deleting an unattached point (Q1.4 with the meta button); deleting a line
   through `ERASE` is proven by `npm run test:delete`.
