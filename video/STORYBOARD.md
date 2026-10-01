@@ -23,13 +23,18 @@ chapter and recorded last.
 
 Question answered: where did this come from, and why should you trust it?
 
-Shows, from the repository's own records (`data/reconstruction_data.py`,
-nothing typed in): the scanned pages and the transcribed assembly with
-its bracketed doubts; the assembler and emulator commits since day one;
-the repair register by evidence class with one row read out (R074);
-the research log's checkpoints per day with a few titles; the growth of
-the regression suite; and the project's rule, no overlays, no cheated
-logic, no host-side geometry.
+A story in six parts, every number and quotation read from the
+repository (`data/reconstruction_data.py`): the relic, a photocopied
+listing and nothing else; the volunteers of the TX-2 Project, their
+five years of commits by author, and their own words on where they
+stood in 2025; the different bet of September 2026, the first
+voice-dictated question, 710 messages and 6,006 tool calls in one
+session, 201 commits in six days; the strategy, run the program at
+once and let each failure name the missing piece, with the five
+machine defects one tracker run exposed; the trap, the overlay that
+looked like drawing and the written retraction that produced the
+hardware-only rule; and where it stands, the repair register by class,
+the checkpoints, and the film beside the emulator.
 
 Scene: `scenes/reconstruction.py`.
 

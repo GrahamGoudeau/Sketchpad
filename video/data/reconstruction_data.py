@@ -58,6 +58,65 @@ def git_history():
     return commits, tests
 
 
+def authors_by_year():
+    log = subprocess.run(["git", "log", "--format=%ad %an", "--date=short"], cwd=ROOT, capture_output=True, text=True).stdout.splitlines()
+    out = {}
+    for l in log:
+        year, name = l.split()[0][:4], " ".join(l.split()[1:])
+        key = "Graham" if name.startswith("Graham") else name.split()[0] if name.split() else name
+        out.setdefault(year, {}).setdefault(key, 0)
+        out[year][key] += 1
+    return out
+
+
+def commits_per_day_since(start):
+    log = subprocess.run(["git", "log", f"--since={start}", "--format=%ad", "--date=short"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+    out = {}
+    for d in log:
+        out[d] = out.get(d, 0) + 1
+    return dict(sorted(out.items()))
+
+
+def session():
+    meta = json.loads((ROOT / "reconstruction" / "provenance" / "agent-session-2026-09-14" / "session-metadata.json").read_text())
+    return {"model": meta["models"][0], "effort": meta["reasoning_efforts"][0], "started": meta["started_at"],
+            "ended": meta["export_scope"]["ends_before"], "messages": meta["export_counts"]["conversation_messages"],
+            "toolCalls": meta["export_counts"]["tool_calls"], "rawBytes": meta["raw_log"]["bytes"]}
+
+
+def quotes():
+    readme = (ROOT / "reconstruction" / "README.md").read_text()
+    overview = (ROOT / "docs" / "OVERVIEW.md").read_text()
+    log = (ROOT / "reconstruction" / "RESEARCH_LOG.md").read_text()
+    def grab(text, start, end):
+        i = text.index(start)
+        j = text.index(end, i) + len(end)
+        return " ".join(text[i:j].split())
+    return {
+        "transcriptionStatus": grab(readme, "There are (as of 2025-08-24) likely", "important features of the TX-2's assembly language."),
+        "simulatorState": grab(overview, "We're in the early stages", "But so far that's it."),
+        "firstFailure": grab(log, "The inherited plain-text transcription does not assemble", "451."),
+        "retraction": grab(log, "Checkpoint 40 did not prove that Sketchpad drew shapes.", "retracted as evidence of Sketchpad interaction."),
+        "boundary": grab(log, "Rust models TX-2 hardware.", "test code cannot create geometry.").replace(" - ", "  "),
+    }
+
+
+def first_question():
+    text = (ROOT / "reconstruction" / "provenance" / "agent-session-2026-09-14" / "conversation.md").read_text()
+    i = text.index("— Graham")
+    i = text.index("\n", i) + 1
+    j = text.index("\n## ", i)
+    return " ".join(text[i:j].split())
+
+
+def tracker_findings():
+    log = (ROOT / "reconstruction" / "RESEARCH_LOG.md").read_text()
+    i = log.index("The first tracker run exposed missing general TX-2 hardware behavior:")
+    j = log.index("The complete CPU and WASM test set passes", i)
+    items = re.findall(r"^\d+\.\s+(.*?)(?=^\d+\.|\Z)", log[i:j], re.M | re.S)
+    return [" ".join(x.split()) for x in items]
+
+
 def sources():
     out = {}
     for name in ("sk.tx2as", "sk2.tx2as"):
@@ -86,6 +145,8 @@ if __name__ == "__main__":
         "commitsSinceStart": len(since), "assemblerCommits": len(assembler_commits), "emulatorCommits": len(emulator_commits),
         "firstDay": "2026-09-14",
         "sources": sources(),
+        "authorsByYear": authors_by_year(), "commitsPerDay": commits_per_day_since("2026-09-14"),
+        "session": session(), "quotes": quotes(), "trackerFindings": tracker_findings(), "firstQuestion": first_question(),
     }, sys.stdout, indent=1)
     print(json.dumps({"checkpoints": len(cps), "repairs": len(reps), "classes": classes, "commits": len(commits),
                       "days": len(tests), "decomp": decomp}), file=sys.stderr)
